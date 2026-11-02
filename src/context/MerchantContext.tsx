@@ -33,6 +33,7 @@ interface MerchantContextType {
 
   // Active Shop & Status
   shopId: string;
+  setShopId: (id: string) => void;
   shopData: any;
   setShopData: React.Dispatch<React.SetStateAction<any>>;
   shopStatus: 'active' | 'away';
@@ -135,7 +136,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // Active Shop
-  const [shopId] = useState('shp_selvi_001');
+  const [shopId, setShopId] = useState('shp_selvi_001');
   const [shopData, setShopData] = useState<any>({
     shopId: 'shp_selvi_001',
     shopName: 'Sabarish Prints',
@@ -244,6 +245,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onboardingData,
         updateOnboardingData,
         shopId,
+        setShopId,
         shopData,
         setShopData,
         shopStatus,

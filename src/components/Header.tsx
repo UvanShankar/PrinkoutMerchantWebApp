@@ -13,7 +13,7 @@ import {
 import { theme } from '../theme';
 
 export const Header: React.FC = () => {
-  const { shopData, shopStatus, toggleShopStatus, refreshData, navigateTo, showToast } = useMerchant();
+  const { shopData, shopId, setShopId, shopStatus, toggleShopStatus, refreshData, navigateTo, showToast } = useMerchant();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showShopDropdown, setShowShopDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -109,6 +109,7 @@ export const Header: React.FC = () => {
             <button
               onClick={() => {
                 setShowShopDropdown(false);
+                setShopId('shp_selvi_001');
                 showToast('Switched to Sabarish Prints (Main)');
               }}
               style={{
@@ -118,7 +119,7 @@ export const Header: React.FC = () => {
                 justifyContent: 'space-between',
                 padding: '10px 12px',
                 borderRadius: 6,
-                backgroundColor: '#2563EB',
+                backgroundColor: shopId === 'shp_selvi_001' ? '#2563EB' : 'transparent',
                 color: '#FFFFFF',
                 border: 'none',
                 cursor: 'pointer',
@@ -132,11 +133,12 @@ export const Header: React.FC = () => {
                 <div>Sabarish Prints (Main)</div>
                 <div style={{ fontSize: 11, opacity: 0.8 }}>Valipalayam, Tiruppur</div>
               </div>
-              <CheckCircle2 size={16} />
+              {shopId === 'shp_selvi_001' && <CheckCircle2 size={16} />}
             </button>
             <button
               onClick={() => {
                 setShowShopDropdown(false);
+                setShopId('shp_selvi_002');
                 showToast('Switched to Selvi Xerox Express');
               }}
               style={{
@@ -146,7 +148,7 @@ export const Header: React.FC = () => {
                 justifyContent: 'space-between',
                 padding: '10px 12px',
                 borderRadius: 6,
-                backgroundColor: 'transparent',
+                backgroundColor: shopId === 'shp_selvi_002' ? '#2563EB' : 'transparent',
                 color: theme.colors.textLight,
                 border: 'none',
                 cursor: 'pointer',
@@ -154,12 +156,13 @@ export const Header: React.FC = () => {
                 fontSize: 13,
               }}
               onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#242834')}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = shopId === 'shp_selvi_002' ? '#2563EB' : 'transparent')}
             >
               <div>
                 <div>Selvi Xerox Express</div>
                 <div style={{ fontSize: 11, color: theme.colors.textDim }}>Kumaran Rd, Tiruppur</div>
               </div>
+              {shopId === 'shp_selvi_002' && <CheckCircle2 size={16} />}
             </button>
           </div>
         )}

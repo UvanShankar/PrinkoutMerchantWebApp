@@ -5,7 +5,7 @@ import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
 export const VerifyOTPScreen: React.FC = () => {
-  const { authPhone, navigateTo, showToast } = useMerchant();
+  const { authPhone, navigateTo, showToast, setShopId, setShopData } = useMerchant();
   const [digits, setDigits] = useState(['0', '0', '0', '0']);
   const [timer, setTimer] = useState(45);
   const [loading, setLoading] = useState(false);
@@ -43,9 +43,13 @@ export const VerifyOTPScreen: React.FC = () => {
       return;
     }
     setLoading(true);
-    await merchantApi.verifyOTP(authPhone.replace(/\s+/g, ''), otp);
+    const res = await merchantApi.verifyOTP(authPhone.replace(/\s+/g, ''), otp);
     setLoading(false);
-    showToast('Verified successfully! Welcome back.');
+    if (res?.data?.shopId) {
+      setShopId(res.data.shopId);
+      setShopData(res.data);
+    }
+    showToast(`Verified! Welcome ${res?.data?.shopName || 'Merchant'}.`);
     navigateTo('dashboard');
   };
 
