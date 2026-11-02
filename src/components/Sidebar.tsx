@@ -24,7 +24,7 @@ interface NavItem {
 }
 
 export const Sidebar: React.FC = () => {
-  const { currentScreen, navigateTo, orders, shopStatus } = useMerchant();
+  const { currentScreen, navigateTo, orders, shopStatus, logout } = useMerchant();
 
   const pendingCount = orders.filter(o => o.status === 'received' || o.status === 'printing').length;
 
@@ -230,8 +230,8 @@ export const Sidebar: React.FC = () => {
               Call Hub
             </a>
             <button
-              onClick={() => navigateTo('login')}
-              title="Switch Account / Logout"
+              onClick={logout}
+              title="Logout / Sign Out"
               style={{
                 padding: '6px 10px',
                 borderRadius: 6,

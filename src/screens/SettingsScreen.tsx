@@ -22,7 +22,7 @@ import {
 import { theme } from '../theme';
 
 export const SettingsScreen: React.FC = () => {
-  const { settingsTab, setSettingsTab, showToast } = useMerchant();
+  const { settingsTab, setSettingsTab, showToast, logout } = useMerchant();
 
   // Notifications State (Page 15)
   const [orderChime, setOrderChime] = useState(true);
@@ -343,15 +343,23 @@ export const SettingsScreen: React.FC = () => {
 
           <div style={{ padding: '14px 16px', backgroundColor: '#111319', borderRadius: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF', marginBottom: 6 }}>Active Desktop Sessions</div>
-            <div style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: theme.colors.textMuted, marginBottom: 12 }}>
               MacBook Pro • Electron Desktop App • Valipalayam, Tiruppur (Current Device)
             </div>
-            <button
-              onClick={() => showToast('All other sessions revoked')}
-              style={{ padding: '6px 12px', backgroundColor: '#EF4444', color: '#FFFFFF', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-            >
-              Revoke All Other Sessions
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => showToast('All other sessions revoked')}
+                style={{ padding: '8px 14px', backgroundColor: '#1E222D', border: `1px solid ${theme.colors.borderLight}`, color: '#E5E7EB', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Revoke Other Sessions
+              </button>
+              <button
+                onClick={logout}
+                style={{ padding: '8px 14px', backgroundColor: '#EF4444', color: '#FFFFFF', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Sign Out of This Device
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -23,7 +23,21 @@ import { ShopProfileScreen } from './screens/ShopProfileScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 
 const MainNavigator: React.FC = () => {
-  const { currentScreen } = useMerchant();
+  const { currentScreen, isAuthenticated } = useMerchant();
+
+  const isPublicScreen = [
+    'login',
+    'verify-otp',
+    'onboarding-1',
+    'onboarding-2',
+    'onboarding-3',
+    'shop-success',
+  ].includes(currentScreen);
+
+  // If user is not authenticated and attempts to access protected screens, show login screen
+  if (!isAuthenticated && !isPublicScreen) {
+    return <LoginScreen />;
+  }
 
   // Auth & Onboarding Flow
   if (currentScreen === 'login') return <LoginScreen />;
@@ -33,7 +47,7 @@ const MainNavigator: React.FC = () => {
   if (currentScreen === 'onboarding-3') return <ShopOnboardingStep3 />;
   if (currentScreen === 'shop-success') return <ShopCreatedSuccessScreen />;
 
-  // Main Dashboard Layout
+  // Main Dashboard Layout (Guarded: Authenticated Only)
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', backgroundColor: '#0E1013' }}>
       <Sidebar />

@@ -5,7 +5,7 @@ import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
 export const ShopOnboardingStep3: React.FC = () => {
-  const { onboardingData, setShopData, navigateTo, showToast } = useMerchant();
+  const { onboardingData, setShopData, navigateTo, showToast, login } = useMerchant();
   const [loading, setLoading] = useState(false);
 
   const handleCreateShop = async () => {
@@ -40,13 +40,14 @@ export const ShopOnboardingStep3: React.FC = () => {
 
     try {
       const result = await merchantApi.registerShop(shopPayload);
-      setShopData((prev: any) => ({
-        ...prev,
+      const createdShop = {
         ...shopPayload,
-        shopId: result?.data?.shopId || prev.shopId,
-      }));
+        shopId: result?.data?.shopId || 'shp_' + Date.now(),
+      };
+      login(createdShop, null, onboardingData.mobile);
     } catch (err) {
       console.warn('Registration fallback:', err);
+      login(shopPayload, null, onboardingData.mobile);
     }
 
     setLoading(false);

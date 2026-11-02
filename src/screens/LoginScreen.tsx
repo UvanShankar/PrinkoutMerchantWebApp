@@ -5,7 +5,7 @@ import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
 export const LoginScreen: React.FC = () => {
-  const { authPhone, setAuthPhone, navigateTo, showToast } = useMerchant();
+  const { authPhone, setAuthPhone, navigateTo, showToast, login } = useMerchant();
   const [phoneNumber, setPhoneNumber] = useState('98765 43210');
   const [loading, setLoading] = useState(false);
 
@@ -272,8 +272,8 @@ export const LoginScreen: React.FC = () => {
         <div style={{ marginTop: 20, textAlign: 'center' }}>
           <button
             onClick={() => {
+              login();
               showToast('Logged in as Sabarish Prints');
-              navigateTo('dashboard');
             }}
             style={{
               background: 'none',

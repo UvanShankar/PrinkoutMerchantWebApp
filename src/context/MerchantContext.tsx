@@ -25,7 +25,10 @@ interface MerchantContextType {
   settingsTab: SettingsSubTab;
   setSettingsTab: (tab: SettingsSubTab) => void;
   
-  // Auth & Onboarding State
+  // Auth & Session
+  isAuthenticated: boolean;
+  login: (userData?: any, token?: string, phone?: string) => void;
+  logout: () => void;
   authPhone: string;
   setAuthPhone: (phone: string) => void;
   onboardingData: any;
@@ -60,6 +63,28 @@ interface MerchantContextType {
   showToast: (msg: string) => void;
 }
 
+const SESSION_STORAGE_KEY = 'prinkout_merchant_session';
+
+const publicScreens: ScreenType[] = [
+  'login',
+  'verify-otp',
+  'onboarding-1',
+  'onboarding-2',
+  'onboarding-3',
+  'shop-success',
+];
+
+const getStoredSession = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+};
+
 const defaultPricingItems = [
   { id: 'p1', size: 'A4', gsm: '75 GSM', type: 'Bond Paper', bwPrice: '1.50', colorPrice: '5.00', singleSide: true, doubleSide: true, active: true },
   { id: 'p2', size: 'A4', gsm: '100 GSM', type: 'Super White', bwPrice: '2.50', colorPrice: '8.00', singleSide: true, doubleSide: true, active: true },
@@ -69,18 +94,52 @@ const defaultPricingItems = [
   { id: 'p6', size: 'A1', gsm: '220 GSM', type: 'Glossy Photo', bwPrice: '70.00', colorPrice: '160.00', singleSide: true, doubleSide: false, active: false },
 ];
 
+const defaultShopData = {
+  shopId: 'shp_selvi_001',
+  shopName: 'Sabarish Prints',
+  ownerName: 'Sabarish K',
+  mobile: '+91 98765 43210',
+  email: 'sabarish@prinkout.com',
+  address: '88, Kumaran Rd, Opp. Town Hall, Kannipiran Colony, Valipalayam',
+  area: 'Valipalayam',
+  city: 'Tiruppur',
+  state: 'Tamil Nadu',
+  pincode: '641601',
+  rating: 4.9,
+  reviewsCount: 128,
+};
+
 const MerchantContext = createContext<MerchantContextType | undefined>(undefined);
 
 export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const initialSession = getStoredSession();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    () => !!(initialSession && initialSession.isAuthenticated)
+  );
+
   // Navigation - detect from hash if present (e.g. #/orders)
   const getInitialScreen = (): ScreenType => {
-    if (typeof window !== 'undefined' && window.location.hash) {
-      const h = window.location.hash.replace('#/', '').replace('#', '') as ScreenType;
-      const valid: ScreenType[] = [
-        'login', 'verify-otp', 'onboarding-1', 'onboarding-2', 'onboarding-3',
-        'shop-success', 'dashboard', 'orders', 'queue', 'pricing', 'reports', 'payouts', 'profile', 'settings'
+    const session = getStoredSession();
+    const isAuth = !!(session && session.isAuthenticated);
+    const hasHash = typeof window !== 'undefined' && window.location.hash;
+    const requested = hasHash ? (window.location.hash.replace('#/', '').replace('#', '') as ScreenType) : null;
+
+    if (!isAuth) {
+      if (requested && publicScreens.includes(requested)) {
+        return requested;
+      }
+      return 'login';
+    }
+
+    if (requested) {
+      const allScreens: ScreenType[] = [
+        ...publicScreens,
+        'dashboard', 'orders', 'queue', 'pricing', 'reports', 'payouts', 'profile', 'settings'
       ];
-      if (valid.includes(h)) return h;
+      if (allScreens.includes(requested)) {
+        if (requested === 'login') return 'dashboard';
+        return requested;
+      }
     }
     return 'dashboard';
   };
@@ -89,6 +148,15 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [settingsTab, setSettingsTab] = useState<SettingsSubTab>('general');
 
   const navigateTo = (screen: ScreenType) => {
+    if (!isAuthenticated && !publicScreens.includes(screen)) {
+      setCurrentScreenState('login');
+      if (typeof window !== 'undefined') {
+        window.location.hash = '#/login';
+      }
+      showToast('Please log in to continue');
+      return;
+    }
+
     setCurrentScreenState(screen);
     if (typeof window !== 'undefined') {
       window.location.hash = `#/${screen}`;
@@ -98,18 +166,33 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const handleHashChange = () => {
       const h = window.location.hash.replace('#/', '').replace('#', '') as ScreenType;
-      const valid: ScreenType[] = [
-        'login', 'verify-otp', 'onboarding-1', 'onboarding-2', 'onboarding-3',
-        'shop-success', 'dashboard', 'orders', 'queue', 'pricing', 'reports', 'payouts', 'profile', 'settings'
+      const allScreens: ScreenType[] = [
+        ...publicScreens,
+        'dashboard', 'orders', 'queue', 'pricing', 'reports', 'payouts', 'profile', 'settings'
       ];
-      if (valid.includes(h)) setCurrentScreenState(h);
+      if (!allScreens.includes(h)) return;
+
+      if (!isAuthenticated && !publicScreens.includes(h)) {
+        setCurrentScreenState('login');
+        window.location.hash = '#/login';
+        return;
+      }
+      setCurrentScreenState(h);
     };
+
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [isAuthenticated]);
+
+  // Initial route guard check
+  useEffect(() => {
+    if (!isAuthenticated && !publicScreens.includes(currentScreen)) {
+      navigateTo('login');
+    }
+  }, [isAuthenticated, currentScreen]);
 
   // Auth / Onboarding
-  const [authPhone, setAuthPhone] = useState('+91 98765 43210');
+  const [authPhone, setAuthPhone] = useState(initialSession?.phone || '+91 98765 43210');
   const [onboardingData, setOnboardingData] = useState({
     shopName: 'Sabarish Prints',
     ownerName: 'Sabarish K',
@@ -136,22 +219,57 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // Active Shop
-  const [shopId, setShopId] = useState('shp_selvi_001');
-  const [shopData, setShopData] = useState<any>({
-    shopId: 'shp_selvi_001',
-    shopName: 'Sabarish Prints',
-    ownerName: 'Sabarish K',
-    mobile: '+91 98765 43210',
-    email: 'sabarish@prinkout.com',
-    address: '88, Kumaran Rd, Opp. Town Hall, Kannipiran Colony, Valipalayam',
-    area: 'Valipalayam',
-    city: 'Tiruppur',
-    state: 'Tamil Nadu',
-    pincode: '641601',
-    rating: 4.9,
-    reviewsCount: 128,
-  });
+  const [shopId, setShopId] = useState(initialSession?.shopId || 'shp_selvi_001');
+  const [shopData, setShopData] = useState<any>(initialSession?.shopData || defaultShopData);
   const [shopStatus, setShopStatus] = useState<'active' | 'away'>('active');
+
+  // Login handler
+  const login = (userData?: any, token?: string, phone?: string) => {
+    const activeShopId = userData?.shopId || shopId || 'shp_selvi_001';
+    const activeShopData = userData ? { ...shopData, ...userData } : shopData;
+    const activePhone = phone || authPhone;
+
+    const session = {
+      isAuthenticated: true,
+      shopId: activeShopId,
+      shopData: activeShopData,
+      phone: activePhone,
+      token: token || 'merchant_jwt_' + Date.now(),
+      loginTime: new Date().toISOString(),
+    };
+
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    } catch (e) {
+      console.warn('Failed to save session to localStorage:', e);
+    }
+
+    setIsAuthenticated(true);
+    setShopId(activeShopId);
+    setShopData(activeShopData);
+    if (phone) setAuthPhone(phone);
+
+    setCurrentScreenState('dashboard');
+    if (typeof window !== 'undefined') {
+      window.location.hash = '#/dashboard';
+    }
+  };
+
+  // Logout handler
+  const logout = () => {
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch (e) {
+      console.warn('Failed to remove session from localStorage:', e);
+    }
+
+    setIsAuthenticated(false);
+    setCurrentScreenState('login');
+    if (typeof window !== 'undefined') {
+      window.location.hash = '#/login';
+    }
+    showToast('Signed out successfully');
+  };
 
   const toggleShopStatus = () => {
     setShopStatus(prev => {
@@ -198,8 +316,10 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    refreshData();
-  }, [shopId]);
+    if (isAuthenticated) {
+      refreshData();
+    }
+  }, [shopId, isAuthenticated]);
 
   // Order status update
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -240,6 +360,9 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         navigateTo,
         settingsTab,
         setSettingsTab,
+        isAuthenticated,
+        login,
+        logout,
         authPhone,
         setAuthPhone,
         onboardingData,
