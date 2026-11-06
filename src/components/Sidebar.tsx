@@ -1,252 +1,187 @@
 import React from 'react';
-import { useMerchant, ScreenType } from '../context/MerchantContext';
+import { useMerchant, ScreenType, SettingsSubTab } from '../context/MerchantContext';
+import { BrandLogo } from './BrandLogo';
 import {
-  LayoutDashboard,
+  Home,
   FileText,
   Printer,
-  Tag,
+  CheckCircle,
   BarChart3,
   CreditCard,
   Store,
   Settings,
-  HelpCircle,
-  ExternalLink,
-  ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  Headphones,
+  ArrowRight,
   LogOut,
 } from 'lucide-react';
 import { theme } from '../theme';
 
-interface NavItem {
-  id: ScreenType;
-  label: string;
-  icon: any;
-  badge?: number;
-}
-
 export const Sidebar: React.FC = () => {
-  const { currentScreen, navigateTo, orders, shopStatus, logout } = useMerchant();
+  const { currentScreen, navigateTo, settingsTab, setSettingsTab, logout } = useMerchant();
 
-  const pendingCount = orders.filter(o => o.status === 'received' || o.status === 'printing').length;
+  const isSettingsActive = currentScreen === 'settings';
 
-  const navItems: NavItem[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'orders', label: 'Orders', icon: FileText, badge: pendingCount > 0 ? pendingCount : undefined },
-    { id: 'queue', label: 'Print Queue', icon: Printer },
-    { id: 'pricing', label: 'Pricing & Services', icon: Tag },
-    { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
-    { id: 'payouts', label: 'Payouts', icon: CreditCard },
-    { id: 'profile', label: 'Shop Profile', icon: Store },
-    { id: 'settings', label: 'Settings', icon: Settings },
+  const navItems = [
+    { id: 'dashboard' as ScreenType, label: 'Dashboard', icon: Home },
+    { id: 'orders' as ScreenType, label: 'Orders', icon: FileText },
+    { id: 'queue' as ScreenType, label: 'Print Queue', icon: Printer },
+    { id: 'pricing' as ScreenType, label: 'Pricing & Services', icon: CheckCircle },
+    { id: 'reports' as ScreenType, label: 'Reports', icon: BarChart3 },
+    { id: 'payouts' as ScreenType, label: 'Payouts', icon: CreditCard },
+    { id: 'profile' as ScreenType, label: 'Shop Profile', icon: Store },
+    { id: 'settings' as ScreenType, label: 'Settings', icon: Settings },
+  ];
+
+  const settingsSubTabs: { id: SettingsSubTab; label: string }[] = [
+    { id: 'general', label: 'General' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'team', label: 'Team & Access' },
+    { id: 'integrations', label: 'Integrations' },
+    { id: 'security', label: 'Security' },
   ];
 
   return (
     <aside
       style={{
-        width: 260,
-        backgroundColor: theme.colors.bgSidebar,
-        borderRight: `1px solid ${theme.colors.border}`,
+        width: 230,
+        backgroundColor: '#0F1013',
         display: 'flex',
         flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '24px 16px',
+        borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+        flexShrink: 0,
         height: '100vh',
-        position: 'sticky',
-        top: 0,
-        userSelect: 'none',
+        boxSizing: 'border-box',
+        zIndex: 10,
       }}
     >
-      {/* Brand Header */}
-      <div
-        style={{
-          padding: '24px 22px',
-          borderBottom: `1px solid ${theme.colors.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              backgroundColor: '#2563EB',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
-            }}
-          >
-            <Printer size={20} color="#FFFFFF" />
-          </div>
-          <div>
-            <h1
-              style={{
-                fontSize: 20,
-                fontWeight: 700,
-                letterSpacing: '-0.5px',
-                color: theme.colors.textLight,
-                lineHeight: 1.1,
-              }}
-            >
-              Prinkout<span style={{ color: theme.colors.primaryLight }}>.</span>
-            </h1>
-            <span style={{ fontSize: 11, color: theme.colors.textDim, fontWeight: 500, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
-              Merchant Hub
-            </span>
-          </div>
+      <div>
+        {/* Logo */}
+        <div style={{ marginBottom: 32, paddingLeft: 8 }}>
+          <BrandLogo size="small" showSubtitle={true} />
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 8px',
-            borderRadius: 20,
-            backgroundColor: shopStatus === 'active' ? theme.colors.successBg : theme.colors.warningBg,
-            border: `1px solid ${shopStatus === 'active' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-          }}
-        >
-          <div
-            style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              backgroundColor: shopStatus === 'active' ? theme.colors.success : theme.colors.warning,
-              boxShadow: `0 0 6px ${shopStatus === 'active' ? theme.colors.success : theme.colors.warning}`,
-            }}
-          />
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: shopStatus === 'active' ? theme.colors.success : theme.colors.warning,
-            }}
-          >
-            {shopStatus === 'active' ? 'Online' : 'Away'}
-          </span>
-        </div>
-      </div>
-
-      {/* Navigation List */}
-      <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: theme.colors.textDim, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8, paddingLeft: 10 }}>
-          Main Menu
-        </div>
-        <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* Navigation list */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {navItems.map(item => {
             const Icon = item.icon;
             const isActive = currentScreen === item.id;
+            const isSettings = item.id === 'settings';
+
             return (
-              <li key={item.id}>
+              <div key={item.id}>
                 <button
-                  onClick={() => navigateTo(item.id)}
+                  onClick={() => {
+                    navigateTo(item.id);
+                  }}
                   style={{
                     width: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: 8,
+                    padding: '9px 14px',
+                    borderRadius: 22,
                     border: 'none',
-                    backgroundColor: isActive ? '#1F2430' : 'transparent',
-                    color: isActive ? '#FFFFFF' : theme.colors.textMuted,
-                    fontSize: 14,
+                    backgroundColor: isActive ? '#FFFFFF' : 'transparent',
+                    color: isActive ? '#111215' : '#9CA3AF',
+                    fontSize: 13,
                     fontWeight: isActive ? 600 : 500,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     textAlign: 'left',
                   }}
-                  onMouseEnter={e => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = '#181A22';
-                      e.currentTarget.style.color = '#E5E7EB';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                      e.currentTarget.style.color = theme.colors.textMuted;
-                    }
-                  }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Icon size={18} color={isActive ? theme.colors.primaryLight : theme.colors.textDim} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Icon size={16} strokeWidth={isActive ? 2.4 : 2} color={isActive ? '#111215' : '#9CA3AF'} />
                     <span>{item.label}</span>
                   </div>
-                  {item.badge !== undefined && (
-                    <span
-                      style={{
-                        padding: '2px 7px',
-                        borderRadius: 12,
-                        backgroundColor: '#EF4444',
-                        color: '#FFFFFF',
-                        fontSize: 11,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {item.badge}
-                    </span>
+
+                  {isSettings && (
+                    isSettingsActive ? (
+                      <ChevronUp size={14} color={isActive ? '#111215' : '#9CA3AF'} />
+                    ) : (
+                      <ChevronDown size={14} color="#9CA3AF" />
+                    )
                   )}
                 </button>
-              </li>
+
+                {/* Sub-tabs if settings is active and tab is not general (pages 15-18) or when expanded */}
+                {isSettings && isSettingsActive && settingsTab !== 'general' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '6px 0 6px 14px' }}>
+                    {settingsSubTabs.map(sub => {
+                      const isSubActive = settingsTab === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            setSettingsTab(sub.id);
+                            navigateTo('settings');
+                          }}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '6px 14px',
+                            borderRadius: 16,
+                            border: 'none',
+                            backgroundColor: isSubActive ? '#EAE7FF' : 'transparent',
+                            color: isSubActive ? '#4338CA' : '#9CA3AF',
+                            fontSize: 12,
+                            fontWeight: isSubActive ? 700 : 500,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {sub.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
-        </ul>
-      </nav>
+        </nav>
+      </div>
 
-      {/* Support Box */}
-      <div style={{ padding: '16px 14px', borderTop: `1px solid ${theme.colors.border}` }}>
+      {/* Bottom Need Help card (exact to PDF: No extra Sign Out link) */}
+      <div>
         <div
           style={{
-            backgroundColor: '#171922',
-            border: `1px solid ${theme.colors.borderLight}`,
-            borderRadius: 10,
-            padding: '14px',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 14,
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+            cursor: 'pointer',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <HelpCircle size={16} color={theme.colors.primaryLight} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textLight }}>Merchant Support</span>
-          </div>
-          <p style={{ fontSize: 12, color: theme.colors.textMuted, lineHeight: 1.4, marginBottom: 10 }}>
-            Orders or printer questions? We’re active 24/7.
-          </p>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <a
-              href="tel:+919876543210"
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
               style={{
-                flex: 1,
-                padding: '6px 10px',
-                borderRadius: 6,
-                backgroundColor: '#202430',
-                color: '#D1D5DB',
-                fontSize: 11,
-                fontWeight: 600,
-                textAlign: 'center',
-                textDecoration: 'none',
-              }}
-            >
-              Call Hub
-            </a>
-            <button
-              onClick={logout}
-              title="Logout / Sign Out"
-              style={{
-                padding: '6px 10px',
-                borderRadius: 6,
-                backgroundColor: '#202430',
-                border: 'none',
-                color: '#9CA3AF',
-                cursor: 'pointer',
+                width: 30,
+                height: 30,
+                borderRadius: '50%',
+                backgroundColor: 'rgba(255, 255, 255, 0.06)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <LogOut size={13} />
-            </button>
+              <Headphones size={15} color="#D1D5DB" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>Need Help?</span>
+              <span style={{ fontSize: 10, color: '#9CA3AF' }}>Chat with Prinkout support.</span>
+            </div>
           </div>
+          <ArrowRight size={14} color="#9CA3AF" />
         </div>
       </div>
     </aside>

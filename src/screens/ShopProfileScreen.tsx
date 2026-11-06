@@ -1,519 +1,549 @@
 import React, { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import {
+  Edit2,
   Store,
+  FileText,
   MapPin,
   Phone,
-  Mail,
-  Clock,
-  ShieldCheck,
-  CheckCircle,
-  Smartphone,
-  Save,
-  Star,
-  Camera,
+  CheckCircle2,
+  Plus,
   ExternalLink,
+  ChevronRight,
+  Star,
+  Map,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const ShopProfileScreen: React.FC = () => {
-  const { shopData, setShopData, shopStatus, toggleShopStatus, showToast } = useMerchant();
-  const [activeTab, setActiveTab] = useState<'details' | 'hours' | 'documents' | 'preview'>('details');
+  const { shopData, showToast } = useMerchant();
+  const [activeTab, setActiveTab] = useState<'details' | 'documents' | 'hours' | 'preview'>('details');
 
-  const [form, setForm] = useState({
-    shopName: shopData.shopName || 'Sabarish Prints',
-    ownerName: shopData.ownerName || 'Sabarish K',
-    mobile: shopData.mobile || '+91 98765 43210',
-    email: shopData.email || 'sabarish@prinkout.com',
-    address: shopData.address || '88, Kumaran Rd, Opp. Town Hall, Kannipiran Colony, Valipalayam',
-    area: shopData.area || 'Valipalayam',
-    city: shopData.city || 'Tiruppur',
-    pincode: shopData.pincode || '641601',
-    rating: shopData.rating || 4.9,
-    reviewsCount: shopData.reviewsCount || 128,
-  });
-
-  const handleSave = () => {
-    setShopData((prev: any) => ({ ...prev, ...form }));
-    showToast('Shop profile updated successfully');
-  };
+  const tabs = [
+    { id: 'details', label: 'Shop Details' },
+    { id: 'documents', label: 'Documents' },
+    { id: 'hours', label: 'Operating Hours' },
+    { id: 'preview', label: 'Preview' },
+  ] as const;
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
-      {/* Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontFamily: theme.fonts.serif, fontSize: 32, fontWeight: 400, color: '#F4F2EC', marginBottom: 4 }}>
-            Shop Profile & Public Listing
-          </h1>
-          <p style={{ fontSize: 13, color: theme.colors.textMuted }}>
-            Manage how your shop appears to nearby customers searching on the Prinkout mobile app.
-          </p>
-        </div>
-
-        <button
-          onClick={handleSave}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 20px',
-            backgroundColor: '#2563EB',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.4)',
-          }}
-        >
-          <Save size={15} />
-          <span>Save Changes</span>
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 10, borderBottom: `1px solid ${theme.colors.border}`, marginBottom: 24 }}>
-        {[
-          { id: 'details', label: 'Shop Details' },
-          { id: 'hours', label: 'Operating Hours' },
-          { id: 'documents', label: 'Documents & Verification' },
-          { id: 'preview', label: 'Customer Mobile Preview' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            style={{
-              padding: '10px 16px',
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === tab.id ? `2px solid ${theme.colors.primaryLight}` : '2px solid transparent',
-              color: activeTab === tab.id ? '#FFFFFF' : theme.colors.textMuted,
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Shop Banner & Top Card */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Top Filter Subtabs matching PDF */}
       <div
         style={{
-          backgroundColor: '#161820',
-          border: `1px solid ${theme.colors.border}`,
-          borderRadius: 14,
-          overflow: 'hidden',
-          marginBottom: 24,
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: theme.colors.creamCard,
+          border: `1px solid ${theme.colors.creamCardBorder}`,
+          borderRadius: 18,
+          padding: '10px 18px',
         }}
       >
-        <div
-          style={{
-            height: 120,
-            backgroundImage: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              bottom: -30,
-              left: 28,
-              width: 72,
-              height: 72,
-              borderRadius: 16,
-              backgroundColor: '#2563EB',
-              border: '3px solid #161820',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
-            }}
-          >
-            <Store size={36} color="#FFFFFF" />
-          </div>
-        </div>
-
-        <div style={{ padding: '40px 28px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 700, color: '#FFFFFF' }}>{form.shopName}</h2>
-              <span
-                style={{
-                  padding: '3px 8px',
-                  borderRadius: 12,
-                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                  color: '#34D399',
-                  fontSize: 11,
-                  fontWeight: 700,
-                }}
-              >
-                ✓ VERIFIED SHOP
-              </span>
-            </div>
-            <div style={{ fontSize: 13, color: theme.colors.textDim, marginTop: 4 }}>
-              {form.address}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                <Star size={16} fill="#F59E0B" color="#F59E0B" />
-                <span style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>{form.rating}</span>
-                <span style={{ fontSize: 13, color: theme.colors.textDim }}>({form.reviewsCount} reviews)</span>
-              </div>
-              <div style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>Top Rated in Tiruppur</div>
-            </div>
-
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#EFECE4', padding: 4, borderRadius: 20 }}>
+          {tabs.map(tab => (
             <button
-              onClick={toggleShopStatus}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
               style={{
-                padding: '8px 16px',
-                borderRadius: 20,
-                backgroundColor: shopStatus === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                border: `1px solid ${shopStatus === 'active' ? '#10B981' : '#F59E0B'}`,
-                color: shopStatus === 'active' ? '#34D399' : '#FBBF24',
-                fontSize: 13,
-                fontWeight: 700,
+                padding: '6px 16px',
+                borderRadius: 16,
+                border: 'none',
+                backgroundColor: activeTab === tab.id ? '#1C1D21' : 'transparent',
+                color: activeTab === tab.id ? '#FFFFFF' : '#6B707B',
+                fontSize: 12.5,
+                fontWeight: 600,
                 cursor: 'pointer',
               }}
             >
-              ● {shopStatus === 'active' ? 'Shop Active (Online)' : 'Shop Away (Paused)'}
+              {tab.label}
             </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {activeTab === 'details' && (
-        <div
-          style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '24px 28px',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-                Shop Name
-              </label>
-              <input
-                type="text"
-                value={form.shopName}
-                onChange={e => setForm({ ...form, shopName: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-                Proprietor / Owner Name
-              </label>
-              <input
-                type="text"
-                value={form.ownerName}
-                onChange={e => setForm({ ...form, ownerName: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-                Contact Phone
-              </label>
-              <input
-                type="text"
-                value={form.mobile}
-                onChange={e => setForm({ ...form, mobile: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={e => setForm({ ...form, email: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-              Complete Street Address
-            </label>
-            <textarea
-              rows={2}
-              value={form.address}
-              onChange={e => setForm({ ...form, address: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 8,
-                backgroundColor: '#111319',
-                border: `1px solid ${theme.colors.borderLight}`,
-                color: '#FFFFFF',
-                fontSize: 14,
-                outline: 'none',
-                resize: 'vertical',
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-                Area
-              </label>
-              <input
-                type="text"
-                value={form.area}
-                onChange={e => setForm({ ...form, area: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-                City
-              </label>
-              <input
-                type="text"
-                value={form.city}
-                onChange={e => setForm({ ...form, city: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: theme.colors.textLight, marginBottom: 6 }}>
-                Pincode
-              </label>
-              <input
-                type="text"
-                value={form.pincode}
-                onChange={e => setForm({ ...form, pincode: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  color: '#FFFFFF',
-                  fontSize: 14,
-                  outline: 'none',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'hours' && (
-        <div
-          style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '24px 28px',
-          }}
-        >
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>
-            Weekly Operating Schedule
-          </h2>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { day: 'Monday', hours: '09:00 AM - 09:00 PM', open: true },
-              { day: 'Tuesday', hours: '09:00 AM - 09:00 PM', open: true },
-              { day: 'Wednesday', hours: '09:00 AM - 09:00 PM', open: true },
-              { day: 'Thursday', hours: '09:00 AM - 09:00 PM', open: true },
-              { day: 'Friday', hours: '09:00 AM - 09:00 PM', open: true },
-              { day: 'Saturday', hours: '09:00 AM - 09:00 PM', open: true },
-              { day: 'Sunday', hours: '10:00 AM - 06:00 PM', open: true },
-            ].map(item => (
-              <div
-                key={item.day}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 16px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                }}
-              >
-                <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{item.day}</span>
-                <span style={{ color: theme.colors.textMuted }}>{item.hours}</span>
-                <span style={{ color: '#10B981', fontWeight: 600, fontSize: 12 }}>● Open</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'documents' && (
-        <div
-          style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '24px 28px',
-          }}
-        >
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginBottom: 16 }}>
-            Merchant Compliance Documents
-          </h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-            <div style={{ padding: '16px', borderRadius: 10, backgroundColor: '#111319', border: `1px solid ${theme.colors.borderLight}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF' }}>GST Certificate</span>
-                <span style={{ color: '#10B981', fontSize: 11, fontWeight: 700 }}>VERIFIED</span>
-              </div>
-              <div style={{ fontSize: 12, color: theme.colors.textDim, marginBottom: 12 }}>33AABCU9603R1ZM</div>
-              <button
-                onClick={() => showToast('Opening GST Document certificate')}
-                style={{ padding: '6px 12px', borderRadius: 6, backgroundColor: '#1E2332', border: 'none', color: '#60A5FA', fontSize: 12, cursor: 'pointer' }}
-              >
-                View Document
-              </button>
-            </div>
-
-            <div style={{ padding: '16px', borderRadius: 10, backgroundColor: '#111319', border: `1px solid ${theme.colors.borderLight}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF' }}>Shop & Establishment License</span>
-                <span style={{ color: '#10B981', fontSize: 11, fontWeight: 700 }}>VERIFIED</span>
-              </div>
-              <div style={{ fontSize: 12, color: theme.colors.textDim, marginBottom: 12 }}>TN/TPR/SHOP/2021/8812</div>
-              <button
-                onClick={() => showToast('Opening License Document')}
-                style={{ padding: '6px 12px', borderRadius: 6, backgroundColor: '#1E2332', border: 'none', color: '#60A5FA', fontSize: 12, cursor: 'pointer' }}
-              >
-                View Document
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'preview' && (
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          {/* Customer Mobile Mockup matching Page 13 */}
+      {/* 3 Column Grid matching PDF */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1fr', gap: 16, alignItems: 'start' }}>
+        {/* Column 1: Basic Details & Business Info */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Shop Header Pill Box */}
           <div
             style={{
-              width: 360,
-              backgroundColor: '#000000',
-              borderRadius: 36,
-              border: '8px solid #262934',
-              overflow: 'hidden',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.7)',
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '18px 20px',
             }}
           >
-            {/* Phone Top Notch */}
-            <div style={{ height: 24, backgroundColor: '#000000', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <div style={{ width: 100, height: 14, backgroundColor: '#1B1E28', borderRadius: '0 0 10px 10px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: '#8B5CF6',
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: theme.fonts.serif,
+                    fontSize: 24,
+                    fontWeight: 700,
+                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                  }}
+                >
+                  P.
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20', lineHeight: 1.2 }}>
+                    {shopData?.shopName || 'Shop Profile'}
+                  </h2>
+                  <p style={{ fontSize: 12, color: '#6B707B' }}>Print • Design • Large Format</p>
+                </div>
+              </div>
+              <Edit2 size={15} color="#6B707B" style={{ cursor: 'pointer' }} />
             </div>
 
-            <div style={{ padding: 16, backgroundColor: '#111215', color: '#FFFFFF' }}>
-              <div style={{ height: 110, borderRadius: 12, backgroundColor: '#2563EB', padding: 12, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', marginBottom: 14 }}>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{form.shopName}</div>
-                <div style={{ fontSize: 12, opacity: 0.9 }}>{form.area}, {form.city}</div>
+            <div style={{ borderTop: '1px solid #EBE7DF', paddingTop: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 12 }}>
+                Basic Details
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 14 }}>
-                <span style={{ color: '#F59E0B', fontWeight: 700 }}>★ {form.rating} (128 reviews)</span>
-                <span style={{ color: '#10B981' }}>● Open Now</span>
-                <span style={{ color: '#9CA3AF' }}>0.5 km away</span>
-              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <Store size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 11, color: '#8E929B' }}>Shop Name</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
+                      {shopData?.shopName || '—'}
+                    </div>
+                  </div>
+                </div>
 
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Available Services</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                {['Standard Prints', 'Posters', 'Spiral Binding', 'Flex Banners'].map(s => (
-                  <span key={s} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 12, backgroundColor: '#1F2432', color: '#93C5FD' }}>
-                    {s}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <FileText size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 11, color: '#8E929B' }}>Description</div>
+                    <div style={{ fontSize: 12.5, color: '#555963', lineHeight: 1.4 }}>
+                      All types of printing – Standard Prints, Posters, Banners, T-shirts, Invitations, Labels and more.
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <MapPin size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 11, color: '#8E929B' }}>Shop Address</div>
+                      <div style={{ fontSize: 12.5, color: '#555963' }}>
+                        {shopData?.address || (shopData?.area ? `${shopData.area}, ${shopData.city} - ${shopData.pincode}` : '88, Kumaran Rd, Opp. Town Hall, Valipalayam, Tiruppur')}
+                      </div>
+                    </div>
+                  </div>
+                  <Map size={16} color="#6B707B" style={{ cursor: 'pointer', marginTop: 2 }} />
+                </div>
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <Phone size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: 11, color: '#8E929B' }}>Phone Number</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
+                      {shopData?.mobile || '+91 98765 43210'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Business Info Card */}
+          <div
+            style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '18px 20px',
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 12 }}>
+              Business Info
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12.5, color: '#555963' }}>GST Number</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>
+                    {shopData?.gstNumber || '33AABCU9603R1ZM'}
                   </span>
-                ))}
+                  <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: 12 }}>
+                    ✓ Verified
+                  </span>
+                </div>
               </div>
 
-              <div style={{ padding: '12px', borderRadius: 10, backgroundColor: '#1A1D26', fontSize: 12, marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, color: '#FFFFFF', marginBottom: 4 }}>A4 Black & White</div>
-                <div style={{ color: '#10B981', fontWeight: 700 }}>₹ 1.50 / page</div>
-              </div>
-
-              <div style={{ padding: '10px', borderRadius: 8, backgroundColor: '#2563EB', textAlign: 'center', fontWeight: 700, fontSize: 13 }}>
-                Upload Files & Order Print
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12.5, color: '#555963' }}>Business Type</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>
+                  Print Shop (Retail) ▼
+                </span>
               </div>
             </div>
           </div>
         </div>
-      )}
+
+        {/* Column 2: Services Offered, Shop Photos, Documents */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Services Offered */}
+          <div
+            style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '18px 20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>Services Offered</span>
+              <Edit2 size={14} color="#6B707B" style={{ cursor: 'pointer' }} />
+            </div>
+            <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 12 }}>
+              Select the services you provide on Prinkout.
+            </p>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {[
+                { name: 'Standard Prints', active: true },
+                { name: 'Posters', active: true },
+                { name: 'Banners & Flex', active: true },
+                { name: 'T-shirt Printing', active: true },
+                { name: 'Invitations', active: true },
+                { name: 'Packaging', active: false },
+              ].map(s => (
+                <div
+                  key={s.name}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '5px 12px',
+                    borderRadius: 14,
+                    backgroundColor: s.active ? '#4F46E5' : '#FFFFFF',
+                    border: `1px solid ${s.active ? '#4338CA' : '#DAD5CB'}`,
+                    color: s.active ? '#FFFFFF' : '#6B707B',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {s.active ? (
+                    <span style={{ fontSize: 11, fontWeight: 800 }}>✓</span>
+                  ) : (
+                    <div style={{ width: 11, height: 11, borderRadius: 2, border: '1.5px solid #9CA3AF' }} />
+                  )}
+                  <span>{s.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Shop Photos */}
+          <div
+            style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '18px 20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>Shop Photos</span>
+              <Edit2 size={14} color="#6B707B" style={{ cursor: 'pointer' }} />
+            </div>
+            <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 12 }}>
+              Add photos of your shop, machines, or sample prints.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              {/* Photo 1: Storefront */}
+              <div
+                style={{
+                  height: 64,
+                  borderRadius: 10,
+                  backgroundColor: '#2A2D35',
+                  backgroundImage: 'linear-gradient(145deg, #1A1C21, #3D4250)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FFFFFF',
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  padding: 2,
+                }}
+              >
+                {shopData?.shopName || 'Store Front'}
+              </div>
+
+              {/* Photo 2: Printer */}
+              <div
+                style={{
+                  height: 64,
+                  borderRadius: 10,
+                  backgroundColor: '#374151',
+                  backgroundImage: 'linear-gradient(145deg, #1F2937, #4B5563)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FFFFFF',
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  padding: 2,
+                }}
+              >
+                Canon Wide
+              </div>
+
+              {/* Photo 3: Workshop */}
+              <div
+                style={{
+                  height: 64,
+                  borderRadius: 10,
+                  backgroundColor: '#4B5563',
+                  backgroundImage: 'linear-gradient(145deg, #374151, #6B7280)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FFFFFF',
+                  fontSize: 8.5,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  padding: 2,
+                }}
+              >
+                Print Room
+              </div>
+
+              {/* Add photo button */}
+              <div
+                onClick={() => showToast('Upload photo')}
+                style={{
+                  height: 64,
+                  borderRadius: 10,
+                  border: '1.5px dashed #DAD5CB',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#8E929B',
+                }}
+              >
+                <Plus size={16} />
+                <span style={{ fontSize: 9.5, fontWeight: 600, marginTop: 2 }}>Add Photo</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div
+            style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '18px 20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>Documents</span>
+              <Edit2 size={14} color="#6B707B" style={{ cursor: 'pointer' }} />
+            </div>
+            <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 12 }}>
+              Keep your business documents up to date.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  backgroundColor: '#FAF8F5',
+                  border: '1px solid #EBE7DF',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileText size={15} color="#6B707B" />
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>GST Certificate</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+                    ✓ Verified
+                  </span>
+                  <ChevronRight size={14} color="#8E929B" />
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: 10,
+                  backgroundColor: '#FAF8F5',
+                  border: '1px solid #EBE7DF',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileText size={15} color="#6B707B" />
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>Shop Proof (Rent/Bill)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+                    ✓ Verified
+                  </span>
+                  <ChevronRight size={14} color="#8E929B" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Column 3: Public Profile Preview & Shop Status */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Public Profile Preview */}
+          <div
+            style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '18px 20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>Public Profile Preview</span>
+              <ExternalLink size={14} color="#6B707B" style={{ cursor: 'pointer' }} />
+            </div>
+            <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 14 }}>
+              This is how customers will see your shop.
+            </p>
+
+            {/* Mobile-like card preview matching PDF */}
+            <div
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 14,
+                border: '1px solid #E5E1D6',
+                overflow: 'hidden',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+              }}
+            >
+              {/* Photo hero with carousel dots */}
+              <div
+                style={{
+                  height: 120,
+                  backgroundColor: '#1E2028',
+                  backgroundImage: 'linear-gradient(145deg, #111215, #2F3342)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  color: '#FFFFFF',
+                }}
+              >
+                <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.5px' }}>{shopData?.shopName || 'Shop Preview'}</div>
+                {/* Carousel dots */}
+                <div style={{ position: 'absolute', bottom: 8, display: 'flex', gap: 4 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: '#FFFFFF' }} />
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.4)' }} />
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.4)' }} />
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.4)' }} />
+                </div>
+              </div>
+
+              {/* Info area */}
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      backgroundColor: '#8B5CF6',
+                      color: '#FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      fontWeight: 700,
+                    }}
+                  >
+                    P.
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>{shopData?.shopName || 'Shop Preview'}</div>
+                    <div style={{ fontSize: 10.5, color: '#8E929B' }}>Print • Design • Large Format</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: '#555963', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                    <span><b>4.8</b> (126 orders)</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    <MapPin size={12} />
+                    <span>0.8 km</span>
+                  </div>
+                </div>
+
+                {/* Service pills */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {['Prints', 'Posters', 'Banners', 'T-shirts', '+2'].map(p => (
+                    <span
+                      key={p}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: 12,
+                        backgroundColor: '#F3F4F6',
+                        color: '#4B5563',
+                        fontSize: 10,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Shop Status Card */}
+          <div
+            style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '18px 20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>Shop Status</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+                ● Active
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: '#555963', lineHeight: 1.4 }}>
+              Your shop is live and visible to customers on Prinkout.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

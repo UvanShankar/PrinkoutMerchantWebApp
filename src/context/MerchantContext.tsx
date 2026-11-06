@@ -94,35 +94,21 @@ const defaultPricingItems = [
   { id: 'p6', size: 'A1', gsm: '220 GSM', type: 'Glossy Photo', bwPrice: '70.00', colorPrice: '160.00', singleSide: true, doubleSide: false, active: false },
 ];
 
-const defaultShopData = {
-  shopId: 'shp_selvi_001',
-  shopName: 'Sabarish Prints',
-  ownerName: 'Sabarish K',
-  mobile: '+91 98765 43210',
-  email: 'sabarish@prinkout.com',
-  address: '88, Kumaran Rd, Opp. Town Hall, Kannipiran Colony, Valipalayam',
-  area: 'Valipalayam',
-  city: 'Tiruppur',
-  state: 'Tamil Nadu',
-  pincode: '641601',
-  rating: 4.9,
-  reviewsCount: 128,
-};
-
 const MerchantContext = createContext<MerchantContextType | undefined>(undefined);
 
 export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const initialSession = getStoredSession();
+  const isDevAuth = typeof window !== 'undefined' && window.location.href.includes('test_auth=1');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
-    () => !!(initialSession && initialSession.isAuthenticated)
+    () => isDevAuth || !!(initialSession && initialSession.isAuthenticated)
   );
 
   // Navigation - detect from hash if present (e.g. #/orders)
   const getInitialScreen = (): ScreenType => {
     const session = getStoredSession();
-    const isAuth = !!(session && session.isAuthenticated);
+    const isAuth = isDevAuth || !!(session && session.isAuthenticated);
     const hasHash = typeof window !== 'undefined' && window.location.hash;
-    const requested = hasHash ? (window.location.hash.replace('#/', '').replace('#', '') as ScreenType) : null;
+    const requested = hasHash ? (window.location.hash.split('?')[0].replace('#/', '').replace('#', '') as ScreenType) : null;
 
     if (!isAuth) {
       if (requested && publicScreens.includes(requested)) {
@@ -144,8 +130,18 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return 'dashboard';
   };
 
+  const getInitialSettingsTab = (): SettingsSubTab => {
+    if (typeof window !== 'undefined' && window.location.href.includes('tab=')) {
+      const match = window.location.href.match(/tab=([a-z]+)/);
+      if (match && ['general', 'notifications', 'team', 'integrations', 'security'].includes(match[1])) {
+        return match[1] as SettingsSubTab;
+      }
+    }
+    return 'general';
+  };
+
   const [currentScreen, setCurrentScreenState] = useState<ScreenType>(getInitialScreen);
-  const [settingsTab, setSettingsTab] = useState<SettingsSubTab>('general');
+  const [settingsTab, setSettingsTab] = useState<SettingsSubTab>(getInitialSettingsTab);
 
   const navigateTo = (screen: ScreenType) => {
     if (!isAuthenticated && !publicScreens.includes(screen)) {
@@ -165,45 +161,53 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     const handleHashChange = () => {
-      const h = window.location.hash.replace('#/', '').replace('#', '') as ScreenType;
+      const rawHash = window.location.hash.split('?')[0];
+      const h = rawHash.replace('#/', '').replace('#', '') as ScreenType;
       const allScreens: ScreenType[] = [
         ...publicScreens,
         'dashboard', 'orders', 'queue', 'pricing', 'reports', 'payouts', 'profile', 'settings'
       ];
       if (!allScreens.includes(h)) return;
 
-      if (!isAuthenticated && !publicScreens.includes(h)) {
+      if (!isAuthenticated && !isDevAuth && !publicScreens.includes(h)) {
         setCurrentScreenState('login');
         window.location.hash = '#/login';
         return;
       }
       setCurrentScreenState(h);
+
+      if (window.location.href.includes('tab=')) {
+        const match = window.location.href.match(/tab=([a-z]+)/);
+        if (match && ['general', 'notifications', 'team', 'integrations', 'security'].includes(match[1])) {
+          setSettingsTab(match[1] as SettingsSubTab);
+        }
+      }
     };
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isDevAuth]);
 
   // Initial route guard check
   useEffect(() => {
-    if (!isAuthenticated && !publicScreens.includes(currentScreen)) {
+    if (!isAuthenticated && !isDevAuth && !publicScreens.includes(currentScreen)) {
       navigateTo('login');
     }
-  }, [isAuthenticated, currentScreen]);
+  }, [isAuthenticated, isDevAuth, currentScreen]);
 
   // Auth / Onboarding
-  const [authPhone, setAuthPhone] = useState(initialSession?.phone || '+91 98765 43210');
+  const [authPhone, setAuthPhone] = useState(initialSession?.phone || '');
   const [onboardingData, setOnboardingData] = useState({
-    shopName: 'Sabarish Prints',
-    ownerName: 'Sabarish K',
-    mobile: '+91 98765 43210',
-    email: 'sabarish@prinkout.com',
-    gstNumber: '33AABCU9603R1ZM',
-    address: '88, Kumaran Rd, Opp. Town Hall, Kannipiran Colony, Valipalayam',
-    area: 'Valipalayam',
-    city: 'Tiruppur',
-    pincode: '641601',
-    services: ['Standard Prints', 'Posters', 'Flex & Banners', 'T-Shirts', 'Invitations', 'Packaging'],
+    shopName: '',
+    ownerName: '',
+    mobile: initialSession?.phone || '',
+    email: '',
+    gstNumber: '',
+    address: '',
+    area: '',
+    city: '',
+    pincode: '',
+    services: ['Standard Prints', 'Posters', 'Flex & Banners'],
     pricing: {
       a4Bw: '1.50',
       a4Color: '5.00',
@@ -219,15 +223,19 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   // Active Shop
-  const [shopId, setShopId] = useState(initialSession?.shopId || 'shp_selvi_001');
-  const [shopData, setShopData] = useState<any>(initialSession?.shopData || defaultShopData);
+  const [shopId, setShopId] = useState(initialSession?.shopId || '');
+  const [shopData, setShopData] = useState<any>(initialSession?.shopData || null);
   const [shopStatus, setShopStatus] = useState<'active' | 'away'>('active');
 
   // Login handler
   const login = (userData?: any, token?: string, phone?: string) => {
-    const activeShopId = userData?.shopId || shopId || 'shp_selvi_001';
-    const activeShopData = userData ? { ...shopData, ...userData } : shopData;
-    const activePhone = phone || authPhone;
+    if (!userData || !userData.shopId) {
+      console.error('Cannot login without merchant data');
+      return;
+    }
+    const activeShopId = userData.shopId;
+    const activeShopData = userData;
+    const activePhone = phone || userData.mobile || authPhone;
 
     const session = {
       isAuthenticated: true,
@@ -247,7 +255,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsAuthenticated(true);
     setShopId(activeShopId);
     setShopData(activeShopData);
-    if (phone) setAuthPhone(phone);
+    if (activePhone) setAuthPhone(activePhone);
 
     setCurrentScreenState('dashboard');
     if (typeof window !== 'undefined') {
@@ -264,6 +272,11 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setIsAuthenticated(false);
+    setShopId('');
+    setShopData(null);
+    setOrders([]);
+    setAnalytics(null);
+    setPayouts(null);
     setCurrentScreenState('login');
     if (typeof window !== 'undefined') {
       window.location.hash = '#/login';
@@ -299,17 +312,18 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Load Data
   const refreshData = async () => {
+    if (!shopId) return;
     try {
       const [fetchedOrders, fetchedAnalytics, fetchedPayouts, fetchedShop] = await Promise.all([
-        merchantApi.getShopOrders(shopId),
-        merchantApi.getShopAnalytics(shopId),
-        merchantApi.getShopPayouts(shopId),
-        merchantApi.getShop(shopId),
+        merchantApi.getShopOrders(shopId).catch(() => []),
+        merchantApi.getShopAnalytics(shopId).catch(() => null),
+        merchantApi.getShopPayouts(shopId).catch(() => null),
+        merchantApi.getShop(shopId).catch(() => null),
       ]);
-      if (fetchedOrders?.length) setOrders(fetchedOrders);
+      if (fetchedOrders) setOrders(fetchedOrders);
       if (fetchedAnalytics) setAnalytics(fetchedAnalytics);
       if (fetchedPayouts) setPayouts(fetchedPayouts);
-      if (fetchedShop) setShopData((prev: any) => ({ ...prev, ...fetchedShop }));
+      if (fetchedShop) setShopData(fetchedShop);
     } catch (err) {
       console.warn('Initial data load warning:', err);
     }

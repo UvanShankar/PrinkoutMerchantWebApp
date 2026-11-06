@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
-import { ArrowRight, ArrowLeft, Edit3, Store, CheckCircle, Sparkles } from 'lucide-react';
+import { AuthLayout } from './AuthLayout';
+import { ChevronLeft, ArrowRight, Edit2, Phone, MapPin, FileText, Check } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
@@ -11,19 +12,19 @@ export const ShopOnboardingStep3: React.FC = () => {
   const handleCreateShop = async () => {
     setLoading(true);
     const shopPayload = {
-      shopName: onboardingData.shopName,
-      ownerName: onboardingData.ownerName,
-      mobile: onboardingData.mobile,
-      email: onboardingData.email,
-      address: onboardingData.address,
-      area: onboardingData.area,
-      city: onboardingData.city,
+      shopName: onboardingData.shopName || '',
+      ownerName: onboardingData.ownerName || 'Merchant Owner',
+      mobile: onboardingData.mobile || '',
+      email: onboardingData.email || '',
+      address: onboardingData.address || '',
+      area: onboardingData.area || '',
+      city: onboardingData.city || '',
       state_name: 'Tamil Nadu',
-      pincode: onboardingData.pincode,
+      pincode: onboardingData.pincode || '',
       latitude: '11.1085',
       longitude: '77.3411',
-      servicesOffered: onboardingData.services,
-      gstNumber: onboardingData.gstNumber,
+      servicesOffered: onboardingData.services || ['Standard Prints', 'Posters', 'Flex & Banners'],
+      gstNumber: onboardingData.gstNumber || '',
       isOnlineEnabled: true,
       isPickupAvailable: true,
       isDeliveryAvailable: true,
@@ -31,10 +32,12 @@ export const ShopOnboardingStep3: React.FC = () => {
       closingTime: '21:00',
       workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
       pricingCombinations: [
-        { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a4Bw || '1.50') },
-        { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a4Color || '5.00') },
-        { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a3Bw || '4.00') },
-        { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a3Color || '12.00') },
+        { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a4Bw || '3') },
+        { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a4Color || '8') },
+        { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a3Bw || '6') },
+        { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a3Color || '15') },
+        { paperSize: 'A0', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a0Bw || '40') },
+        { paperSize: 'A0', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a0Color || '80') },
       ],
     };
 
@@ -44,9 +47,11 @@ export const ShopOnboardingStep3: React.FC = () => {
         ...shopPayload,
         shopId: result?.data?.shopId || 'shp_' + Date.now(),
       };
+      setShopData(createdShop);
       login(createdShop, null, onboardingData.mobile);
     } catch (err) {
       console.warn('Registration fallback:', err);
+      setShopData(shopPayload);
       login(shopPayload, null, onboardingData.mobile);
     }
 
@@ -55,285 +60,303 @@ export const ShopOnboardingStep3: React.FC = () => {
     navigateTo('shop-success');
   };
 
+  const servicesList = [
+    { id: 'Standard Prints', label: 'Standard Prints (A4, A3, A0)' },
+    { id: 'Posters', label: 'Posters' },
+    { id: 'Flex & Banners', label: 'Flex & Banners' },
+    { id: 'T-shirt Printing', label: 'T-shirt Printing' },
+    { id: 'Invitations', label: 'Invitations' },
+    { id: 'Packaging & Labels', label: 'Packaging & Labels' },
+  ];
+
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        width: '100vw',
-        backgroundColor: '#0E1013',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '36px 16px',
-        fontFamily: theme.fonts.sans,
-      }}
-    >
-      {/* Top Header */}
-      <div style={{ width: '100%', maxWidth: 780, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <button
-          onClick={() => navigateTo('onboarding-2')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'none',
-            border: 'none',
-            color: theme.colors.textMuted,
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          <ArrowLeft size={16} />
-          <span>Back to Services</span>
-        </button>
-
-        <span style={{ fontSize: 13, color: theme.colors.textDim }}>Step 3 of 3</span>
-      </div>
-
-      {/* Stepper Bar */}
-      <div style={{ width: '100%', maxWidth: 780, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ height: 4, borderRadius: 2, backgroundColor: '#10B981' }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#10B981', textTransform: 'uppercase' }}>✓ 1. Shop Details</span>
-        </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ height: 4, borderRadius: 2, backgroundColor: '#10B981' }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: '#10B981', textTransform: 'uppercase' }}>✓ 2. Services & Pricing</span>
-        </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ height: 4, borderRadius: 2, backgroundColor: '#2563EB' }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#FFFFFF', textTransform: 'uppercase' }}>3. Review & Create</span>
-        </div>
-      </div>
-
-      {/* Main Card */}
-      <div
+    <AuthLayout cardWidth={580}>
+      <button
+        onClick={() => navigateTo('onboarding-2')}
         style={{
-          width: '100%',
-          maxWidth: 780,
-          backgroundColor: '#15171F',
-          border: `1px solid ${theme.colors.border}`,
-          borderRadius: 16,
-          padding: '36px 32px',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: '#EBE7DF',
+          border: '1px solid #DAD5CB',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#1A1C20',
+          marginBottom: 12,
+          padding: 0,
         }}
       >
-        <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontFamily: theme.fonts.serif, fontSize: 36, fontWeight: 400, color: '#F4F2EC', marginBottom: 6 }}>
-            Review & Launch Your Shop
-          </h1>
-          <p style={{ fontSize: 14, color: theme.colors.textMuted }}>
-            Check your profile and pricing details before publishing your shop to Prinkout.
-          </p>
+        <ChevronLeft size={18} />
+      </button>
+
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontFamily: theme.fonts.serif, fontSize: 32, fontWeight: 400, color: '#1A1C20', marginBottom: 4 }}>
+          Create Your Shop
+        </h2>
+        <p style={{ fontSize: 13, color: '#6B707B' }}>
+          Set up your print shop on Prinkout in a few simple steps.
+        </p>
+      </div>
+
+      {/* Stepper matching PDF */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 90 }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              backgroundColor: '#1C1D21',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              fontWeight: 700,
+              marginBottom: 6,
+            }}
+          >
+            ✓
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 500, color: '#1A1C20' }}>Shop Details</span>
         </div>
 
-        {/* Card 1: Shop Details */}
+        <div style={{ flex: 1, height: 1, backgroundColor: '#1C1D21', margin: '-18px 8px 0' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 110 }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              backgroundColor: '#1C1D21',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              fontWeight: 700,
+              marginBottom: 6,
+            }}
+          >
+            ✓
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 500, color: '#1A1C20' }}>Services & Pricing</span>
+        </div>
+
+        <div style={{ flex: 1, height: 1, backgroundColor: '#1C1D21', margin: '-18px 8px 0' }} />
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 80 }}>
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              backgroundColor: '#1C1D21',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              fontWeight: 700,
+              marginBottom: 6,
+            }}
+          >
+            3
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#1A1C20' }}>Review</span>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Review & Create</h3>
+        <p style={{ fontSize: 12.5, color: '#6B707B' }}>
+          Check your shop details and services before creating your account.
+        </p>
+      </div>
+
+      {/* Two cards row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.15fr 0.85fr', gap: 12, marginBottom: 14 }}>
+        {/* Shop Details Card */}
         <div
           style={{
-            backgroundColor: '#101217',
-            border: `1px solid ${theme.colors.borderLight}`,
+            backgroundColor: '#FAF8F5',
+            border: '1px solid #DAD5CB',
             borderRadius: 12,
-            padding: '20px 24px',
-            marginBottom: 20,
+            padding: '14px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Shop Details
-            </span>
-            <button
-              onClick={() => navigateTo('onboarding-1')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'none',
-                border: 'none',
-                color: theme.colors.primaryLight,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <Edit3 size={14} />
-              <span>Edit</span>
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Shop Details</span>
+            <Edit2 size={13} color="#6B707B" style={{ cursor: 'pointer' }} onClick={() => navigateTo('onboarding-1')} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <div style={{ fontSize: 11, color: theme.colors.textDim }}>Shop Name</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: '#FFFFFF' }}>{onboardingData.shopName}</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {/* Shopfront mock thumbnail */}
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 8,
+                backgroundColor: '#2A2D34',
+                backgroundImage: 'linear-gradient(145deg, #1A1C21, #3A3D46)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: '#FFFFFF',
+                fontSize: 10,
+                fontWeight: 700,
+                textAlign: 'center',
+                padding: 4,
+                border: '1px solid rgba(0,0,0,0.1)',
+              }}
+            >
+              {onboardingData.shopName || 'Shop Preview'}
             </div>
-            <div>
-              <div style={{ fontSize: 11, color: theme.colors.textDim }}>Owner Name</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: '#FFFFFF' }}>{onboardingData.ownerName}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: theme.colors.textDim }}>Contact Phone</div>
-              <div style={{ fontSize: 14, color: '#D1D5DB' }}>{onboardingData.mobile}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: theme.colors.textDim }}>GST Number</div>
-              <div style={{ fontSize: 14, color: '#D1D5DB' }}>{onboardingData.gstNumber || 'Not provided'}</div>
-            </div>
-            <div style={{ gridColumn: 'span 2' }}>
-              <div style={{ fontSize: 11, color: theme.colors.textDim }}>Address</div>
-              <div style={{ fontSize: 14, color: '#D1D5DB' }}>
-                {onboardingData.address}, {onboardingData.area}, {onboardingData.city} - {onboardingData.pincode}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>
+                {onboardingData.shopName || 'Your Shop'}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555963' }}>
+                <Phone size={12} />
+                <span>{onboardingData.mobile || '—'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, color: '#555963' }}>
+                <MapPin size={12} style={{ marginTop: 2, flexShrink: 0 }} />
+                <span>{onboardingData.address || '—'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#555963' }}>
+                <FileText size={12} />
+                <span>GST: {onboardingData.gstNumber || 'Not added'}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Selected Services */}
+        {/* Selected Services Card */}
         <div
           style={{
-            backgroundColor: '#101217',
-            border: `1px solid ${theme.colors.borderLight}`,
+            backgroundColor: '#FAF8F5',
+            border: '1px solid #DAD5CB',
             borderRadius: 12,
-            padding: '20px 24px',
-            marginBottom: 20,
+            padding: '14px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Selected Services ({onboardingData.services?.length || 0})
-            </span>
-            <button
-              onClick={() => navigateTo('onboarding-2')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'none',
-                border: 'none',
-                color: theme.colors.primaryLight,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <Edit3 size={14} />
-              <span>Edit</span>
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Selected Services</span>
+            <Edit2 size={13} color="#6B707B" style={{ cursor: 'pointer' }} onClick={() => navigateTo('onboarding-2')} />
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {(onboardingData.services || []).map((srv: string) => (
-              <span
-                key={srv}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 20,
-                  backgroundColor: '#181E2B',
-                  border: '1px solid rgba(37, 99, 235, 0.3)',
-                  color: '#93C5FD',
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              >
-                ✓ {srv}
-              </span>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {servicesList.map(item => {
+              const checked = (onboardingData.services || ['Standard Prints', 'Posters', 'Flex & Banners']).includes(item.id);
+              return (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: checked ? '#1A1C20' : '#8E929B' }}>
+                  <div
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 3,
+                      backgroundColor: checked ? '#1C1D21' : '#EBE7DF',
+                      border: `1px solid ${checked ? '#1C1D21' : '#DAD5CB'}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {checked && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
+                  </div>
+                  <span>{item.label}</span>
+                </div>
+              );
+            })}
           </div>
-        </div>
-
-        {/* Card 3: Standard Print Pricing */}
-        <div
-          style={{
-            backgroundColor: '#101217',
-            border: `1px solid ${theme.colors.borderLight}`,
-            borderRadius: 12,
-            padding: '20px 24px',
-            marginBottom: 32,
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Standard Print Pricing
-            </span>
-            <button
-              onClick={() => navigateTo('onboarding-2')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'none',
-                border: 'none',
-                color: theme.colors.primaryLight,
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <Edit3 size={14} />
-              <span>Edit</span>
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
-            <div style={{ padding: '12px 14px', borderRadius: 8, backgroundColor: '#15171F' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 6 }}>A4 Standard</div>
-              <div style={{ fontSize: 12, color: theme.colors.textMuted }}>B&W: ₹ {onboardingData.pricing?.a4Bw || '1.50'}</div>
-              <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Colour: ₹ {onboardingData.pricing?.a4Color || '5.00'}</div>
-            </div>
-
-            <div style={{ padding: '12px 14px', borderRadius: 8, backgroundColor: '#15171F' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 6 }}>A3 Poster</div>
-              <div style={{ fontSize: 12, color: theme.colors.textMuted }}>B&W: ₹ {onboardingData.pricing?.a3Bw || '4.00'}</div>
-              <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Colour: ₹ {onboardingData.pricing?.a3Color || '12.00'}</div>
-            </div>
-
-            <div style={{ padding: '12px 14px', borderRadius: 8, backgroundColor: '#15171F' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', marginBottom: 6 }}>A0 Blueprint</div>
-              <div style={{ fontSize: 12, color: theme.colors.textMuted }}>B&W: ₹ {onboardingData.pricing?.a0Bw || '50.00'}</div>
-              <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Colour: ₹ {onboardingData.pricing?.a0Color || '120.00'}</div>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button
-            onClick={() => navigateTo('onboarding-2')}
-            style={{
-              padding: '12px 20px',
-              backgroundColor: '#181A22',
-              border: `1px solid ${theme.colors.borderLight}`,
-              borderRadius: 8,
-              color: theme.colors.textMuted,
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            Back
-          </button>
-
-          <button
-            onClick={handleCreateShop}
-            disabled={loading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '13px 28px',
-              backgroundColor: '#10B981',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: 10,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: loading ? 'default' : 'pointer',
-              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
-            }}
-          >
-            <Sparkles size={16} />
-            <span>{loading ? 'Creating Your Shop...' : 'Create Shop & Continue'}</span>
-            <ArrowRight size={16} />
-          </button>
         </div>
       </div>
-    </div>
+
+      {/* Standard Print Pricing Card */}
+      <div
+        style={{
+          backgroundColor: '#FAF8F5',
+          border: '1px solid #DAD5CB',
+          borderRadius: 12,
+          padding: '12px 14px',
+          marginBottom: 20,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Standard Print Pricing</span>
+          <Edit2 size={13} color="#6B707B" style={{ cursor: 'pointer' }} onClick={() => navigateTo('onboarding-2')} />
+        </div>
+
+        <div style={{ border: '1px solid #E5E1D6', borderRadius: 8, overflow: 'hidden' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              backgroundColor: '#E8E4DA',
+              padding: '6px 12px',
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#555963',
+            }}
+          >
+            <span>Size</span>
+            <span style={{ textAlign: 'center' }}>B&W (₹ / Sheet)</span>
+            <span style={{ textAlign: 'center' }}>Color (₹ / Sheet)</span>
+          </div>
+
+          {[
+            { size: 'A4', bw: onboardingData.pricing?.a4Bw || '3', col: onboardingData.pricing?.a4Color || '8' },
+            { size: 'A3', bw: onboardingData.pricing?.a3Bw || '6', col: onboardingData.pricing?.a3Color || '15' },
+            { size: 'A0', bw: onboardingData.pricing?.a0Bw || '40', col: onboardingData.pricing?.a0Color || '80' },
+          ].map((row, idx) => (
+            <div
+              key={row.size}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                padding: '6px 12px',
+                borderTop: idx > 0 ? '1px solid #EBE7DF' : 'none',
+                fontSize: 12,
+                color: '#1A1C20',
+              }}
+            >
+              <span style={{ fontWeight: 700 }}>{row.size}</span>
+              <span style={{ textAlign: 'center' }}>₹ {row.bw}</span>
+              <span style={{ textAlign: 'center' }}>₹ {row.col}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={handleCreateShop}
+        disabled={loading}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          padding: '13px 20px',
+          backgroundColor: '#1C1D21',
+          color: '#FFFFFF',
+          border: 'none',
+          borderRadius: 12,
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: loading ? 'default' : 'pointer',
+        }}
+      >
+        <span>{loading ? 'Creating Shop...' : 'Create Shop & Continue'}</span>
+        <ArrowRight size={16} />
+      </button>
+    </AuthLayout>
   );
 };

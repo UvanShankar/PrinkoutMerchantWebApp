@@ -1,520 +1,606 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import {
   ShoppingBag,
-  IndianRupee,
-  Printer,
-  CheckCircle,
-  ArrowRight,
-  TrendingUp,
-  Clock,
-  Sparkles,
-  ChevronRight,
   Layers,
-  BarChart2,
-  AlertCircle,
+  Printer,
+  Package,
+  ArrowRight,
+  UploadCloud,
+  Tag,
+  Clock,
+  MoreVertical,
+  CheckCircle2,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const DashboardScreen: React.FC = () => {
-  const { analytics, orders, navigateTo, setSelectedOrderId, shopData } = useMerchant();
+  const { orders, analytics, navigateTo } = useMerchant();
+  const [timelineTab, setTimelineTab] = useState<'Today' | 'Week' | 'Month'>('Today');
 
-  const todayStats = analytics?.today || {
-    ordersCount: 24,
-    ordersChangePct: 12,
-    revenue: 7560,
-    revenueChangePct: 18,
-    inPrinting: 8,
-    overduePrinting: 4,
-    readyForPickup: 6,
-    pendingPickupAlerts: 2,
+  const todayOrdersCount = orders.length > 0 ? orders.length : (analytics?.today?.ordersCount ?? 0);
+  const todayRevenue = orders.length > 0
+    ? orders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0)
+    : (analytics?.today?.revenue ?? 0);
+  const inPrintingCount = orders.filter(o => o.status?.toLowerCase() === 'printing').length || (analytics?.today?.inPrinting ?? 0);
+  const readyCount = orders.filter(o => o.status?.toLowerCase() === 'ready').length || (analytics?.today?.readyForPickup ?? 0);
+
+  const displayOrders = (orders || []).slice(0, 5).map(o => ({
+    id: o.orderId.startsWith('#') ? o.orderId : `#${o.orderId.slice(0, 4)}`,
+    customer: o.customerName || (o.userId ? `Customer (${o.userId.slice(-6)})` : 'Customer'),
+    type: o.specs || `${o.paperSize || 'A4'} ${o.colorMode || 'Colour'} (${o.orderDetails?.quantity || 1} copies)`,
+    amount: (o.totalPrice || o.orderDetails?.totalPrice || 0).toLocaleString(),
+    status: o.status || 'received',
+    time: o.timeAgo || (o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'),
+  }));
+
+  // Status badge renderer matching PDF colors
+  const renderStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'printing':
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#FFEDD5',
+              color: '#C2410C',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <Printer size={12} />
+            <span>Printing</span>
+          </span>
+        );
+      case 'ready':
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#DCFCE7',
+              color: '#15803D',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <CheckCircle2 size={12} />
+            <span>Ready</span>
+          </span>
+        );
+      case 'received':
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#EEF2FF',
+              color: '#4F46E5',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <ShoppingBag size={12} />
+            <span>Received</span>
+          </span>
+        );
+      case 'completed':
+      default:
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#F3F4F6',
+              color: '#4B5563',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <CheckCircle2 size={12} />
+            <span>Completed</span>
+          </span>
+        );
+    }
   };
 
-  const pipeline = analytics?.pipeline || {
-    received: 24,
-    printing: 8,
-    ready: 6,
-    completed: 10,
-  };
-
-  const recentOrders = orders.slice(0, 5);
-
-  const getStatusBadge = (status: string) => {
-    const s = status.toLowerCase();
-    if (s === 'received' || s === 'pending') {
-      return { bg: 'rgba(239, 68, 68, 0.15)', text: '#F87171', border: 'rgba(239, 68, 68, 0.3)', label: 'Received' };
-    }
-    if (s === 'printing' || s === 'in_progress') {
-      return { bg: 'rgba(59, 130, 246, 0.15)', text: '#60A5FA', border: 'rgba(59, 130, 246, 0.3)', label: 'Printing' };
-    }
-    if (s === 'ready' || s === 'ready_for_pickup') {
-      return { bg: 'rgba(245, 158, 11, 0.15)', text: '#FBBF24', border: 'rgba(245, 158, 11, 0.3)', label: 'Ready for Pickup' };
-    }
-    return { bg: 'rgba(16, 185, 129, 0.15)', text: '#34D399', border: 'rgba(16, 185, 129, 0.3)', label: 'Completed' };
-  };
+  const DuneWave: React.FC = () => (
+    <svg
+      style={{ position: 'absolute', bottom: 0, right: 0, width: 130, height: 42, pointerEvents: 'none' }}
+      viewBox="0 0 130 42"
+      fill="none"
+    >
+      <path
+        d="M 0 42 C 25 34, 55 18, 90 22 C 110 24, 122 14, 130 8 L 130 42 Z"
+        fill="rgba(0, 0, 0, 0.04)"
+      />
+      <path
+        d="M 15 42 C 45 38, 75 26, 105 28 C 118 29, 125 22, 130 18 L 130 42 Z"
+        fill="rgba(0, 0, 0, 0.03)"
+      />
+      <path
+        d="M 0 42 C 25 34, 55 18, 90 22 C 110 24, 122 14, 130 8"
+        stroke="rgba(0, 0, 0, 0.07)"
+        strokeWidth="1"
+      />
+    </svg>
+  );
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1400, margin: '0 auto' }}>
-      {/* Welcome Banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
-        <div>
-          <h1 style={{ fontFamily: theme.fonts.serif, fontSize: 34, fontWeight: 400, color: '#F4F2EC', marginBottom: 4 }}>
-            Good Afternoon, {shopData.ownerName || 'Sabarish'} 👋
-          </h1>
-          <p style={{ fontSize: 14, color: theme.colors.textMuted }}>
-            Here is your live production overview for <b>{shopData.shopName || 'Sabarish Prints'}</b> today.
-          </p>
-        </div>
-
-        <button
-          onClick={() => navigateTo('queue')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 18px',
-            backgroundColor: '#2563EB',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)',
-          }}
-        >
-          <Printer size={16} />
-          <span>Open Live Queue</span>
-        </button>
-      </div>
-
-      {/* 4 Stat Cards matching PDF */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18, marginBottom: 28 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* 4 Top KPI Cards matching PDF */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {/* Card 1: Today's Orders */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '20px 22px',
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim }}>Today's Orders</span>
-            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(37, 99, 235, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ShoppingBag size={17} color={theme.colors.primaryLight} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <ShoppingBag size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Today's Orders</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 32, fontWeight: 800, color: '#FFFFFF' }}>{todayStats.ordersCount}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#10B981', display: 'flex', alignItems: 'center' }}>
-              <TrendingUp size={12} style={{ marginRight: 2 }} /> +{todayStats.ordersChangePct}%
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 32, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{todayOrdersCount}</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#15803D',
+                backgroundColor: '#DCFCE7',
+                padding: '2px 8px',
+                borderRadius: 12,
+              }}
+            >
+              Live
             </span>
           </div>
-          <div style={{ fontSize: 12, color: theme.colors.textDim }}>vs 21 yesterday</div>
+          <DuneWave />
         </div>
 
         {/* Card 2: Today's Revenue */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '20px 22px',
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim }}>Today's Revenue</span>
-            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <IndianRupee size={17} color="#10B981" />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Layers size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Today's Revenue</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 32, fontWeight: 800, color: '#FFFFFF' }}>₹ {todayStats.revenue.toLocaleString()}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#10B981', display: 'flex', alignItems: 'center' }}>
-              <TrendingUp size={12} style={{ marginRight: 2 }} /> +{todayStats.revenueChangePct}%
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 32, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>₹ {todayRevenue.toLocaleString()}</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#15803D',
+                backgroundColor: '#DCFCE7',
+                padding: '2px 8px',
+                borderRadius: 12,
+              }}
+            >
+              Live
             </span>
           </div>
-          <div style={{ fontSize: 12, color: theme.colors.textDim }}>Auto-settles tomorrow at 10 AM</div>
+          <DuneWave />
         </div>
 
         {/* Card 3: In Printing */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '20px 22px',
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim }}>In Printing</span>
-            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(59, 130, 246, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Printer size={17} color="#60A5FA" />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Printer size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>In Printing</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 32, fontWeight: 800, color: '#FFFFFF' }}>{todayStats.inPrinting}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#F59E0B' }}>
-              {todayStats.overduePrinting} in queue
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: theme.colors.textDim }}>Est. time left: 18 mins</div>
+          <span style={{ fontSize: 32, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{inPrintingCount}</span>
+          <DuneWave />
         </div>
 
         {/* Card 4: Ready for Pickup */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Package size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Ready for Pickup</span>
+          </div>
+          <span style={{ fontSize: 32, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{readyCount}</span>
+          <DuneWave />
+        </div>
+      </div>
+
+      {/* Middle Row: Orders Overview & Quick Actions */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 16 }}>
+        {/* Orders Overview Flow */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
             padding: '20px 22px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim }}>Ready for Pickup</span>
-            <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle size={17} color="#F59E0B" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20' }}>Orders Overview</h2>
+
+            {/* Segmented control */}
+            <div
+              style={{
+                display: 'inline-flex',
+                backgroundColor: '#EBE7DF',
+                borderRadius: 20,
+                padding: '3px',
+              }}
+            >
+              {(['Today', 'Week', 'Month'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setTimelineTab(tab)}
+                  style={{
+                    padding: '5px 14px',
+                    borderRadius: 16,
+                    border: 'none',
+                    backgroundColor: timelineTab === tab ? '#1C1D21' : 'transparent',
+                    color: timelineTab === tab ? '#FFFFFF' : '#6B707B',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 32, fontWeight: 800, color: '#FFFFFF' }}>{todayStats.readyForPickup}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#10B981' }}>
-              {todayStats.pendingPickupAlerts} SMS sent
-            </span>
+
+          {/* 4 Pipeline step boxes */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            {/* 1: Received */}
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: '#1C1D21',
+                color: '#FFFFFF',
+                borderRadius: 14,
+                padding: '16px 12px',
+                textAlign: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              }}
+            >
+              <ShoppingBag size={18} color="#FFFFFF" style={{ marginBottom: 4 }} />
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>24</div>
+              <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>Received</div>
+            </div>
+
+            <ArrowRight size={16} color="#A3A7AF" />
+
+            {/* 2: Printing */}
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: '#EFECE4',
+                border: '1px solid #DAD5CB',
+                color: '#1A1C20',
+                borderRadius: 14,
+                padding: '16px 12px',
+                textAlign: 'center',
+              }}
+            >
+              <Printer size={18} color="#1A1C20" style={{ marginBottom: 4 }} />
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>8</div>
+              <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Printing</div>
+            </div>
+
+            <ArrowRight size={16} color="#A3A7AF" />
+
+            {/* 3: Ready */}
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: '#EFECE4',
+                border: '1px solid #DAD5CB',
+                color: '#1A1C20',
+                borderRadius: 14,
+                padding: '16px 12px',
+                textAlign: 'center',
+              }}
+            >
+              <CheckCircle2 size={18} color="#1A1C20" style={{ marginBottom: 4 }} />
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>6</div>
+              <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Ready</div>
+            </div>
+
+            <ArrowRight size={16} color="#A3A7AF" />
+
+            {/* 4: Completed */}
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: '#EFECE4',
+                border: '1px solid #DAD5CB',
+                color: '#1A1C20',
+                borderRadius: 14,
+                padding: '16px 12px',
+                textAlign: 'center',
+              }}
+            >
+              <Package size={18} color="#1A1C20" style={{ marginBottom: 4 }} />
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>10</div>
+              <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Completed</div>
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: theme.colors.textDim }}>Awaiting customer collection</div>
+        </div>
+
+        {/* Quick Actions Card */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '20px 22px',
+          }}
+        >
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 16 }}>
+            Quick Actions
+          </h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div
+              onClick={() => navigateTo('pricing')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '11px 14px',
+                backgroundColor: '#EFECE4',
+                borderRadius: 12,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <UploadCloud size={16} color="#1A1C20" />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Upload Sample Price List</span>
+              </div>
+              <ArrowRight size={14} color="#6B707B" />
+            </div>
+
+            <div
+              onClick={() => navigateTo('pricing')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '11px 14px',
+                backgroundColor: '#EFECE4',
+                borderRadius: 12,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Tag size={16} color="#1A1C20" />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Update Pricing</span>
+              </div>
+              <ArrowRight size={14} color="#6B707B" />
+            </div>
+
+            <div
+              onClick={() => navigateTo('profile')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '11px 14px',
+                backgroundColor: '#EFECE4',
+                borderRadius: 12,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Clock size={16} color="#1A1C20" />
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Update Shop Timings</span>
+              </div>
+              <ArrowRight size={14} color="#6B707B" />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Pipeline Status Flow Bar */}
-      <div
-        style={{
-          backgroundColor: '#161820',
-          border: `1px solid ${theme.colors.border}`,
-          borderRadius: 14,
-          padding: '18px 24px',
-          marginBottom: 28,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: theme.colors.textLight, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Today's Order Pipeline Flow
-          </span>
-          <span style={{ fontSize: 12, color: theme.colors.primaryLight, cursor: 'pointer', fontWeight: 600 }} onClick={() => navigateTo('queue')}>
-            View Kanban Board →
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Step 1 */}
-          <div
-            onClick={() => navigateTo('orders')}
-            style={{
-              flex: 1,
-              padding: '12px 14px',
-              backgroundColor: '#1C1F2B',
-              borderRadius: 8,
-              border: '1px solid rgba(239, 68, 68, 0.25)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ fontSize: 11, color: '#F87171', fontWeight: 700, textTransform: 'uppercase' }}>1. Received</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>{pipeline.received}</div>
-          </div>
-
-          <ChevronRight size={18} color={theme.colors.textDim} />
-
-          {/* Step 2 */}
-          <div
-            onClick={() => navigateTo('queue')}
-            style={{
-              flex: 1,
-              padding: '12px 14px',
-              backgroundColor: '#1C1F2B',
-              borderRadius: 8,
-              border: '1px solid rgba(59, 130, 246, 0.25)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ fontSize: 11, color: '#60A5FA', fontWeight: 700, textTransform: 'uppercase' }}>2. Printing</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>{pipeline.printing}</div>
-          </div>
-
-          <ChevronRight size={18} color={theme.colors.textDim} />
-
-          {/* Step 3 */}
-          <div
-            onClick={() => navigateTo('queue')}
-            style={{
-              flex: 1,
-              padding: '12px 14px',
-              backgroundColor: '#1C1F2B',
-              borderRadius: 8,
-              border: '1px solid rgba(245, 158, 11, 0.25)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ fontSize: 11, color: '#FBBF24', fontWeight: 700, textTransform: 'uppercase' }}>3. Ready for Pickup</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>{pipeline.ready}</div>
-          </div>
-
-          <ChevronRight size={18} color={theme.colors.textDim} />
-
-          {/* Step 4 */}
-          <div
-            onClick={() => navigateTo('orders')}
-            style={{
-              flex: 1,
-              padding: '12px 14px',
-              backgroundColor: '#1C1F2B',
-              borderRadius: 8,
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ fontSize: 11, color: '#34D399', fontWeight: 700, textTransform: 'uppercase' }}>4. Completed</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: '#FFFFFF' }}>{pipeline.completed}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 28 }}>
+      {/* Bottom Row: Recent Orders & Add More Print Services */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+        {/* Recent Orders Table */}
         <div
-          onClick={() => navigateTo('queue')}
           style={{
-            padding: '16px 20px',
-            borderRadius: 12,
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '20px 22px',
           }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#1B1E29')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#161820')}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(37, 99, 235, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Printer size={18} color={theme.colors.primaryLight} />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>Manage Print Queue</div>
-              <div style={{ fontSize: 12, color: theme.colors.textDim }}>Drag & reorder live jobs</div>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20' }}>Recent Orders</h2>
+            <button
+              onClick={() => navigateTo('orders')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                background: 'none',
+                border: 'none',
+                color: '#1A1C20',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <span>View All Orders</span>
+              <ArrowRight size={13} />
+            </button>
           </div>
-          <ChevronRight size={18} color={theme.colors.textDim} />
-        </div>
 
-        <div
-          onClick={() => navigateTo('pricing')}
-          style={{
-            padding: '16px 20px',
-            borderRadius: 12,
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#1B1E29')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#161820')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Layers size={18} color="#10B981" />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>Update Service Rates</div>
-              <div style={{ fontSize: 12, color: theme.colors.textDim }}>GSM, size & color pricing</div>
-            </div>
-          </div>
-          <ChevronRight size={18} color={theme.colors.textDim} />
-        </div>
-
-        <div
-          onClick={() => navigateTo('reports')}
-          style={{
-            padding: '16px 20px',
-            borderRadius: 12,
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#1B1E29')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#161820')}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BarChart2 size={18} color="#F59E0B" />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#FFFFFF' }}>Analytics & Reports</div>
-              <div style={{ fontSize: 12, color: theme.colors.textDim }}>Trends, items & payouts</div>
-            </div>
-          </div>
-          <ChevronRight size={18} color={theme.colors.textDim} />
-        </div>
-      </div>
-
-      {/* Recent Orders Section */}
-      <div
-        style={{
-          backgroundColor: '#161820',
-          border: `1px solid ${theme.colors.border}`,
-          borderRadius: 14,
-          padding: '22px 24px',
-          marginBottom: 28,
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 700, color: theme.colors.textLight }}>Recent Active Orders</h2>
-          <button
-            onClick={() => navigateTo('orders')}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: theme.colors.primaryLight,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            <span>View All ({orders.length})</span>
-            <ArrowRight size={14} />
-          </button>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${theme.colors.borderLight}`, color: theme.colors.textDim, fontSize: 12, textTransform: 'uppercase' }}>
-                <th style={{ padding: '10px 14px' }}>Order ID</th>
-                <th style={{ padding: '10px 14px' }}>Customer</th>
-                <th style={{ padding: '10px 14px' }}>Service Specs</th>
-                <th style={{ padding: '10px 14px' }}>Amount</th>
-                <th style={{ padding: '10px 14px' }}>Status</th>
-                <th style={{ padding: '10px 14px', textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.map(order => {
-                const badge = getStatusBadge(order.status);
-                return (
-                  <tr
-                    key={order.orderId}
-                    style={{
-                      borderBottom: `1px solid ${theme.colors.border}`,
-                      fontSize: 13,
-                    }}
-                  >
-                    <td style={{ padding: '14px', fontWeight: 700, color: '#FFFFFF' }}>#{order.orderId}</td>
-                    <td style={{ padding: '14px' }}>
-                      <div style={{ fontWeight: 600, color: theme.colors.textLight }}>{order.customerName || 'Customer'}</div>
-                      <div style={{ fontSize: 11, color: theme.colors.textDim }}>{order.timeAgo || 'Recently'}</div>
-                    </td>
-                    <td style={{ padding: '14px', color: theme.colors.textMuted, maxWidth: 300 }}>
-                      {order.specs || order.serviceType || 'Standard Print'}
-                    </td>
-                    <td style={{ padding: '14px', fontWeight: 700, color: '#FFFFFF' }}>
-                      ₹ {order.totalPrice || order.orderDetails?.totalPrice || 0}
-                    </td>
-                    <td style={{ padding: '14px' }}>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          padding: '4px 10px',
-                          borderRadius: 20,
-                          backgroundColor: badge.bg,
-                          color: badge.text,
-                          border: `1px solid ${badge.border}`,
-                          fontSize: 11,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {badge.label}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => {
-                          setSelectedOrderId(order.orderId);
-                          navigateTo('orders');
-                        }}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 6,
-                          backgroundColor: '#1E2330',
-                          border: `1px solid ${theme.colors.borderLight}`,
-                          color: theme.colors.primaryLight,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        View Details →
-                      </button>
+          <div style={{ width: '100%', overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #EBE7DF' }}>
+                  <th style={{ padding: '8px 10px' }}>ORDER ID</th>
+                  <th style={{ padding: '8px 10px' }}>CUSTOMER</th>
+                  <th style={{ padding: '8px 10px' }}>TYPE</th>
+                  <th style={{ padding: '8px 10px' }}>AMOUNT</th>
+                  <th style={{ padding: '8px 10px' }}>STATUS</th>
+                  <th style={{ padding: '8px 10px' }}>TIME</th>
+                  <th style={{ padding: '8px 6px', textAlign: 'center' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '28px 10px', textAlign: 'center', color: '#6B707B', fontSize: 13 }}>
+                      No active orders found for this shop. When customers place orders, they will appear here.
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Add More Print Services Promo Banner matching PDF */}
-      <div
-        style={{
-          borderRadius: 14,
-          padding: '24px 28px',
-          backgroundImage: 'linear-gradient(135deg, #1E3A8A 0%, #172554 100%)',
-          border: '1px solid rgba(59, 130, 246, 0.4)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Sparkles size={18} color="#93C5FD" />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-              Grow Your Shop
-            </span>
+                ) : (
+                  displayOrders.map(row => (
+                    <tr key={row.id} style={{ borderBottom: '1px solid #F0ECE4' }}>
+                      <td style={{ padding: '12px 10px', fontWeight: 600, color: '#1A1C20' }}>{row.id}</td>
+                      <td style={{ padding: '12px 10px', color: '#1A1C20', fontWeight: 500 }}>{row.customer}</td>
+                      <td style={{ padding: '12px 10px', color: '#555963' }}>{row.type}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>₹ {row.amount}</td>
+                      <td style={{ padding: '12px 10px' }}>{renderStatusBadge(row.status)}</td>
+                      <td style={{ padding: '12px 10px', color: '#8E929B', fontSize: 11.5 }}>{row.time}</td>
+                      <td style={{ padding: '12px 6px', textAlign: 'center', color: '#8E929B', cursor: 'pointer' }}>
+                        <MoreVertical size={15} />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-          <h3 style={{ fontSize: 20, fontWeight: 700, color: '#FFFFFF', marginBottom: 6 }}>
-            Expand into Posters, Flex & Customized T-Shirts
-          </h3>
-          <p style={{ fontSize: 13, color: '#BFDBFE', maxWidth: 540 }}>
-            Shops offering 3+ categories generate 4.2x higher weekly revenue from business and student orders.
-          </p>
         </div>
 
-        <button
-          onClick={() => navigateTo('pricing')}
+        {/* Add More Print Services (Dark card matching PDF) */}
+        <div
           style={{
-            padding: '11px 22px',
-            backgroundColor: '#FFFFFF',
-            color: '#1E3A8A',
-            border: 'none',
-            borderRadius: 8,
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+            backgroundColor: '#18191F',
+            backgroundImage: 'linear-gradient(145deg, #16171D, #222530)',
+            borderRadius: 18,
+            padding: '26px 22px',
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
-          Add More Print Services
-        </button>
+          {/* Isometric paper stack graphic on right */}
+          <div
+            style={{
+              position: 'absolute',
+              right: -15,
+              bottom: 10,
+              width: 130,
+              height: 130,
+              pointerEvents: 'none',
+              opacity: 0.85,
+            }}
+          >
+            <svg viewBox="0 0 100 100" fill="none" style={{ width: '100%', height: '100%' }}>
+              <polygon points="50,15 90,35 50,55 10,35" fill="#FFFFFF" opacity="0.9" />
+              <polygon points="90,35 90,42 50,62 50,55" fill="#D1D5DB" />
+              <polygon points="10,35 10,42 50,62 50,55" fill="#E5E7EB" />
+
+              <polygon points="50,27 90,47 50,67 10,47" fill="#FFFFFF" opacity="0.8" />
+              <polygon points="90,47 90,54 50,74 50,67" fill="#D1D5DB" />
+              <polygon points="10,47 10,54 50,74 50,67" fill="#E5E7EB" />
+
+              <polygon points="50,39 90,59 50,79 10,59" fill="#FFFFFF" opacity="0.7" />
+              <polygon points="90,59 90,66 50,86 50,79" fill="#D1D5DB" />
+              <polygon points="10,59 10,66 50,86 50,79" fill="#E5E7EB" />
+            </svg>
+          </div>
+
+          <div>
+            <h3
+              style={{
+                fontFamily: theme.fonts.serif,
+                fontSize: 28,
+                fontWeight: 400,
+                color: '#FFFFFF',
+                lineHeight: 1.15,
+                marginBottom: 10,
+              }}
+            >
+              Add More<br />
+              Print Services
+            </h3>
+            <p style={{ fontSize: 12.5, color: '#9CA3AF', lineHeight: 1.5, maxWidth: 170, marginBottom: 20 }}>
+              Enable posters, flex, T-shirts and more to get more orders.
+            </p>
+          </div>
+
+          <div>
+            <button
+              onClick={() => navigateTo('pricing')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '9px 18px',
+                borderRadius: 22,
+                backgroundColor: '#FFFFFF',
+                color: '#111215',
+                border: 'none',
+                fontSize: 12.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <span>Manage Services</span>
+              <ArrowRight size={14} />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

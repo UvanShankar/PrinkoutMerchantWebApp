@@ -2,159 +2,408 @@ import React, { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import {
   Search,
+  Calendar,
   Filter,
-  Download,
+  MoreVertical,
+  X,
   Phone,
   MessageCircle,
   FileText,
-  CheckCircle,
-  Clock,
-  ArrowRight,
-  X,
+  Download,
   Printer,
-  AlertTriangle,
-  FileCheck,
+  ShoppingBag,
+  CheckCircle2,
+  Clock,
+  User,
+  MapPin,
+  CreditCard,
 } from 'lucide-react';
 import { theme } from '../theme';
-import { MerchantOrder } from '../services/api';
 
 export const OrdersScreen: React.FC = () => {
-  const { orders, selectedOrder, setSelectedOrderId, updateOrderStatus, showToast } = useMerchant();
-  const [filterTab, setFilterTab] = useState<'all' | 'received' | 'printing' | 'ready' | 'completed'>('all');
+  const { orders, selectedOrder, setSelectedOrderId, updateOrderStatus } = useMerchant();
+  const [filterTab, setFilterTab] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredOrders = orders.filter(order => {
-    // Tab filter
-    const status = (order.status || '').toLowerCase();
-    if (filterTab === 'received' && status !== 'received' && status !== 'pending') return false;
-    if (filterTab === 'printing' && status !== 'printing' && status !== 'in_progress') return false;
-    if (filterTab === 'ready' && status !== 'ready' && status !== 'ready_for_pickup') return false;
-    if (filterTab === 'completed' && status !== 'completed') return false;
+  // Dynamic real orders mapped from MerchantContext / DynamoDB
+  const allOrdersList = (orders || []).map(o => {
+    const defaultTime = o.createdAt
+      ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : 'Recent';
+    const defaultDate = o.createdAt
+      ? new Date(o.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'Today';
 
-    // Search filter
-    if (searchQuery.trim()) {
+    return {
+      orderId: o.orderId,
+      customerName: o.customerName || (o.userId ? `Customer (${o.userId.slice(-6)})` : 'Customer'),
+      customerPhone: o.customerPhone || '+91 98432 11234',
+      specs: o.specs || `${o.paperSize || 'A4'} ${o.colorMode || 'Colour'} • ${o.orderDetails?.quantity || 1} copies`,
+      totalPrice: o.totalPrice || o.orderDetails?.totalPrice || 0,
+      status: o.status || 'received',
+      timeAgo: o.timeAgo || defaultTime,
+      placedDate: `${defaultDate} at ${defaultTime}`,
+      city: o.deliveryDetails?.deliveryAddress || o.pickupDetails?.pickupLocation || 'Pickup Counter',
+      serviceType: o.serviceType || 'Standard Print',
+      paperSize: o.paperSize || 'A4',
+      colorMode: o.colorMode || 'Colour',
+      pages: o.files?.[0]?.pages || 1,
+      copies: o.orderDetails?.quantity || o.copies || 1,
+      fileName: o.files?.[0]?.fileName || 'Project_Document.pdf',
+      fileSize: o.files?.[0]?.fileSize || 'PDF',
+      fileUrl: o.files?.[0]?.fileUrl,
+      files: (o.files && o.files.length > 0)
+        ? o.files
+        : [{ fileName: o.files?.[0]?.fileName || 'Project_Document.pdf', fileSize: o.files?.[0]?.fileSize || 'PDF', fileUrl: o.files?.[0]?.fileUrl }],
+      paymentStatus: o.paymentStatus || 'Paid Online',
+    };
+  });
+
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const currentActiveOrder =
+    allOrdersList.find(o => o.orderId === activeOrderId) || allOrdersList[0] || null;
+
+  const filteredOrders = allOrdersList.filter(o => {
+    if (filterTab !== 'all' && o.status.toLowerCase() !== filterTab) return false;
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      const matchId = order.orderId.toLowerCase().includes(q);
-      const matchCustomer = (order.customerName || '').toLowerCase().includes(q);
-      const matchSpecs = (order.specs || '').toLowerCase().includes(q);
-      if (!matchId && !matchCustomer && !matchSpecs) return false;
+      return (
+        o.orderId.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.specs.toLowerCase().includes(q)
+      );
     }
     return true;
   });
 
-  const getStatusBadge = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s === 'received' || s === 'pending') {
-      return { bg: 'rgba(239, 68, 68, 0.15)', text: '#F87171', border: 'rgba(239, 68, 68, 0.3)', label: 'Received' };
+  const activeOrder = currentActiveOrder;
+
+  // Counts for pills
+  const countAll = allOrdersList.length;
+  const countReceived = allOrdersList.filter(o => o.status === 'received' || o.status === 'pending').length;
+  const countPrinting = allOrdersList.filter(o => o.status === 'printing').length;
+  const countReady = allOrdersList.filter(o => o.status === 'ready').length;
+  const countCompleted = allOrdersList.filter(o => o.status === 'completed').length;
+
+  const renderStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'received':
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#EEF2FF',
+              color: '#4F46E5',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <ShoppingBag size={12} />
+            <span>Received</span>
+          </span>
+        );
+      case 'printing':
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#FFEDD5',
+              color: '#C2410C',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <Printer size={12} />
+            <span>Printing</span>
+          </span>
+        );
+      case 'ready':
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#DCFCE7',
+              color: '#15803D',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <CheckCircle2 size={12} />
+            <span>Ready</span>
+          </span>
+        );
+      case 'completed':
+      default:
+        return (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              padding: '4px 10px',
+              borderRadius: 20,
+              backgroundColor: '#F3F4F6',
+              color: '#4B5563',
+              fontSize: 11.5,
+              fontWeight: 600,
+            }}
+          >
+            <CheckCircle2 size={12} />
+            <span>Completed</span>
+          </span>
+        );
     }
-    if (s === 'printing' || s === 'in_progress') {
-      return { bg: 'rgba(59, 130, 246, 0.15)', text: '#60A5FA', border: 'rgba(59, 130, 246, 0.3)', label: 'Printing' };
-    }
-    if (s === 'ready' || s === 'ready_for_pickup') {
-      return { bg: 'rgba(245, 158, 11, 0.15)', text: '#FBBF24', border: 'rgba(245, 158, 11, 0.3)', label: 'Ready for Pickup' };
-    }
-    return { bg: 'rgba(16, 185, 129, 0.15)', text: '#34D399', border: 'rgba(16, 185, 129, 0.3)', label: 'Completed' };
   };
 
-  const getNextAction = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s === 'received' || s === 'pending') {
-      return { nextStatus: 'printing', label: 'Mark as Printing →', color: '#2563EB' };
-    }
-    if (s === 'printing' || s === 'in_progress') {
-      return { nextStatus: 'ready', label: 'Mark as Ready for Pickup →', color: '#F59E0B' };
-    }
-    if (s === 'ready' || s === 'ready_for_pickup') {
-      return { nextStatus: 'completed', label: 'Mark as Completed ✓', color: '#10B981' };
-    }
-    return null;
+  const handleNextStatus = (id: string, currentStatus: string) => {
+    let next = 'printing';
+    const s = (currentStatus || '').toLowerCase();
+    if (s === 'received' || s === 'pending') next = 'printing';
+    else if (s === 'printing') next = 'ready';
+    else if (s === 'ready') next = 'completed';
+    else return;
+    updateOrderStatus(id, next);
   };
 
-  const handleAdvanceStatus = async (order: MerchantOrder) => {
-    const action = getNextAction(order.status);
-    if (!action) return;
-    setIsUpdating(true);
-    await updateOrderStatus(order.orderId, action.nextStatus);
-    setIsUpdating(false);
+  const handleDownloadFile = (fileUrl?: string, fileName?: string) => {
+    if (!fileUrl) {
+      alert('File download URL is not available for this document.');
+      return;
+    }
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.download = fileName || 'document.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 68px)', overflow: 'hidden' }}>
-      {/* Left List Section */}
-      <div style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
-        {/* Page Title */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div>
-            <h1 style={{ fontFamily: theme.fonts.serif, fontSize: 32, fontWeight: 400, color: '#F4F2EC', marginBottom: 4 }}>
-              Orders Management
-            </h1>
-            <p style={{ fontSize: 13, color: theme.colors.textMuted }}>
-              View incoming customer requests, review files, and update production stages.
-            </p>
-          </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1.9fr 1.1fr', gap: 16, alignItems: 'start' }}>
+      {/* Left Column: Top Filter Pills Card + Table Card below */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Top Filter Pills Card matching PDF */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 16,
+            padding: '10px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <button
+            onClick={() => setFilterTab('all')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              border: 'none',
+              backgroundColor: filterTab === 'all' ? '#1C1D21' : '#EFECE4',
+              color: filterTab === 'all' ? '#FFFFFF' : '#1A1C20',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <span>All Orders</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                backgroundColor: filterTab === 'all' ? '#FFFFFF' : '#DDD9CE',
+                color: filterTab === 'all' ? '#111215' : '#1A1C20',
+                padding: '1px 7px',
+                borderRadius: 10,
+              }}
+            >
+              {countAll}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setFilterTab('received')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              border: 'none',
+              backgroundColor: '#EEF2FF',
+              color: '#4338CA',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <span>Received</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                backgroundColor: '#E0E7FF',
+                color: '#3730A3',
+                padding: '1px 7px',
+                borderRadius: 10,
+              }}
+            >
+              {countReceived}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setFilterTab('printing')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              border: 'none',
+              backgroundColor: '#FFEDD5',
+              color: '#C2410C',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <span>Printing</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                backgroundColor: '#FED7AA',
+                color: '#9A3412',
+                padding: '1px 7px',
+                borderRadius: 10,
+              }}
+            >
+              {countPrinting}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setFilterTab('ready')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              border: 'none',
+              backgroundColor: '#DCFCE7',
+              color: '#15803D',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <span>Ready</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                backgroundColor: '#BBF7D0',
+                color: '#166534',
+                padding: '1px 7px',
+                borderRadius: 10,
+              }}
+            >
+              {countReady}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setFilterTab('completed')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 14px',
+              borderRadius: 20,
+              border: 'none',
+              backgroundColor: '#F3F4F6',
+              color: '#4B5563',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <span>Completed</span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                backgroundColor: '#E5E7EB',
+                color: '#374151',
+                padding: '1px 7px',
+                borderRadius: 10,
+              }}
+            >
+              {countCompleted}
+            </span>
+          </button>
         </div>
 
-        {/* Filter Pills */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap' }}>
-          {[
-            { id: 'all', label: `All (${orders.length})` },
-            { id: 'received', label: `Received (${orders.filter(o => o.status === 'received' || o.status === 'pending').length})` },
-            { id: 'printing', label: `Printing (${orders.filter(o => o.status === 'printing' || o.status === 'in_progress').length})` },
-            { id: 'ready', label: `Ready (${orders.filter(o => o.status === 'ready' || o.status === 'ready_for_pickup').length})` },
-            { id: 'completed', label: `Completed (${orders.filter(o => o.status === 'completed').length})` },
-          ].map(tab => {
-            const isSelected = filterTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setFilterTab(tab.id as any)}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: 20,
-                  backgroundColor: isSelected ? '#2563EB' : '#161820',
-                  color: isSelected ? '#FFFFFF' : theme.colors.textMuted,
-                  border: `1px solid ${isSelected ? '#2563EB' : theme.colors.border}`,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+        {/* Orders Table Card matching PDF */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '20px 22px',
+          }}
+        >
 
-        {/* Search Bar */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
+        {/* Search, Date range, and Filter Row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div
             style={{
               flex: 1,
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
-              backgroundColor: '#161820',
-              border: `1px solid ${theme.colors.borderLight}`,
-              borderRadius: 8,
-              padding: '0 14px',
+              gap: 8,
+              backgroundColor: '#EFECE4',
+              border: '1px solid #DAD5CB',
+              borderRadius: 12,
+              padding: '9px 12px',
             }}
           >
-            <Search size={16} color={theme.colors.textDim} />
+            <Search size={15} color="#8E929B" />
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by Order ID (#5577), Customer Name or Specs..."
+              placeholder="Search by Order ID, Customer or Type"
               style={{
-                flex: 1,
-                padding: '10px 0',
-                backgroundColor: 'transparent',
+                width: '100%',
                 border: 'none',
-                color: '#FFFFFF',
-                fontSize: 13,
+                background: 'transparent',
                 outline: 'none',
+                fontSize: 13,
+                fontWeight: 500,
+                color: '#1A1C20',
               }}
             />
           </div>
@@ -164,459 +413,441 @@ export const OrdersScreen: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              padding: '0 14px',
-              backgroundColor: '#161820',
-              border: `1px solid ${theme.colors.borderLight}`,
-              borderRadius: 8,
-              color: theme.colors.textMuted,
-              fontSize: 13,
+              backgroundColor: '#EFECE4',
+              border: '1px solid #DAD5CB',
+              borderRadius: 12,
+              padding: '9px 12px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: '#1A1C20',
+              cursor: 'pointer',
+            }}
+          >
+            <Calendar size={14} color="#6B707B" />
+            <span>Jul 1, 2026 – Jul 31, 2026</span>
+          </div>
+
+          <button
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#EFECE4',
+              border: '1px solid #DAD5CB',
+              borderRadius: 12,
+              padding: '9px 14px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: '#1A1C20',
+              cursor: 'pointer',
             }}
           >
             <Filter size={14} />
-            <span>Today</span>
-          </div>
+            <span>Filters</span>
+          </button>
         </div>
 
-        {/* Orders Table */}
-        <div
-          style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 12,
-            overflow: 'hidden',
-          }}
-        >
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        {/* Orders Table matching PDF */}
+        <div style={{ width: '100%', overflowX: 'auto', marginBottom: 16 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
             <thead>
-              <tr style={{ backgroundColor: '#13151D', borderBottom: `1px solid ${theme.colors.borderLight}`, color: theme.colors.textDim, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <th style={{ padding: '12px 16px' }}>Order ID</th>
-                <th style={{ padding: '12px 16px' }}>Customer</th>
-                <th style={{ padding: '12px 16px' }}>Print Details</th>
-                <th style={{ padding: '12px 16px' }}>Total Price</th>
-                <th style={{ padding: '12px 16px' }}>Payment</th>
-                <th style={{ padding: '12px 16px' }}>Status</th>
+              <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #EBE7DF' }}>
+                <th style={{ padding: '8px 10px' }}>ORDER ID</th>
+                <th style={{ padding: '8px 10px' }}>CUSTOMER</th>
+                <th style={{ padding: '8px 10px' }}>ORDER DETAILS</th>
+                <th style={{ padding: '8px 10px' }}>AMOUNT</th>
+                <th style={{ padding: '8px 10px' }}>STATUS</th>
+                <th style={{ padding: '8px 10px' }}>TIME</th>
+                <th style={{ padding: '8px 6px', textAlign: 'center' }}></th>
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: 40, textAlign: 'center', color: theme.colors.textDim }}>
-                    No orders found matching the filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredOrders.map(order => {
-                  const isSelected = selectedOrder?.orderId === order.orderId;
-                  const badge = getStatusBadge(order.status);
-                  return (
-                    <tr
-                      key={order.orderId}
-                      onClick={() => setSelectedOrderId(order.orderId)}
-                      style={{
-                        backgroundColor: isSelected ? '#1E2332' : 'transparent',
-                        borderBottom: `1px solid ${theme.colors.border}`,
-                        cursor: 'pointer',
-                        transition: 'background-color 0.15s',
-                      }}
-                      onMouseEnter={e => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = '#181A24';
-                      }}
-                      onMouseLeave={e => {
-                        if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#FFFFFF' }}>#{order.orderId}</td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: 600, color: theme.colors.textLight }}>{order.customerName || 'Customer'}</div>
-                        <div style={{ fontSize: 11, color: theme.colors.textDim }}>{order.customerPhone || '+91 98401 23456'}</div>
-                      </td>
-                      <td style={{ padding: '14px 16px', color: theme.colors.textMuted, maxWidth: 280 }}>
-                        <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {order.specs || order.serviceType || 'Standard Print'}
-                        </div>
-                        <div style={{ fontSize: 11, color: theme.colors.textDim }}>
-                          {order.files?.length || 1} file(s) attached
-                        </div>
-                      </td>
-                      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#FFFFFF' }}>
-                        ₹ {order.totalPrice || order.orderDetails?.totalPrice || 0}
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: order.paymentStatus === 'SUCCESS' ? '#10B981' : '#F59E0B' }}>
-                          {order.paymentStatus === 'SUCCESS' ? 'Paid' : 'Pending'}
-                        </div>
-                        <div style={{ fontSize: 11, color: theme.colors.textDim }}>{order.paymentMethod || 'UPI'}</div>
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '4px 10px',
-                            borderRadius: 20,
-                            backgroundColor: badge.bg,
-                            color: badge.text,
-                            border: `1px solid ${badge.border}`,
-                            fontSize: 11,
-                            fontWeight: 700,
-                          }}
-                        >
-                          {badge.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+              {filteredOrders.map(row => {
+                const isSelected = row.orderId === activeOrderId;
+                return (
+                  <tr
+                    key={row.orderId}
+                    onClick={() => setActiveOrderId(row.orderId)}
+                    style={{
+                      borderBottom: '1px solid #F0ECE4',
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? '#FAF8F5' : 'transparent',
+                    }}
+                  >
+                    <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>
+                      #{row.orderId}
+                    </td>
+                    <td style={{ padding: '12px 10px', color: '#1A1C20', fontWeight: 600 }}>{row.customerName}</td>
+                    <td style={{ padding: '12px 10px', color: '#555963' }}>{row.specs}</td>
+                    <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>₹ {row.totalPrice}</td>
+                    <td style={{ padding: '12px 10px' }}>{renderStatusBadge(row.status)}</td>
+                    <td style={{ padding: '12px 10px', color: '#8E929B', fontSize: 11.5 }}>{row.timeAgo}</td>
+                    <td style={{ padding: '12px 6px', textAlign: 'center', color: '#8E929B' }}>
+                      <MoreVertical size={15} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Slide-out Order Detail Drawer matching Page 8 */}
-      {selectedOrder && (
-        <div
-          style={{
-            width: 440,
-            backgroundColor: '#15171F',
-            borderLeft: `1px solid ${theme.colors.border}`,
-            display: 'flex',
-            flexDirection: 'column',
-            overflowY: 'auto',
-            boxShadow: '-8px 0 25px rgba(0, 0, 0, 0.4)',
-          }}
-        >
-          {/* Drawer Header */}
-          <div
-            style={{
-              padding: '18px 22px',
-              borderBottom: `1px solid ${theme.colors.border}`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              backgroundColor: '#12141B',
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 18, fontWeight: 700, color: '#FFFFFF' }}>Order #{selectedOrder.orderId}</span>
-                <span
-                  style={{
-                    padding: '2px 8px',
-                    borderRadius: 12,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    ...getStatusBadge(selectedOrder.status),
-                  }}
-                >
-                  {getStatusBadge(selectedOrder.status).label}
-                </span>
-              </div>
-              <div style={{ fontSize: 12, color: theme.colors.textDim, marginTop: 2 }}>
-                Received {selectedOrder.timeAgo || '12 mins ago'}
-              </div>
-            </div>
+        {/* Pagination matching PDF */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 }}>
+          <span style={{ fontSize: 12, color: '#8E929B' }}>Showing 1 – 8 of 24 orders</span>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
-              onClick={() => setSelectedOrderId(null)}
               style={{
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
                 borderRadius: 6,
-                backgroundColor: '#1E222D',
-                border: 'none',
-                color: theme.colors.textMuted,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                border: '1px solid #DAD5CB',
+                backgroundColor: '#EFECE4',
+                color: '#1A1C20',
+                fontSize: 12,
                 cursor: 'pointer',
               }}
             >
-              <X size={16} />
+              ←
             </button>
-          </div>
-
-          <div style={{ padding: '20px 22px', flex: 1 }}>
-            {/* Customer Details Box */}
-            <div
+            <button
               style={{
-                backgroundColor: '#101217',
-                border: `1px solid ${theme.colors.borderLight}`,
-                borderRadius: 10,
-                padding: '14px 16px',
-                marginBottom: 18,
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: 'none',
+                backgroundColor: '#1C1D21',
+                color: '#FFFFFF',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>
-                    {selectedOrder.customerName || 'Arun Kumar'}
-                  </div>
-                  <div style={{ fontSize: 13, color: theme.colors.textMuted }}>
-                    {selectedOrder.customerPhone || '+91 98401 23456'}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#60A5FA', marginTop: 2 }}>
-                    {selectedOrder.customerType || 'Regular customer (14 orders)'}
-                  </div>
-                </div>
-              </div>
+              1
+            </button>
+            <button
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: '1px solid #DAD5CB',
+                backgroundColor: 'transparent',
+                color: '#1A1C20',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              2
+            </button>
+            <button
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: '1px solid #DAD5CB',
+                backgroundColor: 'transparent',
+                color: '#1A1C20',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              3
+            </button>
+            <button
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: '1px solid #DAD5CB',
+                backgroundColor: '#EFECE4',
+                color: '#1A1C20',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-              <div style={{ display: 'flex', gap: 10 }}>
-                <a
-                  href={`tel:${selectedOrder.customerPhone || '+919840123456'}`}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    backgroundColor: '#1E2330',
-                    border: `1px solid ${theme.colors.borderLight}`,
-                    color: '#FFFFFF',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    textDecoration: 'none',
-                  }}
-                >
-                  <Phone size={14} color="#60A5FA" />
-                  <span>Call Customer</span>
-                </a>
+      {/* Right Order Details Panel matching PDF */}
+      <div
+        style={{
+          backgroundColor: theme.colors.creamCard,
+          border: `1px solid ${theme.colors.creamCardBorder}`,
+          borderRadius: 18,
+          padding: '22px 20px',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20' }}>
+              Order #{activeOrder.orderId}
+            </span>
+            {renderStatusBadge(activeOrder.status)}
+          </div>
+          <X size={16} color="#8E929B" style={{ cursor: 'pointer' }} />
+        </div>
 
-                <a
-                  href={`https://wa.me/${(selectedOrder.customerPhone || '9840123456').replace(/[^0-9]/g, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    padding: '8px 12px',
-                    borderRadius: 6,
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    color: '#34D399',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    textDecoration: 'none',
-                  }}
-                >
-                  <MessageCircle size={14} color="#10B981" />
-                  <span>WhatsApp</span>
-                </a>
-              </div>
+        <p style={{ fontSize: 12, color: '#8E929B', marginBottom: 18 }}>
+          Placed on {activeOrder.placedDate}
+        </p>
+
+        {/* Customer Details */}
+        <div style={{ marginBottom: 18, borderBottom: '1px solid #EBE7DF', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>
+              <User size={15} />
+              <span>Customer Details</span>
             </div>
 
-            {/* Print Specifications */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: theme.colors.textDim, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>
-                Print Specifications
-              </div>
-
-              <div
+            <div style={{ display: 'flex', gap: 6 }}>
+              <a
+                href={`tel:${activeOrder.customerPhone}`}
                 style={{
-                  backgroundColor: '#101217',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  borderRadius: 10,
-                  padding: '14px 16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  borderRadius: 16,
+                  backgroundColor: '#EFECE4',
+                  border: '1px solid #DAD5CB',
+                  color: '#1A1C20',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textDecoration: 'none',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: theme.colors.textMuted }}>Service</span>
-                  <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{selectedOrder.serviceType || 'Standard Prints'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: theme.colors.textMuted }}>Paper Size & Type</span>
-                  <span style={{ fontWeight: 600, color: '#FFFFFF' }}>
-                    {selectedOrder.paperSize || 'A4'} ({selectedOrder.paperType || '75 GSM Bond'})
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: theme.colors.textMuted }}>Color Mode</span>
-                  <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{selectedOrder.colorMode || 'Colour'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: theme.colors.textMuted }}>Sides</span>
-                  <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{selectedOrder.sides || 'Double sided'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: theme.colors.textMuted }}>Copies</span>
-                  <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{selectedOrder.copies || 2} copies</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: theme.colors.textMuted }}>Binding</span>
-                  <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{selectedOrder.binding || 'Corner staple'}</span>
-                </div>
-              </div>
+                <Phone size={11} />
+                <span>Call</span>
+              </a>
+
+              <a
+                href={`https://wa.me/${activeOrder.customerPhone.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  borderRadius: 16,
+                  backgroundColor: '#EFECE4',
+                  border: '1px solid #DAD5CB',
+                  color: '#1A1C20',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                <MessageCircle size={11} color="#25D366" />
+                <span>WhatsApp</span>
+              </a>
             </div>
+          </div>
 
-            {/* Attached Files to Print */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: theme.colors.textDim, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>
-                Files to Print ({selectedOrder.files?.length || 1})
-              </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: '#555963' }}>
+            <div style={{ fontWeight: 600, color: '#1A1C20' }}>{activeOrder.customerName}</div>
+            <div>{activeOrder.customerPhone}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <MapPin size={12} />
+              <span>{activeOrder.city}</span>
+            </div>
+          </div>
+        </div>
 
-              {(selectedOrder.files && selectedOrder.files.length > 0
-                ? selectedOrder.files
-                : [{ fileName: 'Project_Report_Final_v2.pdf', fileSize: '14.2 MB', pages: 60 }]
-              ).map((file, idx) => (
+        {/* Print Details */}
+        <div style={{ marginBottom: 18, borderBottom: '1px solid #EBE7DF', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 12 }}>
+            <Printer size={15} />
+            <span>Print Details</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 8, fontSize: 12.5 }}>
+            <span style={{ color: '#6B707B' }}>Service</span>
+            <span style={{ fontWeight: 600, color: '#1A1C20' }}>{activeOrder.serviceType}</span>
+
+            <span style={{ color: '#6B707B' }}>Size</span>
+            <span style={{ fontWeight: 600, color: '#1A1C20' }}>{activeOrder.paperSize}</span>
+
+            <span style={{ color: '#6B707B' }}>Type</span>
+            <span style={{ fontWeight: 600, color: '#1A1C20' }}>{activeOrder.colorMode}</span>
+
+            <span style={{ color: '#6B707B' }}>Pages</span>
+            <span style={{ fontWeight: 600, color: '#1A1C20' }}>{activeOrder.pages}</span>
+
+            <span style={{ color: '#6B707B' }}>Copies</span>
+            <span style={{ fontWeight: 600, color: '#1A1C20' }}>{activeOrder.copies}</span>
+          </div>
+        </div>
+
+        {/* Files */}
+        <div style={{ marginBottom: 18, borderBottom: '1px solid #EBE7DF', paddingBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 10 }}>
+            <FileText size={15} />
+            <span>Files ({(activeOrder.files && activeOrder.files.length) || (activeOrder.fileName ? 1 : 0)})</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(activeOrder.files && activeOrder.files.length > 0
+              ? activeOrder.files
+              : [{ fileName: activeOrder.fileName, fileSize: activeOrder.fileSize, fileUrl: activeOrder.fileUrl }]
+            ).map((f: any, idx: number) => {
+              const ext = (f.fileName || '').split('.').pop()?.toUpperCase() || 'PDF';
+              return (
                 <div
                   key={idx}
                   style={{
-                    backgroundColor: '#101217',
-                    border: `1px solid ${theme.colors.borderLight}`,
-                    borderRadius: 10,
-                    padding: '12px 14px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginBottom: 8,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    backgroundColor: '#EFECE4',
+                    border: '1px solid #DAD5CB',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 6, backgroundColor: 'rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FileText size={18} color="#EF4444" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        backgroundColor: ext === 'PDF' ? '#EF4444' : '#3B82F6',
+                        color: '#FFFFFF',
+                        fontSize: 9,
+                        fontWeight: 800,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {ext.slice(0, 4)}
                     </div>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 190 }}>
-                        {file.fileName}
-                      </div>
-                      <div style={{ fontSize: 11, color: theme.colors.textDim }}>
-                        {file.fileSize || '14.2 MB'} • {file.pages || 60} pages
-                      </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <a
+                        href={f.fileUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download={f.fileName}
+                        onClick={e => {
+                          if (!f.fileUrl) {
+                            e.preventDefault();
+                            alert('No download URL available for this file.');
+                          }
+                        }}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#1A1C20',
+                          textDecoration: 'none',
+                          whiteSpace: 'nowrap',
+                          textOverflow: 'ellipsis',
+                          overflow: 'hidden',
+                        }}
+                        title={f.fileName}
+                      >
+                        {f.fileName || 'Project_Document.pdf'}
+                      </a>
+                      <span style={{ fontSize: 11, color: '#8E929B' }}>
+                        {f.fileSize || `${f.pages || 1} pages`}
+                      </span>
                     </div>
                   </div>
 
-                  <a
-                    href={file.fileUrl || '#'}
-                    download={file.fileName}
-                    onClick={e => {
-                      if (!file.fileUrl || file.fileUrl.startsWith('#')) {
-                        e.preventDefault();
-                        showToast(`Simulated download: ${file.fileName}`);
-                      }
-                    }}
+                  <button
+                    onClick={() => handleDownloadFile(f.fileUrl, f.fileName)}
+                    title={`Download ${f.fileName || 'file'}`}
                     style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      border: 'none',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 4,
-                      padding: '6px 10px',
-                      borderRadius: 6,
-                      backgroundColor: '#2563EB',
-                      color: '#FFFFFF',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textDecoration: 'none',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                   >
-                    <Download size={13} />
-                    <span>Download</span>
-                  </a>
+                    <Download size={15} color="#555963" />
+                  </button>
                 </div>
-              ))}
-            </div>
-
-            {/* Special Instructions */}
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: theme.colors.textDim, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>
-                Special Instructions
-              </div>
-              <div
-                style={{
-                  backgroundColor: '#181A22',
-                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                  borderRadius: 8,
-                  padding: '12px 14px',
-                  fontSize: 12,
-                  color: '#FDE68A',
-                  lineHeight: 1.4,
-                }}
-              >
-                "{selectedOrder.instructions || 'Please make sure color on cover page is bright. Staple on top-left.'}"
-              </div>
-            </div>
-
-            {/* Payment Summary */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: theme.colors.textDim, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 10 }}>
-                Payment Breakdown
-              </div>
-              <div
-                style={{
-                  backgroundColor: '#101217',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  borderRadius: 10,
-                  padding: '12px 14px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, color: '#FFFFFF', marginBottom: 4 }}>
-                  <span>Total Amount</span>
-                  <span>₹ {selectedOrder.totalPrice || selectedOrder.orderDetails?.totalPrice || 0}</span>
-                </div>
-                <div style={{ fontSize: 11, color: theme.colors.textDim }}>
-                  Paid via {selectedOrder.paymentMethod || 'UPI'} • Ref: {selectedOrder.paymentRef || 'UPI/9381/002'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Drawer Bottom Actions */}
-          <div
-            style={{
-              padding: '16px 22px',
-              borderTop: `1px solid ${theme.colors.border}`,
-              backgroundColor: '#12141B',
-              display: 'flex',
-              gap: 10,
-            }}
-          >
-            {getNextAction(selectedOrder.status) ? (
-              <button
-                onClick={() => handleAdvanceStatus(selectedOrder)}
-                disabled={isUpdating}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  padding: '12px 16px',
-                  backgroundColor: getNextAction(selectedOrder.status)?.color || '#2563EB',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: 8,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: isUpdating ? 'default' : 'pointer',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-                }}
-              >
-                <span>{isUpdating ? 'Updating...' : getNextAction(selectedOrder.status)?.label}</span>
-              </button>
-            ) : (
-              <div
-                style={{
-                  flex: 1,
-                  padding: '10px 14px',
-                  backgroundColor: '#10B981',
-                  color: '#FFFFFF',
-                  borderRadius: 8,
-                  textAlign: 'center',
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-              >
-                ✓ Order Completed & Archived
-              </div>
-            )}
+              );
+            })}
           </div>
         </div>
-      )}
+
+        {/* Payment */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 8 }}>
+            <CreditCard size={15} />
+            <span>Payment</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '4px 10px',
+                borderRadius: 20,
+                backgroundColor: '#DCFCE7',
+                color: '#15803D',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              <CheckCircle2 size={13} />
+              <span>Paid Online</span>
+            </span>
+
+            <span style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20' }}>
+              ₹ {activeOrder.totalPrice}
+            </span>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <button
+          onClick={() => handleNextStatus(activeOrder.orderId, activeOrder.status)}
+          disabled={activeOrder.status === 'completed'}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '13px 20px',
+            backgroundColor: activeOrder.status === 'completed' ? '#9CA3AF' : '#1C1D21',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: 12,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: activeOrder.status === 'completed' ? 'not-allowed' : 'pointer',
+          }}
+        >
+          <Printer size={16} />
+          <span>
+            {activeOrder.status === 'received' || activeOrder.status === 'pending'
+              ? 'Mark as Printing'
+              : activeOrder.status === 'printing'
+              ? 'Mark as Ready'
+              : activeOrder.status === 'ready'
+              ? 'Mark as Completed'
+              : 'Order Completed'}
+          </span>
+          {activeOrder.status !== 'completed' && <span>→</span>}
+        </button>
+      </div>
     </div>
   );
 };

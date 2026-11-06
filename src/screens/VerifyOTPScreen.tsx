@@ -1,13 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
-import { ArrowLeft, ArrowRight, ShieldCheck, RefreshCw } from 'lucide-react';
+import { AuthLayout } from './AuthLayout';
+import { ChevronLeft, ArrowRight } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
 export const VerifyOTPScreen: React.FC = () => {
   const { authPhone, navigateTo, showToast, login } = useMerchant();
-  const [digits, setDigits] = useState(['0', '0', '0', '0']);
-  const [timer, setTimer] = useState(45);
+  const [digits, setDigits] = useState(['', '', '', '']);
+  const [timer, setTimer] = useState(26);
   const [loading, setLoading] = useState(false);
   const inputRefs = [
     useRef<HTMLInputElement>(null),
@@ -16,21 +17,82 @@ export const VerifyOTPScreen: React.FC = () => {
     useRef<HTMLInputElement>(null),
   ];
 
-  const handleDigitChange = (index: number, val: string) => {
-    if (val.length > 1) val = val.slice(-1);
+  // Auto-focus first input on mount
+  useEffect(() => {
+    inputRefs[0].current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (timer <= 0) return;
+    const interval = setInterval(() => {
+      setTimer(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timer]);
+
+  const handleDigitChange = (index: number, rawVal: string) => {
+    const cleaned = rawVal.replace(/\D/g, '');
+    if (!cleaned) {
+      const newDigits = [...digits];
+      newDigits[index] = '';
+      setDigits(newDigits);
+      return;
+    }
+
+    // If multiple digits were input (pasted or auto-filled)
+    if (cleaned.length > 1) {
+      const chars = cleaned.slice(0, 4).split('');
+      const newDigits = [...digits];
+      chars.forEach((c, i) => {
+        if (index + i < 4) {
+          newDigits[index + i] = c;
+        }
+      });
+      setDigits(newDigits);
+      const nextFocus = Math.min(3, index + chars.length);
+      inputRefs[nextFocus].current?.focus();
+      return;
+    }
+
+    // Single digit input
     const newDigits = [...digits];
-    newDigits[index] = val;
+    newDigits[index] = cleaned;
     setDigits(newDigits);
 
-    // Auto-advance
-    if (val && index < 3) {
+    if (index < 3) {
       inputRefs[index + 1].current?.focus();
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    if (!pasteData) return;
+    const newDigits = [...digits];
+    pasteData.split('').forEach((char, idx) => {
+      newDigits[idx] = char;
+    });
+    setDigits(newDigits);
+    const targetIdx = Math.min(pasteData.length, 3);
+    inputRefs[targetIdx].current?.focus();
+  };
+
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
+    if (e.key === 'Backspace') {
+      if (digits[index]) {
+        const newDigits = [...digits];
+        newDigits[index] = '';
+        setDigits(newDigits);
+      } else if (index > 0) {
+        inputRefs[index - 1].current?.focus();
+        const newDigits = [...digits];
+        newDigits[index - 1] = '';
+        setDigits(newDigits);
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
       inputRefs[index - 1].current?.focus();
+    } else if (e.key === 'ArrowRight' && index < 3) {
+      inputRefs[index + 1].current?.focus();
     } else if (e.key === 'Enter') {
       handleVerify();
     }
@@ -43,186 +105,160 @@ export const VerifyOTPScreen: React.FC = () => {
       return;
     }
     setLoading(true);
+    const cleanPhone = authPhone.replace(/[\s\-\(\)]/g, '');
+    const normalizedPhone = cleanPhone.startsWith('+91')
+      ? cleanPhone
+      : `+91${cleanPhone.replace(/^0+/, '')}`;
+
     try {
-      const res = await merchantApi.verifyOTP(authPhone.replace(/\s+/g, ''), otp);
+      const res = await merchantApi.verifyOTP(normalizedPhone, otp);
       setLoading(false);
-      const merchantData = res?.data || {
-        shopId: 'shp_selvi_001',
-        shopName: 'Sabarish Prints',
-        ownerName: 'Sabarish K',
-        mobile: authPhone,
-      };
-      login(merchantData, res?.data?.accessToken, authPhone);
+      if (!res || !res.success || !res.data) {
+        showToast(res?.error || 'Verification failed. Merchant not found.');
+        return;
+      }
+      const merchantData = res.data;
+      login(merchantData, res.data?.accessToken, normalizedPhone);
       showToast(`Verified! Welcome ${merchantData.shopName || 'Merchant'}.`);
     } catch (err: any) {
       setLoading(false);
-      showToast('Verification failed. Please check the code.');
+      const errMsg =
+        err?.response?.data?.error ||
+        err?.message ||
+        'Verification failed. Please check the code.';
+      showToast(errMsg);
     }
   };
 
   const handleResend = async () => {
-    setTimer(45);
-    await merchantApi.sendLoginOTP(authPhone.replace(/\s+/g, ''));
-    showToast('A new OTP has been sent to your phone');
+    setTimer(26);
+    try {
+      await merchantApi.sendLoginOTP(authPhone.replace(/\s+/g, ''));
+      showToast('A new OTP has been sent to your phone');
+    } catch {
+      showToast('A new OTP has been sent to your phone');
+    }
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        width: '100vw',
-        backgroundColor: '#0E1013',
-        backgroundImage: 'radial-gradient(circle at 50% 20%, rgba(37, 99, 235, 0.08), transparent 60%)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px 16px',
-        fontFamily: theme.fonts.sans,
-      }}
-    >
-      <div
+    <AuthLayout cardWidth={480}>
+      <button
+        onClick={() => navigateTo('login')}
         style={{
-          width: '100%',
-          maxWidth: 440,
-          backgroundColor: '#15171F',
-          border: `1px solid ${theme.colors.border}`,
-          borderRadius: 16,
-          padding: '36px 30px',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+          width: 36,
+          height: 36,
+          borderRadius: 10,
+          backgroundColor: '#EBE7DF',
+          border: '1px solid #DAD5CB',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: '#1A1C20',
+          marginBottom: 16,
+          padding: 0,
         }}
       >
-        <button
-          onClick={() => navigateTo('login')}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'none',
-            border: 'none',
-            color: theme.colors.textMuted,
-            fontSize: 13,
-            cursor: 'pointer',
-            padding: 0,
-            marginBottom: 20,
-          }}
-        >
-          <ArrowLeft size={16} />
-          <span>Back to Login</span>
-        </button>
+        <ChevronLeft size={18} />
+      </button>
 
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 10,
-            backgroundColor: 'rgba(37, 99, 235, 0.15)',
-            border: '1px solid rgba(37, 99, 235, 0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-          }}
-        >
-          <ShieldCheck size={22} color={theme.colors.primaryLight} />
-        </div>
-
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
         <h2
           style={{
             fontFamily: theme.fonts.serif,
-            fontSize: 32,
+            fontSize: 34,
             fontWeight: 400,
-            color: '#F4F2EC',
-            lineHeight: 1.2,
-            marginBottom: 8,
+            color: '#1A1C20',
+            marginBottom: 6,
+            lineHeight: 1.15,
           }}
         >
-          Enter Verification Code
+          Verify OTP
         </h2>
-        <p style={{ fontSize: 14, color: theme.colors.textMuted, lineHeight: 1.5, marginBottom: 26 }}>
-          We sent a 4-digit code to <b style={{ color: '#FFFFFF' }}>{authPhone}</b>.
+        <p style={{ fontSize: 13.5, color: '#6B707B', marginBottom: 4 }}>
+          Enter the 4-digit code sent to
         </p>
-
-        {/* 4 Digit Boxes */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 24 }}>
-          {digits.map((digit, idx) => (
-            <input
-              key={idx}
-              ref={inputRefs[idx]}
-              type="text"
-              inputMode="numeric"
-              maxLength={1}
-              value={digit}
-              onChange={e => handleDigitChange(idx, e.target.value)}
-              onKeyDown={e => handleKeyDown(idx, e)}
-              style={{
-                width: 64,
-                height: 64,
-                textAlign: 'center',
-                fontSize: 26,
-                fontWeight: 700,
-                color: '#FFFFFF',
-                backgroundColor: '#101217',
-                border: `1.5px solid ${digit ? theme.colors.primaryLight : theme.colors.borderLight}`,
-                borderRadius: 12,
-                outline: 'none',
-                boxShadow: digit ? '0 0 12px rgba(37, 99, 235, 0.25)' : 'none',
-                transition: 'all 0.15s ease',
-              }}
-            />
-          ))}
-        </div>
-
-        <button
-          onClick={handleVerify}
-          disabled={loading}
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            padding: '13px 20px',
-            backgroundColor: '#2563EB',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: 10,
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: loading ? 'default' : 'pointer',
-            boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
-            marginBottom: 20,
-          }}
-        >
-          <span>{loading ? 'Verifying...' : 'Verify & Continue'}</span>
-          <ArrowRight size={16} />
-        </button>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-          <span style={{ color: theme.colors.textDim }}>Didn't receive code?</span>
-          {timer > 0 ? (
-            <span style={{ color: theme.colors.textMuted }}>Resend code in {timer}s</span>
-          ) : (
-            <button
-              onClick={handleResend}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: theme.colors.primaryLight,
-                fontWeight: 600,
-                cursor: 'pointer',
-                padding: 0,
-              }}
-            >
-              Resend Code Now
-            </button>
-          )}
-        </div>
-
-        <div style={{ marginTop: 24, padding: '10px 14px', borderRadius: 8, backgroundColor: '#13151D', fontSize: 12, color: theme.colors.textDim, textAlign: 'center' }}>
-          💡 Testing hint: Default test code is <b style={{ color: '#FFFFFF' }}>0000</b>
-        </div>
+        <p style={{ fontSize: 14.5, fontWeight: 700, color: '#1A1C20' }}>
+          {authPhone || '+91 86678 06134'}
+        </p>
       </div>
-    </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 24 }}>
+        {digits.map((digit, idx) => (
+          <input
+            key={idx}
+            ref={inputRefs[idx]}
+            type="text"
+            inputMode="numeric"
+            autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+            value={digit}
+            placeholder="0"
+            onFocus={e => e.target.select()}
+            onChange={e => handleDigitChange(idx, e.target.value)}
+            onKeyDown={e => handleKeyDown(idx, e)}
+            onPaste={handlePaste}
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 12,
+              backgroundColor: '#EBE7DF',
+              border: `1.5px solid ${digit ? '#1C1D21' : '#DAD5CB'}`,
+              textAlign: 'center',
+              fontSize: 22,
+              fontWeight: 700,
+              color: '#1A1C20',
+              outline: 'none',
+              transition: 'border-color 0.15s ease',
+            }}
+          />
+        ))}
+      </div>
+
+      <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        {timer > 0 ? (
+          <span style={{ fontSize: 13, color: '#6B707B' }}>
+            Resend OTP in <b style={{ color: '#1A1C20' }}>00:{timer < 10 ? `0${timer}` : timer}</b>
+          </span>
+        ) : (
+          <button
+            onClick={handleResend}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#1A1C20',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
+          >
+            Resend OTP Now
+          </button>
+        )}
+      </div>
+
+      <button
+        onClick={handleVerify}
+        disabled={loading}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          padding: '13px 20px',
+          backgroundColor: '#1C1D21',
+          color: '#FFFFFF',
+          border: 'none',
+          borderRadius: 12,
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: loading ? 'default' : 'pointer',
+        }}
+      >
+        <span>{loading ? 'Verifying...' : 'Verify & Continue'}</span>
+        <ArrowRight size={16} />
+      </button>
+    </AuthLayout>
   );
 };

@@ -1,242 +1,442 @@
 import React, { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import {
-  TrendingUp,
-  Download,
   Calendar,
-  DollarSign,
-  ShoppingBag,
+  Download,
+  ArrowRight,
+  TrendingUp,
+  Layers,
+  Image as ImageIcon,
+  Tv,
+  Shirt,
+  Mail,
+  CheckCircle2,
   Users,
-  Award,
+  Printer,
   Sparkles,
-  BarChart3,
-  PieChart,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const ReportsAnalyticsScreen: React.FC = () => {
-  const { analytics, showToast } = useMerchant();
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'orders' | 'revenue' | 'services' | 'customers'>('overview');
+  const { analytics, orders, navigateTo, showToast } = useMerchant();
+  const [activeTab, setActiveTab] = useState<'Overview' | 'Orders' | 'Revenue' | 'Services' | 'Customers'>('Overview');
 
-  const summary = analytics?.summaryMetrics || {
-    totalRevenue: 148250,
-    totalOrders: 482,
-    avgOrderValue: 307,
-    repeatCustomerRate: 64,
-  };
+  const totalOrders = orders.length > 0 ? orders.length : (analytics?.summaryMetrics?.totalOrders ?? 0);
+  const totalRev = orders.length > 0
+    ? orders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0)
+    : (analytics?.summaryMetrics?.totalRevenue ?? 0);
+  const completedCount = orders.filter(o => o.status?.toLowerCase() === 'completed').length || (totalOrders > 0 ? Math.round(totalOrders * 0.85) : 0);
+  const customersCount = new Set(orders.map(o => o.customerPhone || o.userId).filter(Boolean)).size || (totalOrders > 0 ? 12 : 0);
 
-  const revenueTrend = analytics?.revenueTrend || [
-    { day: 'Mon', amount: 4800 },
-    { day: 'Tue', amount: 6200 },
-    { day: 'Wed', amount: 5900 },
-    { day: 'Thu', amount: 7100 },
-    { day: 'Fri', amount: 8400 },
-    { day: 'Sat', amount: 9600 },
-    { day: 'Sun', amount: 7560 },
-  ];
-
-  const breakdown = analytics?.serviceBreakdown || [
-    { name: 'Standard Prints', percentage: 54, revenue: 80055 },
-    { name: 'Posters', percentage: 22, revenue: 32615 },
-    { name: 'Flex & Banners', percentage: 14, revenue: 20755 },
-    { name: 'T-Shirts', percentage: 10, revenue: 14825 },
-  ];
-
-  const topServices = analytics?.topServices || [
-    { service: 'A4 Colour Print (75 GSM)', orders: 182, revenue: 42100, growth: '+14%' },
-    { service: 'A4 Black & White', orders: 145, revenue: 18200, growth: '+8%' },
-    { service: 'Poster A2 Glossy', orders: 48, revenue: 14400, growth: '+21%' },
-    { service: 'Spiral Book Binding', orders: 36, revenue: 12600, growth: '+5%' },
-    { service: 'Star Flex Banner 3x2', orders: 24, revenue: 28800, growth: '+18%' },
-  ];
-
-  const maxAmount = Math.max(...revenueTrend.map(r => r.amount));
-
-  const handleExport = () => {
-    showToast('Report exported as PDF & CSV to your Downloads folder');
-  };
+  const tabs = ['Overview', 'Orders', 'Revenue', 'Services', 'Customers'] as const;
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, margin: '0 auto' }}>
-      {/* Title */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontFamily: theme.fonts.serif, fontSize: 32, fontWeight: 400, color: '#F4F2EC', marginBottom: 4 }}>
-            Reports & Analytics
-          </h1>
-          <p style={{ fontSize: 13, color: theme.colors.textMuted }}>
-            Track revenue growth, customer retention, and high-demand print service items.
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Top Filter and Export Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: theme.colors.creamCard,
+          border: `1px solid ${theme.colors.creamCardBorder}`,
+          borderRadius: 18,
+          padding: '12px 18px',
+        }}
+      >
+        {/* Subtabs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#EFECE4', padding: 4, borderRadius: 20 }}>
+          {tabs.map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 16,
+                border: 'none',
+                backgroundColor: activeTab === tab ? '#1C1D21' : 'transparent',
+                color: activeTab === tab ? '#FFFFFF' : '#6B707B',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
-        <button
-          onClick={handleExport}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '10px 18px',
-            backgroundColor: '#1E2332',
-            border: `1px solid ${theme.colors.borderLight}`,
-            borderRadius: 8,
-            color: '#FFFFFF',
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
-          <Download size={15} />
-          <span>Export Report (CSV / PDF)</span>
-        </button>
-      </div>
-
-      {/* Sub Tabs */}
-      <div style={{ display: 'flex', gap: 10, borderBottom: `1px solid ${theme.colors.border}`, marginBottom: 24 }}>
-        {[
-          { id: 'overview', label: 'Overview' },
-          { id: 'orders', label: 'Orders' },
-          { id: 'revenue', label: 'Revenue' },
-          { id: 'services', label: 'Services' },
-          { id: 'customers', label: 'Customers' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveSubTab(tab.id as any)}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
             style={{
-              padding: '10px 16px',
-              backgroundColor: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#EFECE4',
+              border: '1px solid #DAD5CB',
+              borderRadius: 12,
+              padding: '7px 12px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: '#1A1C20',
+              cursor: 'pointer',
+            }}
+          >
+            <Calendar size={14} color="#6B707B" />
+            <span>Jul 1, 2026 – Jul 31, 2026</span>
+            <span style={{ fontSize: 10, color: '#6B707B' }}>▼</span>
+          </div>
+
+          <button
+            onClick={() => showToast('Exporting Report (CSV/PDF)...')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 16px',
+              borderRadius: 16,
+              backgroundColor: '#1C1D21',
+              color: '#FFFFFF',
               border: 'none',
-              borderBottom: activeSubTab === tab.id ? `2px solid ${theme.colors.primaryLight}` : '2px solid transparent',
-              color: activeSubTab === tab.id ? '#FFFFFF' : theme.colors.textMuted,
-              fontSize: 14,
+              fontSize: 12.5,
               fontWeight: 600,
               cursor: 'pointer',
             }}
           >
-            {tab.label}
+            <Download size={14} />
+            <span>Export Report</span>
           </button>
-        ))}
-      </div>
-
-      {/* 4 Stat Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18, marginBottom: 28 }}>
-        <div style={{ backgroundColor: '#161820', border: `1px solid ${theme.colors.border}`, borderRadius: 14, padding: '20px 22px' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim, marginBottom: 8 }}>Total Revenue (30d)</div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#FFFFFF', marginBottom: 4 }}>
-            ₹ {summary.totalRevenue.toLocaleString()}
-          </div>
-          <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <TrendingUp size={13} /> +22% from last month
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: '#161820', border: `1px solid ${theme.colors.border}`, borderRadius: 14, padding: '20px 22px' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim, marginBottom: 8 }}>Total Orders Placed</div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#FFFFFF', marginBottom: 4 }}>
-            {summary.totalOrders}
-          </div>
-          <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <TrendingUp size={13} /> +16% from last month
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: '#161820', border: `1px solid ${theme.colors.border}`, borderRadius: 14, padding: '20px 22px' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim, marginBottom: 8 }}>Average Order Value</div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#FFFFFF', marginBottom: 4 }}>
-            ₹ {summary.avgOrderValue}
-          </div>
-          <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <TrendingUp size={13} /> +8% driven by bulk prints
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: '#161820', border: `1px solid ${theme.colors.border}`, borderRadius: 14, padding: '20px 22px' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textDim, marginBottom: 8 }}>Repeat Customer Rate</div>
-          <div style={{ fontSize: 30, fontWeight: 800, color: '#FFFFFF', marginBottom: 4 }}>
-            {summary.repeatCustomerRate}%
-          </div>
-          <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <TrendingUp size={13} /> 308 returning users
-          </div>
         </div>
       </div>
 
-      {/* Charts Grid matching Page 11 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 20, marginBottom: 28 }}>
-        {/* Weekly Revenue Trend Bar Chart */}
+      {/* 4 Top KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        {/* Total Orders */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '22px 24px',
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 16,
+            padding: '16px 18px',
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF' }}>Weekly Daily Sales Trend</h2>
-              <span style={{ fontSize: 12, color: theme.colors.textDim }}>Total daily billing across all services</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Layers size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Total Orders</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 30, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{totalOrders}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+              Live
+            </span>
+          </div>
+          <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4 L 200 38 Z" fill="rgba(129, 140, 248, 0.22)" />
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4" stroke="#818CF8" strokeWidth="1.2" opacity="0.45" />
+          </svg>
+        </div>
+
+        {/* Total Revenue */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 16,
+            padding: '16px 18px',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <TrendingUp size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Total Revenue</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 30, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>₹ {totalRev.toLocaleString()}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+              Live
+            </span>
+          </div>
+          <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4 L 200 38 Z" fill="rgba(52, 211, 153, 0.22)" />
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4" stroke="#34D399" strokeWidth="1.2" opacity="0.45" />
+          </svg>
+        </div>
+
+        {/* Prints Completed */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 16,
+            padding: '16px 18px',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Printer size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Prints Completed</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 30, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{completedCount}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+              Live
+            </span>
+          </div>
+          <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4 L 200 38 Z" fill="rgba(251, 146, 60, 0.22)" />
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4" stroke="#FB923C" strokeWidth="1.2" opacity="0.45" />
+          </svg>
+        </div>
+
+        {/* New Customers */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 16,
+            padding: '16px 18px',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <Users size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>New Customers</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{ fontSize: 30, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{customersCount}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+              Live
+            </span>
+          </div>
+          <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4 L 200 38 Z" fill="rgba(167, 139, 250, 0.22)" />
+            <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4" stroke="#A78BFA" strokeWidth="1.2" opacity="0.45" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Middle Row: Revenue Trend, Orders by Service, Top Services */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: 14 }}>
+        {/* Revenue Trend Card */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20' }}>Revenue Trend</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+                ↑ +32% vs previous period
+              </span>
             </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#10B981' }}>+18.4% WoW</span>
+            <div style={{ fontSize: 26, fontWeight: 700, color: '#1A1C20', marginBottom: 16 }}>
+              ₹ 48,320
+            </div>
           </div>
 
-          {/* Bar Chart Visual */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: 180, gap: 14, paddingBottom: 10 }}>
-            {revenueTrend.map((item, idx) => {
-              const heightPct = Math.round((item.amount / maxAmount) * 100);
-              const isToday = idx === revenueTrend.length - 1;
-              return (
-                <div key={item.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: isToday ? '#60A5FA' : theme.colors.textDim }}>
-                    ₹{item.amount > 1000 ? `${(item.amount / 1000).toFixed(1)}k` : item.amount}
-                  </span>
-                  <div
-                    style={{
-                      width: '100%',
-                      height: `${heightPct}%`,
-                      minHeight: 20,
-                      borderRadius: '6px 6px 2px 2px',
-                      backgroundColor: isToday ? '#2563EB' : '#1F2433',
-                      border: `1px solid ${isToday ? '#3B82F6' : theme.colors.borderLight}`,
-                      transition: 'all 0.3s ease',
-                    }}
-                  />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: isToday ? '#FFFFFF' : theme.colors.textDim }}>
-                    {item.day}
-                  </span>
-                </div>
-              );
-            })}
+          {/* SVG line chart matching PDF */}
+          <div style={{ width: '100%', height: 160, position: 'relative' }}>
+            {/* Tooltip matching PDF */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 4,
+                right: 32,
+                backgroundColor: '#FFFFFF',
+                borderRadius: 8,
+                padding: '4px 8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                border: '1px solid #E5E1D6',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#1A1C20' }}>₹ 6,480</div>
+              <div style={{ fontSize: 9.5, color: '#8E929B' }}>Jul 29, 2026</div>
+            </div>
+
+            <svg viewBox="0 0 320 120" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+              <defs>
+                <linearGradient id="purpleGrad" x1="0" y1="0" x2="0" y2="120" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              {/* Grid lines */}
+              <line x1="0" y1="20" x2="320" y2="20" stroke="#EBE7DF" strokeDasharray="3 3" />
+              <line x1="0" y1="50" x2="320" y2="50" stroke="#EBE7DF" strokeDasharray="3 3" />
+              <line x1="0" y1="80" x2="320" y2="80" stroke="#EBE7DF" strokeDasharray="3 3" />
+              <line x1="0" y1="110" x2="320" y2="110" stroke="#EBE7DF" />
+
+              {/* Area fill */}
+              <path
+                d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40 L 295 110 L 20 110 Z"
+                fill="url(#purpleGrad)"
+              />
+
+              {/* Line */}
+              <path
+                d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40"
+                fill="none"
+                stroke="#8B5CF6"
+                strokeWidth="2.5"
+              />
+
+              {/* Dots */}
+              {[
+                { x: 20, y: 95 },
+                { x: 75, y: 75 },
+                { x: 130, y: 80 },
+                { x: 185, y: 60 },
+                { x: 240, y: 45 },
+                { x: 295, y: 40 },
+              ].map((dot, idx) => (
+                <circle key={idx} cx={dot.x} cy={dot.y} r="4" fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="2" />
+              ))}
+            </svg>
+
+            {/* X Axis labels */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#8E929B', marginTop: 4 }}>
+              <span>Jul 1</span>
+              <span>Jul 5</span>
+              <span>Jul 9</span>
+              <span>Jul 13</span>
+              <span>Jul 17</span>
+              <span>Jul 21</span>
+              <span>Jul 25</span>
+              <span>Jul 29</span>
+            </div>
           </div>
         </div>
 
-        {/* Service Breakdown Donut / Progress Visual */}
+        {/* Orders by Service Donut Card */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '22px 24px',
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
           }}
         >
-          <div style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF' }}>Sales by Category</h2>
-            <span style={{ fontSize: 12, color: theme.colors.textDim }}>Revenue contribution by print format</span>
-          </div>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20', marginBottom: 14 }}>
+            Orders by Service
+          </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {breakdown.map((item, idx) => {
-              const colors = ['#2563EB', '#10B981', '#F59E0B', '#8B5CF6'];
-              const color = colors[idx % colors.length];
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Donut chart */}
+            <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
+              <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#E5E7EB" strokeWidth="4" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#8B5CF6" strokeWidth="4" strokeDasharray="38 100" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#60A5FA" strokeWidth="4" strokeDasharray="18 100" strokeDashoffset="-38" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#F59E0B" strokeWidth="4" strokeDasharray="14 100" strokeDashoffset="-56" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="12 100" strokeDashoffset="-70" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#FDE047" strokeWidth="4" strokeDasharray="10 100" strokeDashoffset="-82" />
+                <circle cx="18" cy="18" r="14" fill="none" stroke="#9CA3AF" strokeWidth="4" strokeDasharray="8 100" strokeDashoffset="-92" />
+              </svg>
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#1A1C20', lineHeight: 1 }}>156</span>
+                <span style={{ fontSize: 10, color: '#6B707B' }}>Orders</span>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#8B5CF6' }} />
+                <span style={{ color: '#555963' }}>Standard Prints</span>
+                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>38%</b>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#60A5FA' }} />
+                <span style={{ color: '#555963' }}>Posters</span>
+                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>18%</b>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+                <span style={{ color: '#555963' }}>Banners & Flex</span>
+                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>14%</b>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10B981' }} />
+                <span style={{ color: '#555963' }}>T-shirts</span>
+                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>12%</b>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FDE047' }} />
+                <span style={{ color: '#555963' }}>Invitations</span>
+                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>10%</b>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#9CA3AF' }} />
+                <span style={{ color: '#555963' }}>Others</span>
+                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>8%</b>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Services (by Revenue) Card */}
+        <div
+          style={{
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
+          }}
+        >
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20', marginBottom: 14 }}>
+            Top Services (by Revenue)
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { name: 'Standard Prints', amount: '18,240', icon: Layers },
+              { name: 'Posters', amount: '8,640', icon: ImageIcon },
+              { name: 'Banners & Flex', amount: '6,720', icon: Tv },
+              { name: 'T-shirt Printing', amount: '5,760', icon: Shirt },
+              { name: 'Invitations', amount: '4,800', icon: Mail },
+            ].map(item => {
+              const Icon = item.icon;
               return (
-                <div key={item.name}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{item.name}</span>
-                    <span style={{ color: theme.colors.textMuted }}>{item.percentage}% (₹{item.revenue.toLocaleString()})</span>
+                <div
+                  key={item.name}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    backgroundColor: '#FAF8F5',
+                    border: '1px solid #EBE7DF',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Icon size={14} color="#6B707B" />
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>{item.name}</span>
                   </div>
-                  <div style={{ height: 6, borderRadius: 3, backgroundColor: '#1E222E', overflow: 'hidden' }}>
-                    <div style={{ width: `${item.percentage}%`, height: '100%', backgroundColor: color, borderRadius: 3 }} />
-                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>₹ {item.amount}</span>
                 </div>
               );
             })}
@@ -244,80 +444,127 @@ export const ReportsAnalyticsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Top Services Table & Insights */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 20 }}>
-        {/* Table */}
+      {/* Bottom Row: Recent Orders & Insights */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 14 }}>
+        {/* Recent Orders Card */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '20px 24px',
+            backgroundColor: theme.colors.creamCard,
+            border: `1px solid ${theme.colors.creamCardBorder}`,
+            borderRadius: 18,
+            padding: '18px 20px',
           }}
         >
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', marginBottom: 14 }}>
-            Top Performing Services
-          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20' }}>Recent Orders</h3>
+            <button
+              onClick={() => navigateTo('orders')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                background: 'none',
+                border: 'none',
+                color: '#1A1C20',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <span>View All Orders</span>
+              <ArrowRight size={13} />
+            </button>
+          </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
             <thead>
-              <tr style={{ borderBottom: `1px solid ${theme.colors.borderLight}`, color: theme.colors.textDim, fontSize: 11, textTransform: 'uppercase' }}>
-                <th style={{ padding: '8px 10px' }}>Print Service</th>
-                <th style={{ padding: '8px 10px' }}>Orders</th>
-                <th style={{ padding: '8px 10px' }}>Revenue</th>
-                <th style={{ padding: '8px 10px', textAlign: 'right' }}>Growth</th>
+              <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, borderBottom: '1px solid #EBE7DF' }}>
+                <th style={{ padding: '8px 10px' }}>ORDER ID</th>
+                <th style={{ padding: '8px 10px' }}>CUSTOMER</th>
+                <th style={{ padding: '8px 10px' }}>SERVICE</th>
+                <th style={{ padding: '8px 10px' }}>AMOUNT</th>
+                <th style={{ padding: '8px 10px' }}>STATUS</th>
               </tr>
             </thead>
             <tbody>
-              {topServices.map((srv, idx) => (
-                <tr key={idx} style={{ borderBottom: `1px solid ${theme.colors.border}`, fontSize: 13 }}>
-                  <td style={{ padding: '12px 10px', fontWeight: 600, color: '#FFFFFF' }}>{srv.service}</td>
-                  <td style={{ padding: '12px 10px', color: theme.colors.textMuted }}>{srv.orders}</td>
-                  <td style={{ padding: '12px 10px', fontWeight: 700, color: '#FFFFFF' }}>₹ {srv.revenue.toLocaleString()}</td>
-                  <td style={{ padding: '12px 10px', textAlign: 'right', color: '#10B981', fontWeight: 600 }}>{srv.growth}</td>
+              {[
+                { id: '#5577', customer: 'Arun K', service: 'A4 Colour (34 pages)', amount: '160' },
+                { id: '#5576', customer: 'Divya R', service: 'A3 B/W (10 pages)', amount: '60' },
+                { id: '#5575', customer: 'Karthik S', service: 'Poster (A2)', amount: '300' },
+              ].map(row => (
+                <tr key={row.id} style={{ borderBottom: '1px solid #F0ECE4' }}>
+                  <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>{row.id}</td>
+                  <td style={{ padding: '10px', color: '#1A1C20' }}>{row.customer}</td>
+                  <td style={{ padding: '10px', color: '#555963' }}>{row.service}</td>
+                  <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>₹ {row.amount}</td>
+                  <td style={{ padding: '10px' }}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '3px 8px',
+                        borderRadius: 12,
+                        backgroundColor: '#DCFCE7',
+                        color: '#15803D',
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <CheckCircle2 size={11} />
+                      <span>Completed</span>
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* Insights Card matching Page 11 */}
+        {/* Insights Card (Lavender matching PDF) */}
         <div
           style={{
-            backgroundColor: '#161820',
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: 14,
-            padding: '20px 24px',
+            backgroundColor: '#EDE9FE',
+            border: '1px solid #DDD6FE',
+            borderRadius: 18,
+            padding: '18px 20px',
+            position: 'relative',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
+            justifyContent: 'space-between',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <Sparkles size={18} color="#F59E0B" />
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF' }}>Prinkout AI Shop Insights</h2>
+          {/* Subtle bar chart illustration in bottom right */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              right: 14,
+              display: 'flex',
+              alignItems: 'flex-end',
+              gap: 5,
+              opacity: 0.35,
+              pointerEvents: 'none',
+            }}
+          >
+            <div style={{ width: 10, height: 25, backgroundColor: '#8B5CF6', borderRadius: 3 }} />
+            <div style={{ width: 10, height: 42, backgroundColor: '#8B5CF6', borderRadius: 3 }} />
+            <div style={{ width: 10, height: 60, backgroundColor: '#8B5CF6', borderRadius: 3 }} />
+            <div style={{ width: 10, height: 75, backgroundColor: '#8B5CF6', borderRadius: 3 }} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
-            {(analytics?.insights || [
-              'A4 Color prints surged by 28% this week driven by semester exams.',
-              'Average order preparation turnaround reduced to 18 mins.',
-              'UPI payments account for 78% of your daily transactions.',
-            ]).map((insight, idx) => (
-              <div
-                key={idx}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: 8,
-                  backgroundColor: '#111319',
-                  border: `1px solid ${theme.colors.borderLight}`,
-                  fontSize: 13,
-                  color: '#D1D5DB',
-                  lineHeight: 1.45,
-                }}
-              >
-                💡 {insight}
-              </div>
-            ))}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <TrendingUp size={16} color="#6B21A8" />
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#581C87' }}>Insights</h3>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5, color: '#581C87', lineHeight: 1.5, maxWidth: 280 }}>
+              <div>• Revenue is up by <b>32%</b> compared to the previous period.</div>
+              <div>• Standard Prints is your top performing service (<b>38%</b>).</div>
+              <div>• <b>28 new customers</b> placed orders this month.</div>
+            </div>
           </div>
         </div>
       </div>

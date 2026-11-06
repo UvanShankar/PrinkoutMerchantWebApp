@@ -1,260 +1,155 @@
 import React, { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
-import {
-  ChevronDown,
-  Bell,
-  RefreshCw,
-  PlusCircle,
-  CheckCircle2,
-  AlertCircle,
-  Store,
-  ExternalLink,
-} from 'lucide-react';
+import { Bell, ChevronDown, Store, Check, LogOut } from 'lucide-react';
 import { theme } from '../theme';
 
 export const Header: React.FC = () => {
-  const { shopData, shopId, setShopId, shopStatus, toggleShopStatus, refreshData, navigateTo, showToast } = useMerchant();
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { currentScreen, settingsTab, shopData, setShopId, shopId, showToast, logout } = useMerchant();
   const [showShopDropdown, setShowShopDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refreshData();
-    setTimeout(() => {
-      setIsRefreshing(false);
-      showToast('Live dashboard data synchronized');
-    }, 400);
+  // Dynamic titles matching the PDF exactly for each screen
+  const getHeaderContent = () => {
+    switch (currentScreen) {
+      case 'dashboard': {
+        const ownerFirst = shopData?.ownerName ? shopData.ownerName.trim().split(' ')[0] : 'Merchant';
+        const shopTitle = shopData?.shopName || 'your print shop';
+        return {
+          title: `Good Evening, ${ownerFirst}! 👋`,
+          subtitle: `Here's what's happening at ${shopTitle} today.`,
+        };
+      }
+      case 'orders':
+        return {
+          title: 'Orders',
+          subtitle: 'All your customer orders in one place.',
+        };
+      case 'queue':
+        return {
+          title: 'Print Queue',
+          subtitle: 'Track and manage your printing workflow.',
+        };
+      case 'pricing':
+        return {
+          title: 'Pricing & Services',
+          subtitle: 'Manage the print services you offer and set your prices.',
+        };
+      case 'reports':
+        return {
+          title: 'Reports & Analytics',
+          subtitle: 'Track your sales, orders, and business performance.',
+        };
+      case 'payouts':
+        return {
+          title: 'Payouts',
+          subtitle: 'Track your earnings, settlements, and payouts from Prinkout.',
+        };
+      case 'profile':
+        return {
+          title: 'Shop Profile',
+          subtitle: 'Manage your shop details, branding, and public profile.',
+        };
+      case 'settings':
+        if (settingsTab === 'notifications') {
+          return {
+            title: 'Notifications',
+            subtitle: 'Choose what updates you want to receive.',
+          };
+        }
+        if (settingsTab === 'team') {
+          return {
+            title: 'Team & Access',
+            subtitle: 'Add team members and manage their access levels.',
+          };
+        }
+        if (settingsTab === 'integrations') {
+          return {
+            title: 'Integrations',
+            subtitle: 'Connect tools to make your workflow faster.',
+          };
+        }
+        if (settingsTab === 'security') {
+          return {
+            title: 'Security',
+            subtitle: 'Keep your account safe and secure.',
+          };
+        }
+        return {
+          title: 'Settings',
+          subtitle: 'Manage your account, notifications, team and preferences.',
+        };
+      default:
+        return {
+          title: 'Merchant Portal',
+          subtitle: 'Prinkout merchant dashboard',
+        };
+    }
   };
+
+  const { title, subtitle } = getHeaderContent();
 
   return (
     <header
       style={{
-        height: 68,
-        backgroundColor: '#121419',
-        borderBottom: `1px solid ${theme.colors.border}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 28px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 40,
+        padding: '24px 32px 18px',
+        backgroundColor: '#0F1013',
+        boxSizing: 'border-box',
+        position: 'relative',
+        zIndex: 5,
       }}
     >
-      {/* Left: Shop Switcher */}
-      <div style={{ position: 'relative' }}>
-        <button
-          onClick={() => setShowShopDropdown(!showShopDropdown)}
+      {/* Left Title and Subtitle */}
+      <div>
+        <h1
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            textAlign: 'left',
-            padding: '6px 10px',
-            borderRadius: 8,
+            fontFamily: theme.fonts.serif,
+            fontSize: 28,
+            fontWeight: 400,
+            color: '#FFFFFF',
+            lineHeight: 1.15,
+            marginBottom: 4,
           }}
-          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#181A22')}
-          onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 8,
-              backgroundColor: '#1F2430',
-              border: `1px solid ${theme.colors.borderLight}`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Store size={18} color={theme.colors.primaryLight} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: theme.colors.textLight }}>
-                {shopData.shopName || 'Sabarish Prints'}
-              </span>
-              <ChevronDown size={14} color={theme.colors.textDim} />
-            </div>
-            <div style={{ fontSize: 12, color: theme.colors.textDim }}>
-              {shopData.area || 'Valipalayam'}, {shopData.city || 'Tiruppur'}
-            </div>
-          </div>
-        </button>
-
-        {showShopDropdown && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 52,
-              left: 0,
-              width: 260,
-              backgroundColor: '#1A1D26',
-              border: `1px solid ${theme.colors.borderLight}`,
-              borderRadius: 10,
-              boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-              zIndex: 50,
-              overflow: 'hidden',
-              padding: 6,
-            }}
-          >
-            <div style={{ padding: '8px 10px', fontSize: 11, fontWeight: 700, color: theme.colors.textDim, textTransform: 'uppercase' }}>
-              Your Registered Branches
-            </div>
-            <button
-              onClick={() => {
-                setShowShopDropdown(false);
-                setShopId('shp_selvi_001');
-                showToast('Switched to Sabarish Prints (Main)');
-              }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 12px',
-                borderRadius: 6,
-                backgroundColor: shopId === 'shp_selvi_001' ? '#2563EB' : 'transparent',
-                color: '#FFFFFF',
-                border: 'none',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontSize: 13,
-                fontWeight: 600,
-                marginBottom: 4,
-              }}
-            >
-              <div>
-                <div>Sabarish Prints (Main)</div>
-                <div style={{ fontSize: 11, opacity: 0.8 }}>Valipalayam, Tiruppur</div>
-              </div>
-              {shopId === 'shp_selvi_001' && <CheckCircle2 size={16} />}
-            </button>
-            <button
-              onClick={() => {
-                setShowShopDropdown(false);
-                setShopId('shp_selvi_002');
-                showToast('Switched to Selvi Xerox Express');
-              }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 12px',
-                borderRadius: 6,
-                backgroundColor: shopId === 'shp_selvi_002' ? '#2563EB' : 'transparent',
-                color: theme.colors.textLight,
-                border: 'none',
-                cursor: 'pointer',
-                textAlign: 'left',
-                fontSize: 13,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#242834')}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = shopId === 'shp_selvi_002' ? '#2563EB' : 'transparent')}
-            >
-              <div>
-                <div>Selvi Xerox Express</div>
-                <div style={{ fontSize: 11, color: theme.colors.textDim }}>Kumaran Rd, Tiruppur</div>
-              </div>
-              {shopId === 'shp_selvi_002' && <CheckCircle2 size={16} />}
-            </button>
-          </div>
-        )}
+          {title}
+        </h1>
+        <p style={{ fontSize: 13, color: '#9CA3AF' }}>{subtitle}</p>
       </div>
 
-      {/* Right Controls */}
+      {/* Right Controls: Bell and Shop Selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        {/* Live Shop Online Toggle */}
-        <button
-          onClick={toggleShopStatus}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '7px 14px',
-            borderRadius: 20,
-            border: `1px solid ${shopStatus === 'active' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(245, 158, 11, 0.4)'}`,
-            backgroundColor: shopStatus === 'active' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-            color: shopStatus === 'active' ? theme.colors.success : theme.colors.warning,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-        >
-          <div
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: shopStatus === 'active' ? theme.colors.success : theme.colors.warning,
-              boxShadow: `0 0 8px ${shopStatus === 'active' ? theme.colors.success : theme.colors.warning}`,
-            }}
-          />
-          {shopStatus === 'active' ? 'Accepting Orders' : 'Shop Paused'}
-        </button>
-
-        {/* Sync Data */}
-        <button
-          onClick={handleRefresh}
-          title="Refresh latest orders and stats"
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 8,
-            backgroundColor: '#181A22',
-            border: `1px solid ${theme.colors.borderLight}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: theme.colors.textLight,
-          }}
-        >
-          <RefreshCw
-            size={16}
-            style={{
-              animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
-              transformOrigin: 'center',
-            }}
-          />
-        </button>
-
-        {/* Notifications */}
+        {/* Bell Button */}
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 8,
-              backgroundColor: '#181A22',
-              border: `1px solid ${theme.colors.borderLight}`,
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              backgroundColor: '#1E2026',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: theme.colors.textLight,
+              color: '#D1D5DB',
               position: 'relative',
             }}
           >
-            <Bell size={17} />
+            <Bell size={16} />
+            {/* Orange/Red notification dot */}
             <span
               style={{
                 position: 'absolute',
-                top: 8,
-                right: 8,
+                top: 7,
+                right: 7,
                 width: 7,
                 height: 7,
                 borderRadius: '50%',
-                backgroundColor: '#EF4444',
-                boxShadow: '0 0 6px #EF4444',
+                backgroundColor: '#F97316',
+                border: '1.5px solid #1E2026',
               }}
             />
           </button>
@@ -263,83 +158,119 @@ export const Header: React.FC = () => {
             <div
               style={{
                 position: 'absolute',
-                top: 48,
+                top: 44,
                 right: 0,
-                width: 320,
-                backgroundColor: '#1A1D26',
-                border: `1px solid ${theme.colors.borderLight}`,
-                borderRadius: 10,
-                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                zIndex: 50,
+                width: 280,
+                backgroundColor: '#1B1C22',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: 14,
+                boxShadow: '0 15px 30px rgba(0,0,0,0.5)',
                 padding: '12px 14px',
+                zIndex: 50,
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: theme.colors.textLight }}>Recent Alerts</span>
-                <span
-                  onClick={() => navigateTo('settings')}
-                  style={{ fontSize: 11, color: theme.colors.primaryLight, cursor: 'pointer', fontWeight: 600 }}
-                >
-                  View All
-                </span>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 8 }}>
+                Recent Alerts
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ padding: '8px 10px', backgroundColor: '#13151D', borderRadius: 6, fontSize: 12 }}>
-                  <div style={{ fontWeight: 600, color: '#FFFFFF', marginBottom: 2 }}>New Order #5577 Received</div>
-                  <div style={{ color: theme.colors.textDim, fontSize: 11 }}>Arun K • A4 Colour • 12 mins ago</div>
-                </div>
-                <div style={{ padding: '8px 10px', backgroundColor: '#13151D', borderRadius: 6, fontSize: 12 }}>
-                  <div style={{ fontWeight: 600, color: '#10B981', marginBottom: 2 }}>Daily Settlement Initiated</div>
-                  <div style={{ color: theme.colors.textDim, fontSize: 11 }}>₹ 17,800 sent to HDFC Bank • Yesterday</div>
-                </div>
+              <div style={{ fontSize: 11.5, color: '#D1D5DB', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                Order #5577 received (Arun K)
+              </div>
+              <div style={{ fontSize: 11.5, color: '#D1D5DB', padding: '6px 0' }}>
+                ₹ 43,488 daily payout processed
               </div>
             </div>
           )}
         </div>
 
-        {/* Profile Avatar */}
-        <button
-          onClick={() => navigateTo('profile')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '4px 6px',
-            borderRadius: 8,
-          }}
-        >
-          <div
+        {/* Shop Switcher */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowShopDropdown(!showShopDropdown)}
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              backgroundColor: '#3B82F6',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14,
-              fontWeight: 700,
+              gap: 8,
+              padding: '7px 14px',
+              borderRadius: 22,
+              backgroundColor: '#1E2026',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               color: '#FFFFFF',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 600,
             }}
           >
-            S
-          </div>
-          <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: theme.colors.textLight }}>Sabarish</span>
-            <span style={{ fontSize: 11, color: theme.colors.textDim }}>Owner</span>
-          </div>
-        </button>
-      </div>
+            <Store size={15} color="#9CA3AF" />
+            <span>{shopData?.shopName || 'Shop'}</span>
+            <ChevronDown size={14} color="#9CA3AF" />
+          </button>
 
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+          {showShopDropdown && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 44,
+                right: 0,
+                width: 220,
+                backgroundColor: '#1B1C22',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: 12,
+                boxShadow: '0 15px 30px rgba(0,0,0,0.5)',
+                padding: 6,
+                zIndex: 50,
+              }}
+            >
+              <div
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  backgroundColor: '#2A2D38',
+                  color: '#FFFFFF',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  boxSizing: 'border-box',
+                }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {shopData?.shopName || 'Current Shop'}
+                </span>
+                <Check size={14} color="#10B981" />
+              </div>
+
+              <div style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
+
+              <button
+                onClick={() => {
+                  setShowShopDropdown(false);
+                  logout();
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  backgroundColor: 'transparent',
+                  color: '#EF4444',
+                  border: 'none',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <LogOut size={14} color="#EF4444" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </header>
   );
 };
