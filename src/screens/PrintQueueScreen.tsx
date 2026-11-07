@@ -28,6 +28,11 @@ export const PrintQueueScreen: React.FC = () => {
   const { orders, updateOrderStatus, navigateTo } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');
 
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const dateRangeDisplay = `${startOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} – ${endOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
   const mapToQueue = (o: any): QueueItem => {
     let thumbType: QueueItem['thumbType'] = 'report';
     const text = `${o.specs || ''} ${o.serviceType || ''}`.toLowerCase();
@@ -317,7 +322,7 @@ export const PrintQueueScreen: React.FC = () => {
           }}
         >
           <Calendar size={14} color="#6B707B" />
-          <span>Jul 1, 2026 – Jul 31, 2026</span>
+          <span>{dateRangeDisplay}</span>
           <span style={{ fontSize: 10, color: '#6B707B' }}>▼</span>
         </div>
 

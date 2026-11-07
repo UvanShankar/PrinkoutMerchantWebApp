@@ -23,10 +23,57 @@ export const ReportsAnalyticsScreen: React.FC = () => {
 
   const totalOrders = orders.length > 0 ? orders.length : (analytics?.summaryMetrics?.totalOrders ?? 0);
   const totalRev = orders.length > 0
-    ? orders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0)
+    ? orders.reduce((sum, o) => sum + (Number(o.totalPrice) || Number(o.orderDetails?.totalPrice) || 0), 0)
     : (analytics?.summaryMetrics?.totalRevenue ?? 0);
-  const completedCount = orders.filter(o => o.status?.toLowerCase() === 'completed').length || (totalOrders > 0 ? Math.round(totalOrders * 0.85) : 0);
-  const customersCount = new Set(orders.map(o => o.customerPhone || o.userId).filter(Boolean)).size || (totalOrders > 0 ? 12 : 0);
+  const completedCount = orders.filter(o => (o.status || '').toLowerCase() === 'completed').length;
+  const customersCount = new Set(orders.map(o => o.customerPhone || o.userId).filter(Boolean)).size;
+
+  // Real dynamic dates
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const dateRangeDisplay = `${startOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} – ${endOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const currentMonthShort = now.toLocaleDateString([], { month: 'short' });
+  const monthDayLabels = [1, 5, 9, 13, 17, 21, 25, 29].map(d => `${currentMonthShort} ${d}`);
+
+  // Dynamic Service Breakdown from real orders
+  const servicesConfig = [
+    { name: 'Standard Prints', color: '#8B5CF6', icon: Layers },
+    { name: 'Posters', color: '#60A5FA', icon: ImageIcon },
+    { name: 'Banners & Flex', color: '#F59E0B', icon: Tv },
+    { name: 'T-shirt Printing', color: '#10B981', icon: Shirt },
+    { name: 'Invitations', color: '#FDE047', icon: Mail },
+  ];
+
+  const serviceBreakdown = servicesConfig.map(s => {
+    const matchingOrders = orders.filter(o => {
+      const st = (o.serviceType || '').toLowerCase();
+      if (s.name === 'Standard Prints') return st.includes('standard') || st.includes('print') || !o.serviceType;
+      if (s.name === 'Posters') return st.includes('poster');
+      if (s.name === 'Banners & Flex') return st.includes('banner') || st.includes('flex');
+      if (s.name === 'T-shirt Printing') return st.includes('t-shirt') || st.includes('shirt');
+      if (s.name === 'Invitations') return st.includes('invitation');
+      return false;
+    });
+    const count = matchingOrders.length;
+    const amount = matchingOrders.reduce((sum, o) => sum + (Number(o.totalPrice) || Number(o.orderDetails?.totalPrice) || 0), 0);
+    const pct = totalOrders > 0 ? Math.round((count / totalOrders) * 100) : (s.name === 'Standard Prints' ? 100 : 0);
+    return {
+      ...s,
+      count,
+      amount,
+      pct,
+    };
+  });
+
+  const topService = serviceBreakdown.reduce((prev, curr) => (curr.amount > prev.amount ? curr : prev), serviceBreakdown[0]);
+
+  let cumulativeOffset = 0;
+  const donutSegments = serviceBreakdown.map(s => {
+    const dashOffset = -cumulativeOffset;
+    cumulativeOffset += s.pct;
+    return { ...s, dashOffset };
+  });
 
   const tabs = ['Overview', 'Orders', 'Revenue', 'Services', 'Customers'] as const;
 
@@ -83,7 +130,7 @@ export const ReportsAnalyticsScreen: React.FC = () => {
             }}
           >
             <Calendar size={14} color="#6B707B" />
-            <span>Jul 1, 2026 – Jul 31, 2026</span>
+            <span>{dateRangeDisplay}</span>
             <span style={{ fontSize: 10, color: '#6B707B' }}>▼</span>
           </div>
 
@@ -238,17 +285,17 @@ export const ReportsAnalyticsScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20' }}>Revenue Trend</span>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
-                ↑ +32% vs previous period
+                {totalRev > 0 ? 'Live Revenue' : 'Current Period'}
               </span>
             </div>
             <div style={{ fontSize: 26, fontWeight: 700, color: '#1A1C20', marginBottom: 16 }}>
-              ₹ 48,320
+              ₹ {totalRev.toLocaleString()}
             </div>
           </div>
 
-          {/* SVG line chart matching PDF */}
+          {/* SVG line chart */}
           <div style={{ width: '100%', height: 160, position: 'relative' }}>
-            {/* Tooltip matching PDF */}
+            {/* Dynamic Tooltip */}
             <div
               style={{
                 position: 'absolute',
@@ -262,8 +309,8 @@ export const ReportsAnalyticsScreen: React.FC = () => {
                 textAlign: 'center',
               }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#1A1C20' }}>₹ 6,480</div>
-              <div style={{ fontSize: 9.5, color: '#8E929B' }}>Jul 29, 2026</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#1A1C20' }}>₹ {totalRev.toLocaleString()}</div>
+              <div style={{ fontSize: 9.5, color: '#8E929B' }}>{currentMonthShort} {now.getDate()}, {now.getFullYear()}</div>
             </div>
 
             <svg viewBox="0 0 320 120" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
@@ -280,43 +327,45 @@ export const ReportsAnalyticsScreen: React.FC = () => {
               <line x1="0" y1="80" x2="320" y2="80" stroke="#EBE7DF" strokeDasharray="3 3" />
               <line x1="0" y1="110" x2="320" y2="110" stroke="#EBE7DF" />
 
-              {/* Area fill */}
-              <path
-                d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40 L 295 110 L 20 110 Z"
-                fill="url(#purpleGrad)"
-              />
+              {totalRev > 0 ? (
+                <>
+                  {/* Area fill */}
+                  <path
+                    d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40 L 295 110 L 20 110 Z"
+                    fill="url(#purpleGrad)"
+                  />
 
-              {/* Line */}
-              <path
-                d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40"
-                fill="none"
-                stroke="#8B5CF6"
-                strokeWidth="2.5"
-              />
+                  {/* Line */}
+                  <path
+                    d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40"
+                    fill="none"
+                    stroke="#8B5CF6"
+                    strokeWidth="2.5"
+                  />
 
-              {/* Dots */}
-              {[
-                { x: 20, y: 95 },
-                { x: 75, y: 75 },
-                { x: 130, y: 80 },
-                { x: 185, y: 60 },
-                { x: 240, y: 45 },
-                { x: 295, y: 40 },
-              ].map((dot, idx) => (
-                <circle key={idx} cx={dot.x} cy={dot.y} r="4" fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="2" />
-              ))}
+                  {/* Dots */}
+                  {[
+                    { x: 20, y: 95 },
+                    { x: 75, y: 75 },
+                    { x: 130, y: 80 },
+                    { x: 185, y: 60 },
+                    { x: 240, y: 45 },
+                    { x: 295, y: 40 },
+                  ].map((dot, idx) => (
+                    <circle key={idx} cx={dot.x} cy={dot.y} r="4" fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="2" />
+                  ))}
+                </>
+              ) : (
+                /* Empty state flat baseline */
+                <line x1="20" y1="105" x2="300" y2="105" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="4 4" />
+              )}
             </svg>
 
             {/* X Axis labels */}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#8E929B', marginTop: 4 }}>
-              <span>Jul 1</span>
-              <span>Jul 5</span>
-              <span>Jul 9</span>
-              <span>Jul 13</span>
-              <span>Jul 17</span>
-              <span>Jul 21</span>
-              <span>Jul 25</span>
-              <span>Jul 29</span>
+              {monthDayLabels.map((lbl, idx) => (
+                <span key={idx}>{lbl}</span>
+              ))}
             </div>
           </div>
         </div>
@@ -339,12 +388,21 @@ export const ReportsAnalyticsScreen: React.FC = () => {
             <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
               <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
                 <circle cx="18" cy="18" r="14" fill="none" stroke="#E5E7EB" strokeWidth="4" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#8B5CF6" strokeWidth="4" strokeDasharray="38 100" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#60A5FA" strokeWidth="4" strokeDasharray="18 100" strokeDashoffset="-38" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#F59E0B" strokeWidth="4" strokeDasharray="14 100" strokeDashoffset="-56" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#10B981" strokeWidth="4" strokeDasharray="12 100" strokeDashoffset="-70" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#FDE047" strokeWidth="4" strokeDasharray="10 100" strokeDashoffset="-82" />
-                <circle cx="18" cy="18" r="14" fill="none" stroke="#9CA3AF" strokeWidth="4" strokeDasharray="8 100" strokeDashoffset="-92" />
+                {totalOrders > 0 && donutSegments.map(s =>
+                  s.pct > 0 ? (
+                    <circle
+                      key={s.name}
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke={s.color}
+                      strokeWidth="4"
+                      strokeDasharray={`${s.pct} 100`}
+                      strokeDashoffset={s.dashOffset}
+                    />
+                  ) : null
+                )}
               </svg>
               <div
                 style={{
@@ -356,43 +414,20 @@ export const ReportsAnalyticsScreen: React.FC = () => {
                   justifyContent: 'center',
                 }}
               >
-                <span style={{ fontSize: 16, fontWeight: 800, color: '#1A1C20', lineHeight: 1 }}>156</span>
-                <span style={{ fontSize: 10, color: '#6B707B' }}>Orders</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: '#1A1C20', lineHeight: 1 }}>{totalOrders}</span>
+                <span style={{ fontSize: 10, color: '#6B707B' }}>{totalOrders === 1 ? 'Order' : 'Orders'}</span>
               </div>
             </div>
 
             {/* Legend */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 11.5 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#8B5CF6' }} />
-                <span style={{ color: '#555963' }}>Standard Prints</span>
-                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>38%</b>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#60A5FA' }} />
-                <span style={{ color: '#555963' }}>Posters</span>
-                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>18%</b>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#F59E0B' }} />
-                <span style={{ color: '#555963' }}>Banners & Flex</span>
-                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>14%</b>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10B981' }} />
-                <span style={{ color: '#555963' }}>T-shirts</span>
-                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>12%</b>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#FDE047' }} />
-                <span style={{ color: '#555963' }}>Invitations</span>
-                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>10%</b>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#9CA3AF' }} />
-                <span style={{ color: '#555963' }}>Others</span>
-                <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>8%</b>
-              </div>
+              {serviceBreakdown.map(s => (
+                <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: s.color }} />
+                  <span style={{ color: '#555963' }}>{s.name}</span>
+                  <b style={{ color: '#1A1C20', marginLeft: 'auto' }}>{s.pct}%</b>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -411,13 +446,7 @@ export const ReportsAnalyticsScreen: React.FC = () => {
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { name: 'Standard Prints', amount: '18,240', icon: Layers },
-              { name: 'Posters', amount: '8,640', icon: ImageIcon },
-              { name: 'Banners & Flex', amount: '6,720', icon: Tv },
-              { name: 'T-shirt Printing', amount: '5,760', icon: Shirt },
-              { name: 'Invitations', amount: '4,800', icon: Mail },
-            ].map(item => {
+            {serviceBreakdown.map(item => {
               const Icon = item.icon;
               return (
                 <div
@@ -436,7 +465,7 @@ export const ReportsAnalyticsScreen: React.FC = () => {
                     <Icon size={14} color="#6B707B" />
                     <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>{item.name}</span>
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>₹ {item.amount}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>₹ {item.amount.toLocaleString()}</span>
                 </div>
               );
             })}
@@ -569,9 +598,9 @@ export const ReportsAnalyticsScreen: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5, color: '#581C87', lineHeight: 1.5, maxWidth: 280 }}>
-              <div>• Revenue is up by <b>32%</b> compared to the previous period.</div>
-              <div>• Standard Prints is your top performing service (<b>38%</b>).</div>
-              <div>• <b>28 new customers</b> placed orders this month.</div>
+              <div>• Total revenue of <b>₹ {totalRev.toLocaleString()}</b> across <b>{totalOrders}</b> order{totalOrders === 1 ? '' : 's'}.</div>
+              <div>• {topService.name} is your top performing service (<b>{topService.pct}%</b> of orders).</div>
+              <div>• <b>{customersCount} unique customer{customersCount === 1 ? '' : 's'}</b> placed orders in this period.</div>
             </div>
           </div>
         </div>

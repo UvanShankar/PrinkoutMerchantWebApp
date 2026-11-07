@@ -26,6 +26,11 @@ export const OrdersScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const dateRangeDisplay = `${startOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} – ${endOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
   // Dynamic real orders mapped from MerchantContext / DynamoDB
   const allOrdersList = (orders || []).map(o => {
     const defaultTime = o.createdAt
@@ -424,7 +429,7 @@ export const OrdersScreen: React.FC = () => {
             }}
           >
             <Calendar size={14} color="#6B707B" />
-            <span>Jul 1, 2026 – Jul 31, 2026</span>
+            <span>{dateRangeDisplay}</span>
           </div>
 
           <button

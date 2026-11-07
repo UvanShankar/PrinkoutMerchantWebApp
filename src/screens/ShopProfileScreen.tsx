@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
+import { merchantApi } from '../services/api';
 import {
   Edit2,
   Store,
@@ -12,12 +13,50 @@ import {
   ChevronRight,
   Star,
   Map,
+  Check,
+  X,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const ShopProfileScreen: React.FC = () => {
-  const { shopData, showToast } = useMerchant();
+  const { shopId, shopData, setShopData, orders, showToast } = useMerchant();
   const [activeTab, setActiveTab] = useState<'details' | 'documents' | 'hours' | 'preview'>('details');
+
+  const [isEditingBasic, setIsEditingBasic] = useState(false);
+  const [savingBasic, setSavingBasic] = useState(false);
+  const [basicForm, setBasicForm] = useState({
+    shopName: shopData?.shopName || '',
+    description: shopData?.description || '',
+    address: shopData?.address || '',
+    mobile: shopData?.mobile || '',
+  });
+
+  useEffect(() => {
+    if (shopData) {
+      setBasicForm({
+        shopName: shopData.shopName || '',
+        description: shopData.description || '',
+        address: shopData.address || '',
+        mobile: shopData.mobile || '',
+      });
+    }
+  }, [shopData]);
+
+  const handleSaveBasic = async () => {
+    try {
+      setSavingBasic(true);
+      if (shopId) {
+        await merchantApi.updateShopProfile(shopId, basicForm);
+      }
+      setShopData((prev: any) => ({ ...prev, ...basicForm }));
+      setIsEditingBasic(false);
+      showToast('Shop details updated successfully!');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update shop details');
+    } finally {
+      setSavingBasic(false);
+    }
+  };
 
   const tabs = [
     { id: 'details', label: 'Shop Details' },
@@ -98,61 +137,145 @@ export const ShopProfileScreen: React.FC = () => {
                   <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20', lineHeight: 1.2 }}>
                     {shopData?.shopName || 'Shop Profile'}
                   </h2>
-                  <p style={{ fontSize: 12, color: '#6B707B' }}>Print • Design • Large Format</p>
+                  <p style={{ fontSize: 12, color: '#6B707B' }}>
+                    {shopData?.servicesOffered?.length ? shopData.servicesOffered.join(' • ') : 'Standard Prints'}
+                  </p>
                 </div>
               </div>
-              <Edit2 size={15} color="#6B707B" style={{ cursor: 'pointer' }} />
+              <button
+                type="button"
+                onClick={() => setIsEditingBasic(prev => !prev)}
+                title={isEditingBasic ? 'Cancel edit' : 'Edit details'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: isEditingBasic ? '#DC2626' : '#6B707B',
+                }}
+              >
+                {isEditingBasic ? <X size={16} /> : <Edit2 size={15} />}
+              </button>
             </div>
 
             <div style={{ borderTop: '1px solid #EBE7DF', paddingTop: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 12 }}>
-                Basic Details
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Basic Details</span>
+                {isEditingBasic && (
+                  <button
+                    onClick={handleSaveBasic}
+                    disabled={savingBasic}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '4px 10px',
+                      borderRadius: 12,
+                      backgroundColor: '#16A34A',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Check size={12} />
+                    <span>{savingBasic ? 'Saving...' : 'Save'}</span>
+                  </button>
+                )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <Store size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+              {isEditingBasic ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: '#8E929B' }}>Shop Name</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
-                      {shopData?.shopName || '—'}
-                    </div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Shop Name</label>
+                    <input
+                      type="text"
+                      value={basicForm.shopName}
+                      onChange={e => setBasicForm(f => ({ ...f, shopName: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Description</label>
+                    <textarea
+                      rows={2}
+                      value={basicForm.description}
+                      onChange={e => setBasicForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="Describe the printing and copy services you offer..."
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, resize: 'vertical' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Shop Address</label>
+                    <input
+                      type="text"
+                      value={basicForm.address}
+                      onChange={e => setBasicForm(f => ({ ...f, address: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Phone Number</label>
+                    <input
+                      type="text"
+                      value={basicForm.mobile}
+                      onChange={e => setBasicForm(f => ({ ...f, mobile: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                    />
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <FileText size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 11, color: '#8E929B' }}>Description</div>
-                    <div style={{ fontSize: 12.5, color: '#555963', lineHeight: 1.4 }}>
-                      All types of printing – Standard Prints, Posters, Banners, T-shirts, Invitations, Labels and more.
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div style={{ display: 'flex', gap: 10 }}>
-                    <MapPin size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <Store size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
                     <div>
-                      <div style={{ fontSize: 11, color: '#8E929B' }}>Shop Address</div>
-                      <div style={{ fontSize: 12.5, color: '#555963' }}>
-                        {shopData?.address || (shopData?.area ? `${shopData.area}, ${shopData.city} - ${shopData.pincode}` : '88, Kumaran Rd, Opp. Town Hall, Valipalayam, Tiruppur')}
+                      <div style={{ fontSize: 11, color: '#8E929B' }}>Shop Name</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
+                        {shopData?.shopName || '—'}
                       </div>
                     </div>
                   </div>
-                  <Map size={16} color="#6B707B" style={{ cursor: 'pointer', marginTop: 2 }} />
-                </div>
 
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <Phone size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 11, color: '#8E929B' }}>Phone Number</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
-                      {shopData?.mobile || '+91 98765 43210'}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <FileText size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 11, color: '#8E929B' }}>Description</div>
+                      <div style={{ fontSize: 12.5, color: '#555963', lineHeight: 1.4 }}>
+                        {shopData?.description ||
+                          (shopData?.shopName
+                            ? `${shopData.shopName} provides fast, professional printing and document reproduction services.`
+                            : 'Fast, professional printing and document reproduction services.')}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <MapPin size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 11, color: '#8E929B' }}>Shop Address</div>
+                        <div style={{ fontSize: 12.5, color: '#555963' }}>
+                          {shopData?.address || (shopData?.area ? `${shopData.area}, ${shopData.city} - ${shopData.pincode || ''}` : (shopData?.city ? `${shopData.city} - ${shopData.pincode || ''}` : 'Address not specified'))}
+                        </div>
+                      </div>
+                    </div>
+                    <Map size={16} color="#6B707B" style={{ cursor: 'pointer', marginTop: 2 }} />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <Phone size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 11, color: '#8E929B' }}>Phone Number</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
+                        {shopData?.mobile || '—'}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -174,11 +297,13 @@ export const ShopProfileScreen: React.FC = () => {
                 <span style={{ fontSize: 12.5, color: '#555963' }}>GST Number</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>
-                    {shopData?.gstNumber || '33AABCU9603R1ZM'}
+                    {shopData?.gstNumber || 'Not added'}
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: 12 }}>
-                    ✓ Verified
-                  </span>
+                  {shopData?.gstNumber && (
+                    <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: 12 }}>
+                      ✓ Verified
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -489,24 +614,26 @@ export const ShopProfileScreen: React.FC = () => {
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>{shopData?.shopName || 'Shop Preview'}</div>
-                    <div style={{ fontSize: 10.5, color: '#8E929B' }}>Print • Design • Large Format</div>
+                    <div style={{ fontSize: 10.5, color: '#8E929B' }}>
+                      {shopData?.servicesOffered?.length ? shopData.servicesOffered.join(' • ') : 'Standard Prints'}
+                    </div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, color: '#555963', marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                    <span><b>4.8</b> (126 orders)</span>
+                    <span><b>{shopData?.ratings || 4.8}</b> ({orders?.length > 0 ? `${orders.length} orders` : 'New'})</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                     <MapPin size={12} />
-                    <span>0.8 km</span>
+                    <span>{shopData?.city || 'Local Store'}</span>
                   </div>
                 </div>
 
                 {/* Service pills */}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {['Prints', 'Posters', 'Banners', 'T-shirts', '+2'].map(p => (
+                  {(shopData?.servicesOffered?.length ? shopData.servicesOffered : ['Standard Prints']).map((p: string) => (
                     <span
                       key={p}
                       style={{

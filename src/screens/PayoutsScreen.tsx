@@ -27,6 +27,13 @@ export const PayoutsScreen: React.FC = () => {
 
   const tabs = ['Overview', 'Transactions', 'Settlement'] as const;
 
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const dateRangeDisplay = `${startOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} – ${endOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  const currentMonthShort = now.toLocaleDateString([], { month: 'short' });
+  const monthDayLabels = [1, 5, 9, 13, 17, 21, 25, 29].map(d => `${currentMonthShort} ${d}`);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Top Filter Bar matching PDF */}
@@ -78,7 +85,7 @@ export const PayoutsScreen: React.FC = () => {
           }}
         >
           <Calendar size={14} color="#6B707B" />
-          <span>Jul 1, 2026 – Jul 31, 2026</span>
+          <span>{dateRangeDisplay}</span>
           <span style={{ fontSize: 10, color: '#6B707B' }}>▼</span>
         </div>
       </div>
@@ -273,14 +280,9 @@ export const PayoutsScreen: React.FC = () => {
               </svg>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#8E929B', marginTop: 4 }}>
-                <span>Jul 1</span>
-                <span>Jul 5</span>
-                <span>Jul 9</span>
-                <span>Jul 13</span>
-                <span>Jul 17</span>
-                <span>Jul 21</span>
-                <span>Jul 25</span>
-                <span>Jul 29</span>
+                {monthDayLabels.map((lbl, idx) => (
+                  <span key={idx}>{lbl}</span>
+                ))}
               </div>
             </div>
           </div>
