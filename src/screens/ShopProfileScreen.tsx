@@ -213,32 +213,35 @@ export const ShopProfileScreen: React.FC = () => {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {[
-                { name: 'Standard Prints', active: true },
-                { name: 'Posters', active: true },
-                { name: 'Banners & Flex', active: true },
-                { name: 'T-shirt Printing', active: true },
-                { name: 'Invitations', active: true },
-                { name: 'Packaging', active: false },
+                { name: 'Standard Prints', active: true, disabled: false },
+                { name: 'Posters', active: false, disabled: true },
+                { name: 'Banners & Flex', active: false, disabled: true },
+                { name: 'T-shirt Printing', active: false, disabled: true },
+                { name: 'Invitations', active: false, disabled: true },
+                { name: 'Packaging', active: false, disabled: true },
               ].map(s => (
                 <div
                   key={s.name}
+                  title={s.disabled ? `${s.name} - Coming Soon` : undefined}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
                     padding: '5px 12px',
                     borderRadius: 14,
-                    backgroundColor: s.active ? '#4F46E5' : '#FFFFFF',
-                    border: `1px solid ${s.active ? '#4338CA' : '#DAD5CB'}`,
-                    color: s.active ? '#FFFFFF' : '#6B707B',
+                    backgroundColor: s.active ? '#1C1D21' : '#F5F3ED',
+                    border: `1px solid ${s.active ? '#1C1D21' : '#DAD5CB'}`,
+                    color: s.active ? '#FFFFFF' : '#8E929B',
                     fontSize: 12,
                     fontWeight: 600,
+                    opacity: s.disabled ? 0.65 : 1,
+                    cursor: s.disabled ? 'not-allowed' : 'default',
                   }}
                 >
                   {s.active ? (
                     <span style={{ fontSize: 11, fontWeight: 800 }}>✓</span>
                   ) : (
-                    <div style={{ width: 11, height: 11, borderRadius: 2, border: '1.5px solid #9CA3AF' }} />
+                    <span style={{ fontSize: 9.5, fontWeight: 700, color: '#8E929B' }}>Soon</span>
                   )}
                   <span>{s.name}</span>
                 </div>

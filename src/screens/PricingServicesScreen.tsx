@@ -22,6 +22,7 @@ export const PricingServicesScreen: React.FC = () => {
   const { shopId, shopData, showToast, refreshData } = useMerchant();
   const [activeTab, setActiveTab] = useState<'services' | 'templates'>('services');
   const [selectedServiceId, setSelectedServiceId] = useState<string>('standard');
+  const [hoveredServiceId, setHoveredServiceId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -97,12 +98,12 @@ export const PricingServicesScreen: React.FC = () => {
   };
 
   const servicesList = [
-    { id: 'standard', name: 'Standard Prints', desc: 'A4, A3, A0', icon: Layers, active: true },
-    { id: 'posters', name: 'Posters', desc: 'Custom sizes', icon: ImageIcon },
-    { id: 'banners', name: 'Banners & Flex', desc: 'Indoor / Outdoor', icon: Tv },
-    { id: 'tshirt', name: 'T-shirt Printing', desc: 'DTF / Vinyl / Screen', icon: Shirt },
-    { id: 'invitations', name: 'Invitations', desc: 'Laser / Premium', icon: Mail },
-    { id: 'packaging', name: 'Packaging', desc: 'Boxes / Labels', icon: Box },
+    { id: 'standard', name: 'Standard Prints', desc: 'A4, A3, A0', icon: Layers, active: true, disabled: false },
+    { id: 'posters', name: 'Posters', desc: 'Custom sizes', icon: ImageIcon, disabled: true },
+    { id: 'banners', name: 'Banners & Flex', desc: 'Indoor / Outdoor', icon: Tv, disabled: true },
+    { id: 'tshirt', name: 'T-shirt Printing', desc: 'DTF / Vinyl / Screen', icon: Shirt, disabled: true },
+    { id: 'invitations', name: 'Invitations', desc: 'Laser / Premium', icon: Mail, disabled: true },
+    { id: 'packaging', name: 'Packaging', desc: 'Boxes / Labels', icon: Box, disabled: true },
   ];
 
   return (
@@ -183,14 +184,26 @@ export const PricingServicesScreen: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
           {servicesList.map(srv => {
             const isSelected = selectedServiceId === srv.id;
+            const isDisabled = !!srv.disabled;
+            const isHovered = hoveredServiceId === srv.id;
             const Icon = srv.icon;
+
             return (
               <div
                 key={srv.id}
-                onClick={() => setSelectedServiceId(srv.id)}
+                onClick={() => {
+                  if (isDisabled) {
+                    showToast(`${srv.name} is coming soon!`);
+                    return;
+                  }
+                  setSelectedServiceId(srv.id);
+                }}
+                onMouseEnter={() => setHoveredServiceId(srv.id)}
+                onMouseLeave={() => setHoveredServiceId(null)}
+                title={isDisabled ? `${srv.name} - Coming Soon` : undefined}
                 style={{
-                  backgroundColor: '#FFFFFF',
-                  border: `1.5px solid ${isSelected ? '#1C1D21' : '#E8E4DA'}`,
+                  backgroundColor: isDisabled ? '#F9F8F5' : '#FFFFFF',
+                  border: `1.5px solid ${isSelected && !isDisabled ? '#1C1D21' : isDisabled ? '#E5E1D8' : '#E8E4DA'}`,
                   borderRadius: 14,
                   padding: '16px 12px',
                   display: 'flex',
@@ -198,13 +211,50 @@ export const PricingServicesScreen: React.FC = () => {
                   alignItems: 'center',
                   textAlign: 'center',
                   position: 'relative',
-                  cursor: 'pointer',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled ? 0.65 : 1,
                   transition: 'all 0.15s ease',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                  boxShadow: isDisabled ? 'none' : '0 2px 6px rgba(0,0,0,0.03)',
                 }}
               >
+                {/* Coming Soon floating tooltip on hover */}
+                {isDisabled && isHovered && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 'calc(100% + 8px)',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: '#1C1D21',
+                      color: '#FFFFFF',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: '4px 9px',
+                      borderRadius: 6,
+                      whiteSpace: 'nowrap',
+                      zIndex: 30,
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                      pointerEvents: 'none',
+                      letterSpacing: '0.2px',
+                    }}
+                  >
+                    Coming Soon
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        borderWidth: '4px',
+                        borderStyle: 'solid',
+                        borderColor: '#1C1D21 transparent transparent transparent',
+                      }}
+                    />
+                  </div>
+                )}
+
                 {/* Check badge on active service */}
-                {isSelected && (
+                {isSelected && !isDisabled && (
                   <div
                     style={{
                       position: 'absolute',
@@ -224,13 +274,33 @@ export const PricingServicesScreen: React.FC = () => {
                   </div>
                 )}
 
+                {/* Coming Soon tag */}
+                {isDisabled && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      backgroundColor: '#EBE7DF',
+                      color: '#8E929B',
+                      padding: '1px 5px',
+                      borderRadius: 8,
+                      letterSpacing: '0.2px',
+                    }}
+                  >
+                    Soon
+                  </span>
+                )}
+
                 <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-                  <Icon size={22} color="#1A1C20" />
+                  <Icon size={22} color={isDisabled ? '#8E929B' : '#1A1C20'} />
                 </div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1A1C20', marginBottom: 2, lineHeight: 1.2 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: isDisabled ? '#6B707B' : '#1A1C20', marginBottom: 2, lineHeight: 1.2 }}>
                   {srv.name}
                 </div>
-                <div style={{ fontSize: 10.5, color: '#8E929B' }}>{srv.desc}</div>
+                <div style={{ fontSize: 10.5, color: isDisabled ? '#A0A4AE' : '#8E929B' }}>{srv.desc}</div>
               </div>
             );
           })}
