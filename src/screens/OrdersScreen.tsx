@@ -60,22 +60,22 @@ export const OrdersScreen: React.FC = () => {
     };
   });
 
-  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
-  const currentActiveOrder =
-    allOrdersList.find(o => o.orderId === activeOrderId) || allOrdersList[0] || null;
-
   const filteredOrders = allOrdersList.filter(o => {
-    if (filterTab !== 'all' && o.status.toLowerCase() !== filterTab) return false;
+    if (filterTab !== 'all' && (o.status || '').toLowerCase() !== filterTab) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
-        o.orderId.toLowerCase().includes(q) ||
-        o.customerName.toLowerCase().includes(q) ||
-        o.specs.toLowerCase().includes(q)
+        String(o.orderId || '').toLowerCase().includes(q) ||
+        String(o.customerName || '').toLowerCase().includes(q) ||
+        String(o.specs || '').toLowerCase().includes(q)
       );
     }
     return true;
   });
+
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const currentActiveOrder =
+    (activeOrderId ? allOrdersList.find(o => o.orderId === activeOrderId) : filteredOrders[0]) || null;
 
   const activeOrder = currentActiveOrder;
 
@@ -86,8 +86,8 @@ export const OrdersScreen: React.FC = () => {
   const countReady = allOrdersList.filter(o => o.status === 'ready').length;
   const countCompleted = allOrdersList.filter(o => o.status === 'completed').length;
 
-  const renderStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
+  const renderStatusBadge = (status?: string) => {
+    switch ((status || '').toLowerCase()) {
       case 'received':
         return (
           <span
@@ -462,39 +462,55 @@ export const OrdersScreen: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map(row => {
-                const isSelected = row.orderId === activeOrderId;
-                return (
-                  <tr
-                    key={row.orderId}
-                    onClick={() => setActiveOrderId(row.orderId)}
-                    style={{
-                      borderBottom: '1px solid #F0ECE4',
-                      cursor: 'pointer',
-                      backgroundColor: isSelected ? '#FAF8F5' : 'transparent',
-                    }}
-                  >
-                    <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>
-                      #{row.orderId}
-                    </td>
-                    <td style={{ padding: '12px 10px', color: '#1A1C20', fontWeight: 600 }}>{row.customerName}</td>
-                    <td style={{ padding: '12px 10px', color: '#555963' }}>{row.specs}</td>
-                    <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>₹ {row.totalPrice}</td>
-                    <td style={{ padding: '12px 10px' }}>{renderStatusBadge(row.status)}</td>
-                    <td style={{ padding: '12px 10px', color: '#8E929B', fontSize: 11.5 }}>{row.timeAgo}</td>
-                    <td style={{ padding: '12px 6px', textAlign: 'center', color: '#8E929B' }}>
-                      <MoreVertical size={15} />
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: '36px 12px', textAlign: 'center', color: '#8E929B', fontSize: 12.5 }}>
+                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <ShoppingBag size={28} color="#8E929B" style={{ opacity: 0.5 }} />
+                      <div style={{ fontWeight: 600, color: '#1A1C20' }}>No orders found</div>
+                      <div style={{ fontSize: 11.5, color: '#6B707B' }}>
+                        {filterTab !== 'all' ? `No orders in "${filterTab}" status.` : 'When customers place orders, they will appear here.'}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredOrders.map(row => {
+                  const isSelected = row.orderId === (activeOrder?.orderId || '');
+                  return (
+                    <tr
+                      key={row.orderId}
+                      onClick={() => setActiveOrderId(row.orderId)}
+                      style={{
+                        borderBottom: '1px solid #F0ECE4',
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? '#FAF8F5' : 'transparent',
+                      }}
+                    >
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>
+                        #{row.orderId}
+                      </td>
+                      <td style={{ padding: '12px 10px', color: '#1A1C20', fontWeight: 600 }}>{row.customerName}</td>
+                      <td style={{ padding: '12px 10px', color: '#555963' }}>{row.specs}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>₹ {row.totalPrice}</td>
+                      <td style={{ padding: '12px 10px' }}>{renderStatusBadge(row.status)}</td>
+                      <td style={{ padding: '12px 10px', color: '#8E929B', fontSize: 11.5 }}>{row.timeAgo}</td>
+                      <td style={{ padding: '12px 6px', textAlign: 'center', color: '#8E929B' }}>
+                        <MoreVertical size={15} />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Pagination matching PDF */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8 }}>
-          <span style={{ fontSize: 12, color: '#8E929B' }}>Showing 1 – 8 of 24 orders</span>
+          <span style={{ fontSize: 12, color: '#8E929B' }}>
+            Showing {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'}
+          </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
@@ -582,20 +598,22 @@ export const OrdersScreen: React.FC = () => {
           padding: '22px 20px',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20' }}>
-              Order #{activeOrder.orderId}
-            </span>
-            {renderStatusBadge(activeOrder.status)}
-          </div>
-          <X size={16} color="#8E929B" style={{ cursor: 'pointer' }} />
-        </div>
+        {activeOrder ? (
+          <>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20' }}>
+                  Order #{activeOrder.orderId}
+                </span>
+                {renderStatusBadge(activeOrder.status)}
+              </div>
+              <X size={16} color="#8E929B" style={{ cursor: 'pointer' }} onClick={() => setActiveOrderId(null)} />
+            </div>
 
-        <p style={{ fontSize: 12, color: '#8E929B', marginBottom: 18 }}>
-          Placed on {activeOrder.placedDate}
-        </p>
+            <p style={{ fontSize: 12, color: '#8E929B', marginBottom: 18 }}>
+              Placed on {activeOrder.placedDate}
+            </p>
 
         {/* Customer Details */}
         <div style={{ marginBottom: 18, borderBottom: '1px solid #EBE7DF', paddingBottom: 16 }}>
@@ -607,7 +625,7 @@ export const OrdersScreen: React.FC = () => {
 
             <div style={{ display: 'flex', gap: 6 }}>
               <a
-                href={`tel:${activeOrder.customerPhone}`}
+                href={`tel:${activeOrder.customerPhone || ''}`}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -627,7 +645,7 @@ export const OrdersScreen: React.FC = () => {
               </a>
 
               <a
-                href={`https://wa.me/${activeOrder.customerPhone.replace(/\D/g, '')}`}
+                href={`https://wa.me/${(activeOrder.customerPhone || '').replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -847,6 +865,31 @@ export const OrdersScreen: React.FC = () => {
           </span>
           {activeOrder.status !== 'completed' && <span>→</span>}
         </button>
+        </>
+      ) : (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#8E929B' }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              backgroundColor: '#EBE7DF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 14px',
+            }}
+          >
+            <ShoppingBag size={24} color="#6B707B" />
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20', marginBottom: 6 }}>
+            No Order Selected
+          </div>
+          <p style={{ fontSize: 12.5, color: '#6B707B', maxWidth: 240, margin: '0 auto', lineHeight: 1.5 }}>
+            Select an order from the list on the left to inspect specifications, download files, or update its printing status.
+          </p>
+        </div>
+      )}
       </div>
     </div>
   );
