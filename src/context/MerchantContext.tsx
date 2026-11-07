@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { merchantApi, MerchantOrder, MerchantAnalytics, MerchantPayouts } from '../services/api';
 
 export type ScreenType =
@@ -102,6 +102,21 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
     () => isDevAuth || !!(initialSession && initialSession.isAuthenticated)
   );
+  const isAuthenticatedRef = useRef<boolean>(
+    isDevAuth || !!(initialSession && initialSession.isAuthenticated)
+  );
+
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
+
+  const checkIsAuth = (): boolean => {
+    if (isDevAuth) return true;
+    if (isAuthenticatedRef.current) return true;
+    if (isAuthenticated) return true;
+    const session = getStoredSession();
+    return !!(session && session.isAuthenticated);
+  };
 
   // Navigation - detect from hash if present (e.g. #/orders)
   const getInitialScreen = (): ScreenType => {
@@ -144,7 +159,8 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [settingsTab, setSettingsTab] = useState<SettingsSubTab>(getInitialSettingsTab);
 
   const navigateTo = (screen: ScreenType) => {
-    if (!isAuthenticated && !publicScreens.includes(screen)) {
+    const isAuth = checkIsAuth();
+    if (!isAuth && !publicScreens.includes(screen)) {
       setCurrentScreenState('login');
       if (typeof window !== 'undefined') {
         window.location.hash = '#/login';
@@ -169,7 +185,8 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ];
       if (!allScreens.includes(h)) return;
 
-      if (!isAuthenticated && !isDevAuth && !publicScreens.includes(h)) {
+      const isAuth = checkIsAuth();
+      if (!isAuth && !publicScreens.includes(h)) {
         setCurrentScreenState('login');
         window.location.hash = '#/login';
         return;
@@ -190,7 +207,8 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Initial route guard check
   useEffect(() => {
-    if (!isAuthenticated && !isDevAuth && !publicScreens.includes(currentScreen)) {
+    const isAuth = checkIsAuth();
+    if (!isAuth && !publicScreens.includes(currentScreen)) {
       navigateTo('login');
     }
   }, [isAuthenticated, isDevAuth, currentScreen]);
@@ -252,6 +270,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Failed to save session to localStorage:', e);
     }
 
+    isAuthenticatedRef.current = true;
     setIsAuthenticated(true);
     setShopId(activeShopId);
     setShopData(activeShopData);
@@ -271,6 +290,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Failed to remove session from localStorage:', e);
     }
 
+    isAuthenticatedRef.current = false;
     setIsAuthenticated(false);
     setShopId('');
     setShopData(null);

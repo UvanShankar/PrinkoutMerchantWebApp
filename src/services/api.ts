@@ -126,6 +126,16 @@ export interface MerchantPayouts {
 
 export const merchantApi = {
   // Auth
+  async isExistingShop(mobile: string): Promise<boolean> {
+    try {
+      const cleanDigits = String(mobile).replace(/\D/g, '').slice(-10);
+      const res = await apiClient.get(`/shops/auth/existing-shop/${cleanDigits}`);
+      return res.data?.data === true;
+    } catch {
+      return false;
+    }
+  },
+
   async sendLoginOTP(mobile: string) {
     const res = await apiClient.post('/shops/auth/login', { mobile });
     return res.data;

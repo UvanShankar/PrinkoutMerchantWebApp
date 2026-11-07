@@ -6,7 +6,7 @@ import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
 export const LoginScreen: React.FC = () => {
-  const { setAuthPhone, authPhone, navigateTo, showToast } = useMerchant();
+  const { setAuthPhone, authPhone, updateOnboardingData, navigateTo, showToast } = useMerchant();
   const [phoneNumber, setPhoneNumber] = useState(
     authPhone ? authPhone.replace('+91', '').trim() : ''
   );
@@ -15,7 +15,7 @@ export const LoginScreen: React.FC = () => {
 
   const handleSendOTP = async () => {
     setErrorMessage(null);
-    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    const digitsOnly = phoneNumber.replace(/\D/g, '').slice(-10);
     if (digitsOnly.length < 10) {
       setErrorMessage('Please enter a valid 10-digit mobile number');
       showToast('Please enter a valid 10-digit mobile number');
@@ -23,22 +23,26 @@ export const LoginScreen: React.FC = () => {
     }
 
     setLoading(true);
-    const rawNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
-    const normalizedPhone = rawNumber.startsWith('+91')
-      ? rawNumber
-      : `+91${rawNumber.replace(/^0+/, '')}`;
+    const normalizedPhone = `+91${digitsOnly}`;
 
     try {
-      const res = await merchantApi.sendLoginOTP(normalizedPhone);
-      setLoading(false);
-      if (res && res.success === false) {
-        const msg = res.error || 'Shop not registered. Please sign up.';
-        setErrorMessage(msg);
-        showToast(msg);
+      // Check if merchant is already registered
+      const isRegistered = await merchantApi.isExistingShop(digitsOnly);
+
+      if (!isRegistered) {
+        setLoading(false);
+        setAuthPhone(normalizedPhone);
+        updateOnboardingData({ mobile: digitsOnly, phone: digitsOnly });
+        showToast('Mobile number not registered. Redirecting to create merchant account...');
+        navigateTo('onboarding-1');
         return;
       }
+
+      // Merchant exists -> proceed to OTP screen
+      await merchantApi.sendLoginOTP(normalizedPhone);
+      setLoading(false);
       setAuthPhone(normalizedPhone);
-      showToast(`Verification code sent to ${normalizedPhone}`);
+      showToast('Welcome back! Enter 0000 to sign in.');
       navigateTo('verify-otp');
     } catch (err: any) {
       setLoading(false);
@@ -46,6 +50,20 @@ export const LoginScreen: React.FC = () => {
         err?.response?.data?.error ||
         err?.message ||
         'Shop not registered. Please sign up to create your merchant account.';
+
+      if (
+        errMsg.toLowerCase().includes('not registered') ||
+        errMsg.toLowerCase().includes('not found') ||
+        errMsg.toLowerCase().includes('sign up') ||
+        err?.status === 401
+      ) {
+        setAuthPhone(normalizedPhone);
+        updateOnboardingData({ mobile: digitsOnly, phone: digitsOnly });
+        showToast('Mobile number not registered. Redirecting to create merchant account...');
+        navigateTo('onboarding-1');
+        return;
+      }
+
       setErrorMessage(errMsg);
       showToast(errMsg);
     }

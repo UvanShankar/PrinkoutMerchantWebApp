@@ -7,7 +7,7 @@ import { merchantApi } from '../services/api';
 
 export const VerifyOTPScreen: React.FC = () => {
   const { authPhone, navigateTo, showToast, login } = useMerchant();
-  const [digits, setDigits] = useState(['', '', '', '']);
+  const [digits, setDigits] = useState(['0', '0', '0', '0']);
   const [timer, setTimer] = useState(26);
   const [loading, setLoading] = useState(false);
   const inputRefs = [
@@ -105,10 +105,8 @@ export const VerifyOTPScreen: React.FC = () => {
       return;
     }
     setLoading(true);
-    const cleanPhone = authPhone.replace(/[\s\-\(\)]/g, '');
-    const normalizedPhone = cleanPhone.startsWith('+91')
-      ? cleanPhone
-      : `+91${cleanPhone.replace(/^0+/, '')}`;
+    const cleanDigits = authPhone.replace(/\D/g, '').slice(-10);
+    const normalizedPhone = `+91${cleanDigits}`;
 
     try {
       const res = await merchantApi.verifyOTP(normalizedPhone, otp);

@@ -34,8 +34,19 @@ const MainNavigator: React.FC = () => {
     'shop-success',
   ].includes(currentScreen);
 
+  const isStoredAuth = typeof window !== 'undefined' && (() => {
+    try {
+      const s = localStorage.getItem('prinkout_merchant_session');
+      return !!(s && JSON.parse(s)?.isAuthenticated);
+    } catch {
+      return false;
+    }
+  })();
+
+  const isAuth = isAuthenticated || isStoredAuth;
+
   // If user is not authenticated and attempts to access protected screens, show login screen
-  if (!isAuthenticated && !isPublicScreen) {
+  if (!isAuth && !isPublicScreen) {
     return <LoginScreen />;
   }
 
