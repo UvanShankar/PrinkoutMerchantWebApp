@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
-import { Bell, ChevronDown, Store, Check, LogOut } from 'lucide-react';
+import { Bell, ChevronDown, Store, Check, LogOut, User, Settings } from 'lucide-react';
 import { theme } from '../theme';
 
 export const Header: React.FC = () => {
@@ -314,6 +314,58 @@ export const Header: React.FC = () => {
                 </span>
                 <Check size={14} color="#10B981" />
               </div>
+
+              <div style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
+
+              <button
+                onClick={() => {
+                  setShowShopDropdown(false);
+                  navigateTo('profile');
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  backgroundColor: 'transparent',
+                  color: '#D1D5DB',
+                  border: 'none',
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <User size={14} color="#9CA3AF" />
+                <span>Shop Profile</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowShopDropdown(false);
+                  navigateTo('settings');
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  backgroundColor: 'transparent',
+                  color: '#D1D5DB',
+                  border: 'none',
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <Settings size={14} color="#9CA3AF" />
+                <span>Account Settings</span>
+              </button>
 
               <div style={{ height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', margin: '4px 0' }} />
 

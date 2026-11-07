@@ -15,7 +15,7 @@ import {
 import { theme } from '../theme';
 
 export const DashboardScreen: React.FC = () => {
-  const { orders, analytics, navigateTo } = useMerchant();
+  const { orders, analytics, navigateTo, setSelectedOrderId } = useMerchant();
   const [timelineTab, setTimelineTab] = useState<'Today' | 'Week' | 'Month'>('Today');
 
   const todayOrdersCount = orders.length > 0 ? orders.length : (analytics?.today?.ordersCount ?? 0);
@@ -550,7 +550,15 @@ export const DashboardScreen: React.FC = () => {
                   </tr>
                 ) : (
                   displayOrders.map(row => (
-                    <tr key={row.id} style={{ borderBottom: '1px solid #F0ECE4' }}>
+                    <tr
+                      key={row.id}
+                      onClick={() => {
+                        setSelectedOrderId(row.id.replace('#', ''));
+                        navigateTo('orders');
+                      }}
+                      style={{ borderBottom: '1px solid #F0ECE4', cursor: 'pointer' }}
+                      title="Click to view order details"
+                    >
                       <td style={{ padding: '12px 10px', fontWeight: 600, color: '#1A1C20' }}>{row.id}</td>
                       <td style={{ padding: '12px 10px', color: '#1A1C20', fontWeight: 500 }}>{row.customer}</td>
                       <td style={{ padding: '12px 10px', color: '#555963' }}>{row.type}</td>
