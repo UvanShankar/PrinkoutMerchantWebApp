@@ -10,6 +10,7 @@ export const ShopOnboardingStep2: React.FC = () => {
   const [selectedServices, setSelectedServices] = useState<string[]>(
     onboardingData.services || ['Standard Prints']
   );
+  const [hoveredService, setHoveredService] = useState<string | null>(null);
 
   const [pricing, setPricing] = useState({
     a4Bw: onboardingData.pricing?.a4Bw || '3',
@@ -21,15 +22,17 @@ export const ShopOnboardingStep2: React.FC = () => {
   });
 
   const availableServices = [
-    { id: 'Standard Prints', label: 'Standard Prints\n(A4, A3, A0)' },
-    { id: 'Posters', label: 'Posters' },
-    { id: 'Flex & Banners', label: 'Flex & Banners' },
-    { id: 'T-shirt Printing', label: 'T-shirt Printing' },
-    { id: 'Invitations', label: 'Invitations' },
-    { id: 'Packaging & Labels', label: 'Packaging & Labels' },
+    { id: 'Standard Prints', label: 'Standard Prints\n(A4, A3, A0)', disabled: false },
+    { id: 'Posters', label: 'Posters', disabled: true },
+    { id: 'Flex & Banners', label: 'Flex & Banners', disabled: true },
+    { id: 'T-shirt Printing', label: 'T-shirt Printing', disabled: true },
+    { id: 'Invitations', label: 'Invitations', disabled: true },
+    { id: 'Packaging & Labels', label: 'Packaging & Labels', disabled: true },
   ];
 
   const toggleService = (id: string) => {
+    const srv = availableServices.find(s => s.id === id);
+    if (srv?.disabled) return;
     setSelectedServices(prev =>
       prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
@@ -156,11 +159,21 @@ export const ShopOnboardingStep2: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
         {availableServices.map(srv => {
           const isSelected = selectedServices.includes(srv.id);
+          const isDisabled = !!srv.disabled;
+          const isHovered = hoveredService === srv.id;
+
           return (
             <div
               key={srv.id}
-              onClick={() => toggleService(srv.id)}
+              onClick={() => {
+                if (isDisabled) return;
+                toggleService(srv.id);
+              }}
+              onMouseEnter={() => setHoveredService(srv.id)}
+              onMouseLeave={() => setHoveredService(null)}
+              title={isDisabled ? "Coming Soon" : undefined}
               style={{
+                position: 'relative',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
@@ -168,16 +181,52 @@ export const ShopOnboardingStep2: React.FC = () => {
                 borderRadius: 10,
                 backgroundColor: isSelected ? '#FAF8F5' : '#EBE7DF',
                 border: `1px solid ${isSelected ? '#1C1D21' : '#DAD5CB'}`,
-                cursor: 'pointer',
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                opacity: isDisabled ? 0.6 : 1,
                 transition: 'all 0.15s ease',
               }}
             >
+              {isDisabled && isHovered && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 8px)',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#1C1D21',
+                    color: '#FFFFFF',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: '4px 9px',
+                    borderRadius: 6,
+                    whiteSpace: 'nowrap',
+                    zIndex: 30,
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+                    pointerEvents: 'none',
+                    letterSpacing: '0.2px',
+                  }}
+                >
+                  Coming Soon
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      borderWidth: '5px',
+                      borderStyle: 'solid',
+                      borderColor: '#1C1D21 transparent transparent transparent',
+                    }}
+                  />
+                </div>
+              )}
+
               <div
                 style={{
                   width: 18,
                   height: 18,
                   borderRadius: 4,
-                  backgroundColor: isSelected ? '#1C1D21' : '#FFFFFF',
+                  backgroundColor: isSelected ? '#1C1D21' : (isDisabled ? '#E0DDD4' : '#FFFFFF'),
                   border: `1px solid ${isSelected ? '#1C1D21' : '#C5BFB4'}`,
                   display: 'flex',
                   alignItems: 'center',
@@ -187,7 +236,7 @@ export const ShopOnboardingStep2: React.FC = () => {
               >
                 {isSelected && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
               </div>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20', whiteSpace: 'pre-line', lineHeight: 1.25 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: isDisabled ? '#8E929B' : '#1A1C20', whiteSpace: 'pre-line', lineHeight: 1.25 }}>
                 {srv.label}
               </span>
             </div>
