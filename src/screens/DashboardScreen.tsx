@@ -23,7 +23,33 @@ export const DashboardScreen: React.FC = () => {
     ? orders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0)
     : (analytics?.today?.revenue ?? 0);
   const inPrintingCount = orders.filter(o => o.status?.toLowerCase() === 'printing').length || (analytics?.today?.inPrinting ?? 0);
-  const readyCount = orders.filter(o => o.status?.toLowerCase() === 'ready').length || (analytics?.today?.readyForPickup ?? 0);
+  const readyCount = orders.filter(o => {
+    const s = o.status?.toLowerCase();
+    return s === 'ready' || s === 'ready_for_pickup';
+  }).length || (analytics?.today?.readyForPickup ?? 0);
+
+  // Dynamic Orders Overview pipeline counts
+  const receivedPipelineCount = orders.length > 0
+    ? orders.filter(o => {
+        const s = (o.status || '').toLowerCase();
+        return s === 'received' || s === 'pending' || s === 'accepted' || s === 'in_progress';
+      }).length
+    : (analytics?.pipeline?.received ?? 0);
+
+  const printingPipelineCount = orders.length > 0
+    ? orders.filter(o => (o.status || '').toLowerCase() === 'printing').length
+    : (analytics?.pipeline?.printing ?? 0);
+
+  const readyPipelineCount = orders.length > 0
+    ? orders.filter(o => {
+        const s = (o.status || '').toLowerCase();
+        return s === 'ready' || s === 'ready_for_pickup';
+      }).length
+    : (analytics?.pipeline?.ready ?? 0);
+
+  const completedPipelineCount = orders.length > 0
+    ? orders.filter(o => (o.status || '').toLowerCase() === 'completed').length
+    : (analytics?.pipeline?.completed ?? 0);
 
   const displayOrders = (orders || []).slice(0, 5).map(o => ({
     id: o.orderId.startsWith('#') ? o.orderId : `#${o.orderId.slice(0, 4)}`,
@@ -297,6 +323,7 @@ export const DashboardScreen: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             {/* 1: Received */}
             <div
+              onClick={() => navigateTo('orders')}
               style={{
                 flex: 1,
                 backgroundColor: '#1C1D21',
@@ -305,10 +332,15 @@ export const DashboardScreen: React.FC = () => {
                 padding: '16px 12px',
                 textAlign: 'center',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease',
               }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+              title="View Received Orders"
             >
               <ShoppingBag size={18} color="#FFFFFF" style={{ marginBottom: 4 }} />
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>24</div>
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{receivedPipelineCount}</div>
               <div style={{ fontSize: 11.5, opacity: 0.85, marginTop: 2 }}>Received</div>
             </div>
 
@@ -316,6 +348,7 @@ export const DashboardScreen: React.FC = () => {
 
             {/* 2: Printing */}
             <div
+              onClick={() => navigateTo('queue')}
               style={{
                 flex: 1,
                 backgroundColor: '#EFECE4',
@@ -324,10 +357,15 @@ export const DashboardScreen: React.FC = () => {
                 borderRadius: 14,
                 padding: '16px 12px',
                 textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease',
               }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+              title="View Print Queue"
             >
               <Printer size={18} color="#1A1C20" style={{ marginBottom: 4 }} />
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>8</div>
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{printingPipelineCount}</div>
               <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Printing</div>
             </div>
 
@@ -335,6 +373,7 @@ export const DashboardScreen: React.FC = () => {
 
             {/* 3: Ready */}
             <div
+              onClick={() => navigateTo('orders')}
               style={{
                 flex: 1,
                 backgroundColor: '#EFECE4',
@@ -343,10 +382,15 @@ export const DashboardScreen: React.FC = () => {
                 borderRadius: 14,
                 padding: '16px 12px',
                 textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease',
               }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+              title="View Ready Orders"
             >
               <CheckCircle2 size={18} color="#1A1C20" style={{ marginBottom: 4 }} />
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>6</div>
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{readyPipelineCount}</div>
               <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Ready</div>
             </div>
 
@@ -354,6 +398,7 @@ export const DashboardScreen: React.FC = () => {
 
             {/* 4: Completed */}
             <div
+              onClick={() => navigateTo('orders')}
               style={{
                 flex: 1,
                 backgroundColor: '#EFECE4',
@@ -362,10 +407,15 @@ export const DashboardScreen: React.FC = () => {
                 borderRadius: 14,
                 padding: '16px 12px',
                 textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'transform 0.15s ease',
               }}
+              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
+              title="View Completed Orders"
             >
               <Package size={18} color="#1A1C20" style={{ marginBottom: 4 }} />
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>10</div>
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{completedPipelineCount}</div>
               <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Completed</div>
             </div>
           </div>

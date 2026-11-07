@@ -48,10 +48,9 @@ export const Header: React.FC = () => {
   const getHeaderContent = () => {
     switch (currentScreen) {
       case 'dashboard': {
-        const ownerFirst = shopData?.ownerName ? shopData.ownerName.trim().split(' ')[0] : 'Merchant';
-        const shopTitle = shopData?.shopName || 'your print shop';
+        const shopTitle = shopData?.shopName || 'Print Shop';
         return {
-          title: `Good Evening, ${ownerFirst}! 👋`,
+          title: `Good Evening, ${shopTitle}! 👋`,
           subtitle: `Here's what's happening at ${shopTitle} today.`,
         };
       }
