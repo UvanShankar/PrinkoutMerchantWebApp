@@ -4,9 +4,45 @@ import { Bell, ChevronDown, Store, Check, LogOut } from 'lucide-react';
 import { theme } from '../theme';
 
 export const Header: React.FC = () => {
-  const { currentScreen, settingsTab, shopData, setShopId, shopId, showToast, logout } = useMerchant();
+  const { currentScreen, settingsTab, shopData, setShopId, shopId, showToast, logout, orders, payouts, navigateTo } = useMerchant();
   const [showShopDropdown, setShowShopDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Derive dynamic alerts from real merchant orders & payouts
+  const alerts: Array<{ id: string; title: string; subtitle?: string; type: 'order' | 'payout' }> = [];
+
+  if (orders && orders.length > 0) {
+    const sortedOrders = [...orders].sort(
+      (a, b) => new Date(b.createdAt || b.updatedAt || 0).getTime() - new Date(a.createdAt || a.updatedAt || 0).getTime()
+    );
+    sortedOrders.slice(0, 3).forEach(o => {
+      const orderShortId = o.orderId.length > 8 ? o.orderId.slice(-4) : o.orderId;
+      const cust = o.customerName || 'Customer';
+      alerts.push({
+        id: `ord_${o.orderId}`,
+        title: `Order #${orderShortId} received (${cust})`,
+        subtitle: `${o.serviceType || 'Standard Print'} · ₹${o.totalPrice || 0}`,
+        type: 'order',
+      });
+    });
+  }
+
+  if (payouts?.recentPayouts && payouts.recentPayouts.length > 0) {
+    const latestPayout = payouts.recentPayouts[0];
+    alerts.push({
+      id: `pay_${latestPayout.payoutId}`,
+      title: `₹ ${latestPayout.amount.toLocaleString('en-IN')} daily payout ${latestPayout.status?.toLowerCase() || 'processed'}`,
+      subtitle: latestPayout.utr ? `UTR: ${latestPayout.utr}` : 'Settled to linked bank account',
+      type: 'payout',
+    });
+  } else if (payouts?.nextPayoutAmount && payouts.nextPayoutAmount > 0) {
+    alerts.push({
+      id: 'pay_next',
+      title: `₹ ${payouts.nextPayoutAmount.toLocaleString('en-IN')} daily payout scheduled`,
+      subtitle: payouts.nextPayoutDate ? `Expected: ${new Date(payouts.nextPayoutDate).toLocaleDateString()}` : 'Scheduled daily payout',
+      type: 'payout',
+    });
+  }
 
   // Dynamic titles matching the PDF exactly for each screen
   const getHeaderContent = () => {
@@ -139,19 +175,21 @@ export const Header: React.FC = () => {
             }}
           >
             <Bell size={16} />
-            {/* Orange/Red notification dot */}
-            <span
-              style={{
-                position: 'absolute',
-                top: 7,
-                right: 7,
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                backgroundColor: '#F97316',
-                border: '1.5px solid #1E2026',
-              }}
-            />
+            {/* Orange notification dot if there are active alerts */}
+            {alerts.length > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 7,
+                  right: 7,
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  backgroundColor: '#F97316',
+                  border: '1.5px solid #1E2026',
+                }}
+              />
+            )}
           </button>
 
           {showNotifications && (
@@ -160,7 +198,7 @@ export const Header: React.FC = () => {
                 position: 'absolute',
                 top: 44,
                 right: 0,
-                width: 280,
+                width: 300,
                 backgroundColor: '#1B1C22',
                 border: '1px solid rgba(255, 255, 255, 0.12)',
                 borderRadius: 14,
@@ -169,15 +207,52 @@ export const Header: React.FC = () => {
                 zIndex: 50,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF', marginBottom: 8 }}>
-                Recent Alerts
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#FFFFFF' }}>Recent Alerts</span>
+                {alerts.length > 0 && (
+                  <span style={{ fontSize: 10, color: '#9CA3AF', backgroundColor: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: 8 }}>
+                    {alerts.length} new
+                  </span>
+                )}
               </div>
-              <div style={{ fontSize: 11.5, color: '#D1D5DB', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                Order #5577 received (Arun K)
-              </div>
-              <div style={{ fontSize: 11.5, color: '#D1D5DB', padding: '6px 0' }}>
-                ₹ 43,488 daily payout processed
-              </div>
+
+              {alerts.length === 0 ? (
+                <div style={{ padding: '12px 6px', textAlign: 'center', color: '#9CA3AF', fontSize: 11.5 }}>
+                  No recent alerts right now.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {alerts.map((alert, idx) => (
+                    <div
+                      key={alert.id}
+                      onClick={() => {
+                        setShowNotifications(false);
+                        if (alert.type === 'order') navigateTo('orders');
+                        if (alert.type === 'payout') navigateTo('payouts');
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 8,
+                        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.15s ease',
+                        borderBottom: idx < alerts.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)')}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)')}
+                    >
+                      <div style={{ fontSize: 11.5, fontWeight: 600, color: '#F3F4F6', marginBottom: 2 }}>
+                        {alert.title}
+                      </div>
+                      {alert.subtitle && (
+                        <div style={{ fontSize: 10.5, color: '#9CA3AF' }}>
+                          {alert.subtitle}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

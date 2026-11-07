@@ -344,7 +344,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Orders
   const [orders, setOrders] = useState<MerchantOrder[]>([]);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>('5577');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   
   // Pricing
   const [pricingItems, setPricingItems] = useState(defaultPricingItems);
@@ -370,7 +370,12 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         merchantApi.getShopPayouts(shopId).catch(() => null),
         merchantApi.getShop(shopId).catch(() => null),
       ]);
-      if (fetchedOrders) setOrders(fetchedOrders);
+      if (fetchedOrders && fetchedOrders.length > 0) {
+        setOrders(fetchedOrders);
+        setSelectedOrderId(prev => prev || fetchedOrders[0].orderId);
+      } else if (fetchedOrders) {
+        setOrders(fetchedOrders);
+      }
       if (fetchedAnalytics) setAnalytics(fetchedAnalytics);
       if (fetchedPayouts) setPayouts(fetchedPayouts);
       if (fetchedShop) setShopData(fetchedShop);
@@ -415,7 +420,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  const selectedOrder = orders.find(o => o.orderId === selectedOrderId) || null;
+  const selectedOrder = (selectedOrderId ? orders.find(o => o.orderId === selectedOrderId) : orders[0]) || null;
 
   return (
     <MerchantContext.Provider

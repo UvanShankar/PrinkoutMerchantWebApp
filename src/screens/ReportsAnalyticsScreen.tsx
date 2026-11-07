@@ -487,36 +487,44 @@ export const ReportsAnalyticsScreen: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {[
-                { id: '#5577', customer: 'Arun K', service: 'A4 Colour (34 pages)', amount: '160' },
-                { id: '#5576', customer: 'Divya R', service: 'A3 B/W (10 pages)', amount: '60' },
-                { id: '#5575', customer: 'Karthik S', service: 'Poster (A2)', amount: '300' },
-              ].map(row => (
-                <tr key={row.id} style={{ borderBottom: '1px solid #F0ECE4' }}>
-                  <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>{row.id}</td>
-                  <td style={{ padding: '10px', color: '#1A1C20' }}>{row.customer}</td>
-                  <td style={{ padding: '10px', color: '#555963' }}>{row.service}</td>
-                  <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>₹ {row.amount}</td>
-                  <td style={{ padding: '10px' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        padding: '3px 8px',
-                        borderRadius: 12,
-                        backgroundColor: '#DCFCE7',
-                        color: '#15803D',
-                        fontSize: 11,
-                        fontWeight: 600,
-                      }}
-                    >
-                      <CheckCircle2 size={11} />
-                      <span>Completed</span>
-                    </span>
+              {(orders.length > 0 ? orders.slice(0, 5) : []).map(o => {
+                const orderIdDisplay = '#' + (o.orderId.length > 8 ? o.orderId.slice(-4) : o.orderId);
+                const isCompleted = o.status?.toLowerCase() === 'completed';
+                return (
+                  <tr key={o.orderId} style={{ borderBottom: '1px solid #F0ECE4' }}>
+                    <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>{orderIdDisplay}</td>
+                    <td style={{ padding: '10px', color: '#1A1C20' }}>{o.customerName || 'Customer'}</td>
+                    <td style={{ padding: '10px', color: '#555963' }}>{o.serviceType || 'Standard Print'}</td>
+                    <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>₹ {o.totalPrice || 0}</td>
+                    <td style={{ padding: '10px' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '3px 8px',
+                          borderRadius: 12,
+                          backgroundColor: isCompleted ? '#DCFCE7' : '#FEF3C7',
+                          color: isCompleted ? '#15803D' : '#B45309',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {isCompleted && <CheckCircle2 size={11} />}
+                        <span>{o.status || 'Received'}</span>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {orders.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ padding: '24px 10px', textAlign: 'center', color: '#8E929B', fontSize: 12 }}>
+                    No recent orders to display.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

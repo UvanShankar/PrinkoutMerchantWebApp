@@ -24,7 +24,7 @@ import {
 import { theme } from '../theme';
 
 export const SettingsScreen: React.FC = () => {
-  const { settingsTab, setSettingsTab, showToast, logout } = useMerchant();
+  const { settingsTab, setSettingsTab, showToast, logout, orders, payouts } = useMerchant();
 
   // Notification states (Page 15)
   const [notifPreferences, setNotifPreferences] = useState({
@@ -646,35 +646,72 @@ export const SettingsScreen: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {[
-                { title: 'New Order Received', desc: 'Order #5577 – A4 Colour (34 pages)', time: '2 min ago', unread: true },
-                { title: 'Order Ready for Pickup', desc: 'Order #5574 is ready for customer pickup.', time: '18 min ago', unread: true },
-                { title: 'Payout Processed', desc: '₹43,488 has been settled to your bank.', time: '1 hr ago', unread: false },
-                { title: 'New Feature: Print Queue', desc: 'Now you can manage and track all print jobs in one place.', time: '3 hr ago', unread: false },
-                { title: 'Service Update', desc: 'Scheduled maintenance on Nov 5, 11:00 PM – Nov 6, 2:00 AM.', time: '1 day ago', unread: false },
-              ].map(n => (
-                <div
-                  key={n.title}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    backgroundColor: '#FAF8F5',
-                    border: '1px solid #EBE7DF',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>{n.title}</div>
-                    <div style={{ fontSize: 11.5, color: '#555963' }}>{n.desc}</div>
+              {(() => {
+                const list: Array<{ title: string; desc: string; time: string; unread: boolean }> = [];
+                if (orders && orders.length > 0) {
+                  const o = orders[0];
+                  const sId = o.orderId.length > 8 ? o.orderId.slice(-4) : o.orderId;
+                  list.push({
+                    title: 'New Order Received',
+                    desc: `Order #${sId} – ${o.serviceType || 'Standard Prints'} (₹${o.totalPrice || 0})`,
+                    time: 'Just now',
+                    unread: true,
+                  });
+                  if (orders.length > 1) {
+                    const o2 = orders[1];
+                    const sId2 = o2.orderId.length > 8 ? o2.orderId.slice(-4) : o2.orderId;
+                    list.push({
+                      title: `Order Status: ${o2.status || 'Received'}`,
+                      desc: `Order #${sId2} is currently ${o2.status || 'in progress'}.`,
+                      time: '20 min ago',
+                      unread: true,
+                    });
+                  }
+                }
+                if (payouts?.recentPayouts && payouts.recentPayouts.length > 0) {
+                  const p = payouts.recentPayouts[0];
+                  list.push({
+                    title: 'Payout Processed',
+                    desc: `₹${p.amount.toLocaleString('en-IN')} has been settled to your bank.`,
+                    time: '1 hr ago',
+                    unread: false,
+                  });
+                } else if (payouts?.nextPayoutAmount && payouts.nextPayoutAmount > 0) {
+                  list.push({
+                    title: 'Payout Scheduled',
+                    desc: `₹${payouts.nextPayoutAmount.toLocaleString('en-IN')} scheduled for daily settlement.`,
+                    time: 'Today',
+                    unread: false,
+                  });
+                }
+                list.push(
+                  { title: 'New Feature: Print Queue', desc: 'Now you can manage and track all print jobs in one place.', time: '3 hr ago', unread: false },
+                  { title: 'Service Update', desc: 'Prinkout merchant network is operating normally.', time: '1 day ago', unread: false }
+                );
+                return list.map(n => (
+                  <div
+                    key={n.title}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      backgroundColor: '#FAF8F5',
+                      border: '1px solid #EBE7DF',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>{n.title}</div>
+                      <div style={{ fontSize: 11.5, color: '#555963' }}>{n.desc}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 10.5, color: '#8E929B' }}>{n.time}</span>
+                      {n.unread && <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#7C3AED' }} />}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <span style={{ fontSize: 10.5, color: '#8E929B' }}>{n.time}</span>
-                    {n.unread && <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#7C3AED' }} />}
-                  </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
         </div>
