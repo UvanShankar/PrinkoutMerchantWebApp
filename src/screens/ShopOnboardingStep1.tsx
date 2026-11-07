@@ -158,7 +158,7 @@ export const ShopOnboardingStep1: React.FC = () => {
               type="text"
               value={form.shopName}
               onChange={e => setForm({ ...form, shopName: e.target.value })}
-              placeholder="e.g. Sabarish Prints"
+              placeholder="Enter shop name"
               style={{
                 flex: 1,
                 border: 'none',
@@ -193,7 +193,7 @@ export const ShopOnboardingStep1: React.FC = () => {
                 type="text"
                 value={form.mobile}
                 onChange={e => setForm({ ...form, mobile: e.target.value })}
-                placeholder="+91 86678 06134"
+                placeholder="Enter contact number"
                 style={{
                   flex: 1,
                   border: 'none',
@@ -262,7 +262,7 @@ export const ShopOnboardingStep1: React.FC = () => {
               type="text"
               value={form.address}
               onChange={e => setForm({ ...form, address: e.target.value })}
-              placeholder="e.g. 12, Kangeyam Road, Tirupur - 641604"
+              placeholder="Enter shop address"
               style={{
                 flex: 1,
                 border: 'none',
