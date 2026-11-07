@@ -187,7 +187,7 @@ export const ShopCreatedSuccessScreen: React.FC = () => {
           try {
             localStorage.removeItem('prinkout_merchant_onboarding');
           } catch {}
-          navigateTo('dashboard');
+          navigateTo('profile');
         }}
         style={{
           width: '100%',
@@ -205,7 +205,7 @@ export const ShopCreatedSuccessScreen: React.FC = () => {
           cursor: 'pointer',
         }}
       >
-        <span>Go to Dashboard</span>
+        <span>Complete Profile & Send for Verification</span>
         <ArrowRight size={16} />
       </button>
     </AuthLayout>

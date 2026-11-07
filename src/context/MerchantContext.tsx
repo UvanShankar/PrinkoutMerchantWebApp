@@ -132,17 +132,19 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return 'login';
     }
 
+    const isVerified = session?.shopData?.isVerified === true || session?.shopData?.verificationStatus === 'approved';
+
     if (requested) {
       const allScreens: ScreenType[] = [
         ...publicScreens,
         'dashboard', 'orders', 'queue', 'pricing', 'reports', 'payouts', 'profile', 'settings'
       ];
       if (allScreens.includes(requested)) {
-        if (requested === 'login') return 'dashboard';
+        if (requested === 'login') return isVerified ? 'dashboard' : 'profile';
         return requested;
       }
     }
-    return 'dashboard';
+    return isVerified ? 'dashboard' : 'profile';
   };
 
   const getInitialSettingsTab = (): SettingsSubTab => {
@@ -306,9 +308,12 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setShopData(activeShopData);
     if (activePhone) setAuthPhone(activePhone);
 
-    setCurrentScreenState('dashboard');
+    const isVerified = activeShopData?.isVerified === true || activeShopData?.verificationStatus === 'approved';
+    const targetScreen: ScreenType = isVerified ? 'dashboard' : 'profile';
+
+    setCurrentScreenState(targetScreen);
     if (typeof window !== 'undefined') {
-      window.location.hash = '#/dashboard';
+      window.location.hash = `#/${targetScreen}`;
     }
   };
 

@@ -162,6 +162,37 @@ export const merchantApi = {
     return res.data?.data;
   },
 
+  async sendShopForVerification(shopId: string, profileData?: any) {
+    const payload = {
+      ...profileData,
+      verificationStatus: 'pending_approval',
+      isVerified: false,
+      verificationSubmittedAt: new Date().toISOString(),
+    };
+    const res = await apiClient.put(`/shops/${shopId}/profile`, payload);
+    return res.data?.data;
+  },
+
+  async approveShopVerification(shopId: string) {
+    const payload = {
+      verificationStatus: 'approved',
+      isVerified: true,
+      verifiedAt: new Date().toISOString(),
+    };
+    const res = await apiClient.put(`/shops/${shopId}/profile`, payload);
+    return res.data?.data;
+  },
+
+  async rejectShopVerification(shopId: string, reason?: string) {
+    const payload = {
+      verificationStatus: 'rejected',
+      isVerified: false,
+      rejectionReason: reason || 'Incomplete business documents',
+    };
+    const res = await apiClient.put(`/shops/${shopId}/profile`, payload);
+    return res.data?.data;
+  },
+
   // Orders
   async getShopOrders(shopId: string): Promise<MerchantOrder[]> {
     const res = await apiClient.get(`/orders/shop/${shopId}`);
