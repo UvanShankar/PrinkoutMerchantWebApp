@@ -10,13 +10,30 @@ export const ShopOnboardingStep3: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleCreateShop = async () => {
+    const rawMobile = onboardingData.mobile || '';
+    const cleanMobile = rawMobile.replace(/\D/g, '');
+    if (!cleanMobile || cleanMobile.length < 10) {
+      showToast('Please enter a valid 10-digit contact number in Shop Details');
+      navigateTo('onboarding-1');
+      return;
+    }
+    if (!onboardingData.shopName?.trim()) {
+      showToast('Please enter your shop name in Shop Details');
+      navigateTo('onboarding-1');
+      return;
+    }
+    if (!onboardingData.address?.trim()) {
+      showToast('Please enter your shop address in Shop Details');
+      navigateTo('onboarding-1');
+      return;
+    }
+
     setLoading(true);
-    const shopPayload = {
-      shopName: onboardingData.shopName || '',
+    const shopPayload: any = {
+      shopName: onboardingData.shopName.trim(),
       ownerName: onboardingData.ownerName || 'Merchant Owner',
-      mobile: onboardingData.mobile || '',
-      email: onboardingData.email || '',
-      address: onboardingData.address || '',
+      mobile: cleanMobile,
+      address: onboardingData.address.trim(),
       area: onboardingData.area || '',
       city: onboardingData.city || '',
       state_name: 'Tamil Nadu',
@@ -24,7 +41,7 @@ export const ShopOnboardingStep3: React.FC = () => {
       latitude: '11.1085',
       longitude: '77.3411',
       servicesOffered: onboardingData.services || ['Standard Prints'],
-      gstNumber: onboardingData.gstNumber || '',
+      gstNumber: onboardingData.gstNumber?.trim() || '',
       isOnlineEnabled: true,
       isPickupAvailable: true,
       isDeliveryAvailable: true,
@@ -40,6 +57,10 @@ export const ShopOnboardingStep3: React.FC = () => {
         { paperSize: 'A0', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a0Color || '80') },
       ],
     };
+
+    if (onboardingData.email && onboardingData.email.trim()) {
+      shopPayload.email = onboardingData.email.trim();
+    }
 
     try {
       const result = await merchantApi.registerShop(shopPayload);
