@@ -215,29 +215,59 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Auth / Onboarding
   const [authPhone, setAuthPhone] = useState(initialSession?.phone || '');
-  const [onboardingData, setOnboardingData] = useState({
-    shopName: '',
-    ownerName: '',
-    mobile: initialSession?.phone || '',
-    email: '',
-    gstNumber: '',
-    address: '',
-    area: '',
-    city: '',
-    pincode: '',
-    services: ['Standard Prints'],
-    pricing: {
-      a4Bw: '1.50',
-      a4Color: '5.00',
-      a3Bw: '4.00',
-      a3Color: '12.00',
-      a0Bw: '50.00',
-      a0Color: '120.00',
-    },
-  });
+
+  const getInitialOnboardingData = () => {
+    const defaultData = {
+      shopName: '',
+      ownerName: '',
+      mobile: initialSession?.phone || '',
+      email: '',
+      gstNumber: '',
+      address: '',
+      area: '',
+      city: '',
+      pincode: '',
+      services: ['Standard Prints'],
+      pricing: {
+        a4Bw: '3',
+        a4Color: '8',
+        a3Bw: '6',
+        a3Color: '15',
+        a0Bw: '40',
+        a0Color: '80',
+      },
+    };
+
+    if (typeof window === 'undefined') return defaultData;
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_onboarding');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          ...defaultData,
+          ...parsed,
+          pricing: { ...defaultData.pricing, ...(parsed.pricing || {}) },
+          mobile: parsed.mobile || initialSession?.phone || '',
+        };
+      }
+    } catch {}
+    return defaultData;
+  };
+
+  const [onboardingData, setOnboardingData] = useState(getInitialOnboardingData);
 
   const updateOnboardingData = (data: Partial<any>) => {
-    setOnboardingData(prev => ({ ...prev, ...data }));
+    setOnboardingData(prev => {
+      const updated = {
+        ...prev,
+        ...data,
+        pricing: data.pricing ? { ...(prev.pricing || {}), ...data.pricing } : prev.pricing,
+      };
+      try {
+        localStorage.setItem('prinkout_merchant_onboarding', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
   };
 
   // Active Shop

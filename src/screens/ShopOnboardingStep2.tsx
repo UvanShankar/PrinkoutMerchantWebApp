@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { AuthLayout } from './AuthLayout';
 import { ChevronLeft, ArrowRight, Check } from 'lucide-react';
@@ -20,6 +20,23 @@ export const ShopOnboardingStep2: React.FC = () => {
     a0Bw: onboardingData.pricing?.a0Bw || '40',
     a0Color: onboardingData.pricing?.a0Color || '80',
   });
+
+  // Synchronize state when onboardingData updates or when navigating back from review
+  useEffect(() => {
+    if (onboardingData.services && onboardingData.services.length > 0) {
+      setSelectedServices(onboardingData.services);
+    }
+    if (onboardingData.pricing) {
+      setPricing({
+        a4Bw: onboardingData.pricing.a4Bw || '3',
+        a4Color: onboardingData.pricing.a4Color || '8',
+        a3Bw: onboardingData.pricing.a3Bw || '6',
+        a3Color: onboardingData.pricing.a3Color || '15',
+        a0Bw: onboardingData.pricing.a0Bw || '40',
+        a0Color: onboardingData.pricing.a0Color || '80',
+      });
+    }
+  }, [onboardingData.services, onboardingData.pricing]);
 
   const availableServices = [
     { id: 'Standard Prints', label: 'Standard Prints\n(A4, A3, A0)', disabled: false },

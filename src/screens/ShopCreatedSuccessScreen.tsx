@@ -183,7 +183,12 @@ export const ShopCreatedSuccessScreen: React.FC = () => {
       </div>
 
       <button
-        onClick={() => navigateTo('dashboard')}
+        onClick={() => {
+          try {
+            localStorage.removeItem('prinkout_merchant_onboarding');
+          } catch {}
+          navigateTo('dashboard');
+        }}
         style={{
           width: '100%',
           display: 'flex',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { AuthLayout } from './AuthLayout';
 import { ChevronLeft, ArrowRight, Store, Phone, FileText, MapPin } from 'lucide-react';
@@ -13,6 +13,21 @@ export const ShopOnboardingStep1: React.FC = () => {
     address: onboardingData.address || '',
   });
 
+  // Ensure fields are synchronized whenever onboardingData updates or on remount
+  useEffect(() => {
+    setForm({
+      shopName: onboardingData.shopName || '',
+      mobile: onboardingData.mobile || '',
+      gstNumber: onboardingData.gstNumber || '',
+      address: onboardingData.address || '',
+    });
+  }, [
+    onboardingData.shopName,
+    onboardingData.mobile,
+    onboardingData.gstNumber,
+    onboardingData.address,
+  ]);
+
   const handleNext = () => {
     if (!form.shopName.trim()) {
       showToast('Please enter your shop name');
@@ -26,10 +41,29 @@ export const ShopOnboardingStep1: React.FC = () => {
     navigateTo('onboarding-2');
   };
 
+  const handleSaveAndReview = () => {
+    if (!form.shopName.trim()) {
+      showToast('Please enter your shop name');
+      return;
+    }
+    if (!form.address.trim()) {
+      showToast('Please enter your shop address');
+      return;
+    }
+    updateOnboardingData(form);
+    navigateTo('onboarding-3');
+  };
+
   return (
     <AuthLayout cardWidth={520}>
       <button
-        onClick={() => navigateTo('login')}
+        onClick={() => {
+          if (onboardingData.services) {
+            navigateTo('onboarding-3');
+          } else {
+            navigateTo('login');
+          }
+        }}
         style={{
           width: 36,
           height: 36,
@@ -277,27 +311,53 @@ export const ShopOnboardingStep1: React.FC = () => {
         </div>
       </div>
 
-      <button
-        onClick={handleNext}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: '13px 20px',
-          backgroundColor: '#1C1D21',
-          color: '#FFFFFF',
-          border: 'none',
-          borderRadius: 12,
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-      >
-        <span>Continue to Services</span>
-        <ArrowRight size={16} />
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button
+          onClick={handleNext}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '13px 20px',
+            backgroundColor: '#1C1D21',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: 12,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          <span>Continue to Services</span>
+          <ArrowRight size={16} />
+        </button>
+
+        {onboardingData.services && (
+          <button
+            type="button"
+            onClick={handleSaveAndReview}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '12px 20px',
+              backgroundColor: 'transparent',
+              color: '#1A1C20',
+              border: '1px solid #D5D0C6',
+              borderRadius: 12,
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <span>Save & Return to Review</span>
+          </button>
+        )}
+      </div>
     </AuthLayout>
   );
 };

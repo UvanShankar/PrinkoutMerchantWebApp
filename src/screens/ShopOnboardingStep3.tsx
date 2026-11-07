@@ -190,7 +190,26 @@ export const ShopOnboardingStep3: React.FC = () => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Shop Details</span>
-            <Edit2 size={13} color="#6B707B" style={{ cursor: 'pointer' }} onClick={() => navigateTo('onboarding-1')} />
+            <button
+              type="button"
+              onClick={() => navigateTo('onboarding-1')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                background: 'none',
+                border: 'none',
+                padding: '4px 8px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                color: '#1A1C20',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              <Edit2 size={13} color="#1A1C20" />
+              <span>Edit</span>
+            </button>
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
@@ -248,7 +267,26 @@ export const ShopOnboardingStep3: React.FC = () => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Selected Services</span>
-            <Edit2 size={13} color="#6B707B" style={{ cursor: 'pointer' }} onClick={() => navigateTo('onboarding-2')} />
+            <button
+              type="button"
+              onClick={() => navigateTo('onboarding-2')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                background: 'none',
+                border: 'none',
+                padding: '4px 8px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                color: '#1A1C20',
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              <Edit2 size={13} color="#1A1C20" />
+              <span>Edit</span>
+            </button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -291,7 +329,26 @@ export const ShopOnboardingStep3: React.FC = () => {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Standard Print Pricing</span>
-          <Edit2 size={13} color="#6B707B" style={{ cursor: 'pointer' }} onClick={() => navigateTo('onboarding-2')} />
+          <button
+            type="button"
+            onClick={() => navigateTo('onboarding-2')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              background: 'none',
+              border: 'none',
+              padding: '4px 8px',
+              borderRadius: 6,
+              cursor: 'pointer',
+              color: '#1A1C20',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            <Edit2 size={13} color="#1A1C20" />
+            <span>Edit</span>
+          </button>
         </div>
 
         <div style={{ border: '1px solid #E5E1D6', borderRadius: 8, overflow: 'hidden' }}>
