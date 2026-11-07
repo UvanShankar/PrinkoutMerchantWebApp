@@ -8,7 +8,7 @@ export const ShopOnboardingStep2: React.FC = () => {
   const { onboardingData, updateOnboardingData, navigateTo } = useMerchant();
 
   const [selectedServices, setSelectedServices] = useState<string[]>(
-    onboardingData.services || ['Standard Prints', 'Posters', 'Flex & Banners']
+    onboardingData.services || ['Standard Prints']
   );
 
   const [pricing, setPricing] = useState({

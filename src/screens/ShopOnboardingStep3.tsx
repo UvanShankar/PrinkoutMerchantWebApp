@@ -23,7 +23,7 @@ export const ShopOnboardingStep3: React.FC = () => {
       pincode: onboardingData.pincode || '',
       latitude: '11.1085',
       longitude: '77.3411',
-      servicesOffered: onboardingData.services || ['Standard Prints', 'Posters', 'Flex & Banners'],
+      servicesOffered: onboardingData.services || ['Standard Prints'],
       gstNumber: onboardingData.gstNumber || '',
       isOnlineEnabled: true,
       isPickupAvailable: true,
@@ -253,7 +253,7 @@ export const ShopOnboardingStep3: React.FC = () => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {servicesList.map(item => {
-              const checked = (onboardingData.services || ['Standard Prints', 'Posters', 'Flex & Banners']).includes(item.id);
+              const checked = (onboardingData.services || ['Standard Prints']).includes(item.id);
               return (
                 <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: checked ? '#1A1C20' : '#8E929B' }}>
                   <div

@@ -225,7 +225,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     area: '',
     city: '',
     pincode: '',
-    services: ['Standard Prints', 'Posters', 'Flex & Banners'],
+    services: ['Standard Prints'],
     pricing: {
       a4Bw: '1.50',
       a4Color: '5.00',
