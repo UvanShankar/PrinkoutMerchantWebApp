@@ -33,8 +33,8 @@ export const ShopOnboardingStep1: React.FC = () => {
       showToast('Please enter your shop name');
       return;
     }
-    const cleanPhone = form.mobile.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
+    const cleanPhone = form.mobile.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
       showToast('Please enter a valid 10-digit contact number');
       return;
     }
@@ -42,7 +42,8 @@ export const ShopOnboardingStep1: React.FC = () => {
       showToast('Please enter your shop address');
       return;
     }
-    updateOnboardingData({ ...form, mobile: cleanPhone });
+    const canonicalPhone = `+91${cleanPhone}`;
+    updateOnboardingData({ ...form, mobile: canonicalPhone, phone: canonicalPhone });
     navigateTo('onboarding-2');
   };
 
@@ -51,8 +52,8 @@ export const ShopOnboardingStep1: React.FC = () => {
       showToast('Please enter your shop name');
       return;
     }
-    const cleanPhone = form.mobile.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length < 10) {
+    const cleanPhone = form.mobile.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
       showToast('Please enter a valid 10-digit contact number');
       return;
     }
@@ -60,7 +61,8 @@ export const ShopOnboardingStep1: React.FC = () => {
       showToast('Please enter your shop address');
       return;
     }
-    updateOnboardingData({ ...form, mobile: cleanPhone });
+    const canonicalPhone = `+91${cleanPhone}`;
+    updateOnboardingData({ ...form, mobile: canonicalPhone, phone: canonicalPhone });
     navigateTo('onboarding-3');
   };
 

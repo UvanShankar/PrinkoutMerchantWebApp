@@ -129,7 +129,8 @@ export const merchantApi = {
   async isExistingShop(mobile: string): Promise<boolean> {
     try {
       const cleanDigits = String(mobile).replace(/\D/g, '').slice(-10);
-      const res = await apiClient.get(`/shops/auth/existing-shop/${cleanDigits}`);
+      const canonicalPhone = `+91${cleanDigits}`;
+      const res = await apiClient.get(`/shops/auth/existing-shop/${encodeURIComponent(canonicalPhone)}`);
       return res.data?.data === true;
     } catch {
       return false;
@@ -137,17 +138,24 @@ export const merchantApi = {
   },
 
   async sendLoginOTP(mobile: string) {
-    const res = await apiClient.post('/shops/auth/login', { mobile });
+    const cleanDigits = String(mobile).replace(/\D/g, '').slice(-10);
+    const canonicalPhone = `+91${cleanDigits}`;
+    const res = await apiClient.post('/shops/auth/login', { mobile: canonicalPhone });
     return res.data;
   },
 
   async verifyOTP(mobile: string, otp: string) {
-    const res = await apiClient.post('/shops/auth/verifyOTP', { mobile, otp });
+    const cleanDigits = String(mobile).replace(/\D/g, '').slice(-10);
+    const canonicalPhone = `+91${cleanDigits}`;
+    const res = await apiClient.post('/shops/auth/verifyOTP', { mobile: canonicalPhone, otp });
     return res.data;
   },
 
   async registerShop(shopData: any) {
-    const res = await apiClient.post('/shops/auth/register', shopData);
+    const cleanDigits = String(shopData.mobile || '').replace(/\D/g, '').slice(-10);
+    const canonicalPhone = `+91${cleanDigits}`;
+    const payload = { ...shopData, mobile: canonicalPhone };
+    const res = await apiClient.post('/shops/auth/register', payload);
     return res.data;
   },
 

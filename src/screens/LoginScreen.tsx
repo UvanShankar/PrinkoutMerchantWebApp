@@ -16,7 +16,7 @@ export const LoginScreen: React.FC = () => {
   const handleSendOTP = async () => {
     setErrorMessage(null);
     const digitsOnly = phoneNumber.replace(/\D/g, '').slice(-10);
-    if (digitsOnly.length < 10) {
+    if (digitsOnly.length !== 10) {
       setErrorMessage('Please enter a valid 10-digit mobile number');
       showToast('Please enter a valid 10-digit mobile number');
       return;
@@ -26,8 +26,8 @@ export const LoginScreen: React.FC = () => {
     const normalizedPhone = `+91${digitsOnly}`;
 
     try {
-      // Check if merchant is already registered
-      const isRegistered = await merchantApi.isExistingShop(digitsOnly);
+      // Check if merchant is already registered (single fast direct call with +91)
+      const isRegistered = await merchantApi.isExistingShop(normalizedPhone);
 
       if (!isRegistered) {
         setLoading(false);

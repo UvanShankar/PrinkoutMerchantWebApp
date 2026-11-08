@@ -11,12 +11,13 @@ export const ShopOnboardingStep3: React.FC = () => {
 
   const handleCreateShop = async () => {
     const rawMobile = onboardingData.mobile || '';
-    const cleanMobile = rawMobile.replace(/\D/g, '');
-    if (!cleanMobile || cleanMobile.length < 10) {
+    const cleanDigits = rawMobile.replace(/\D/g, '').slice(-10);
+    if (!cleanDigits || cleanDigits.length !== 10) {
       showToast('Please enter a valid 10-digit contact number in Shop Details');
       navigateTo('onboarding-1');
       return;
     }
+    const canonicalMobile = `+91${cleanDigits}`;
     if (!onboardingData.shopName?.trim()) {
       showToast('Please enter your shop name in Shop Details');
       navigateTo('onboarding-1');
@@ -32,7 +33,7 @@ export const ShopOnboardingStep3: React.FC = () => {
     const shopPayload: any = {
       shopName: onboardingData.shopName.trim(),
       ownerName: onboardingData.ownerName || 'Merchant Owner',
-      mobile: cleanMobile,
+      mobile: canonicalMobile,
       address: onboardingData.address.trim(),
       area: onboardingData.area || '',
       city: onboardingData.city || '',
