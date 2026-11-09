@@ -33,6 +33,7 @@ interface MerchantContextType {
   setAuthPhone: (phone: string) => void;
   onboardingData: any;
   updateOnboardingData: (data: Partial<any>) => void;
+  resetOnboardingData: (phone?: string) => void;
 
   // Active Shop & Status
   shopId: string;
@@ -218,27 +219,29 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Auth / Onboarding
   const [authPhone, setAuthPhone] = useState(initialSession?.phone || '');
 
+  const getDefaultOnboardingData = (phone = '') => ({
+    shopName: '',
+    ownerName: '',
+    mobile: phone || initialSession?.phone || '',
+    email: '',
+    gstNumber: '',
+    address: '',
+    area: '',
+    city: '',
+    pincode: '',
+    services: ['Standard Prints'],
+    pricing: {
+      a4Bw: '3',
+      a4Color: '8',
+      a3Bw: '6',
+      a3Color: '15',
+      a0Bw: '40',
+      a0Color: '80',
+    },
+  });
+
   const getInitialOnboardingData = () => {
-    const defaultData = {
-      shopName: '',
-      ownerName: '',
-      mobile: initialSession?.phone || '',
-      email: '',
-      gstNumber: '',
-      address: '',
-      area: '',
-      city: '',
-      pincode: '',
-      services: ['Standard Prints'],
-      pricing: {
-        a4Bw: '3',
-        a4Color: '8',
-        a3Bw: '6',
-        a3Color: '15',
-        a0Bw: '40',
-        a0Color: '80',
-      },
-    };
+    const defaultData = getDefaultOnboardingData();
 
     if (typeof window === 'undefined') return defaultData;
     try {
@@ -257,6 +260,13 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const [onboardingData, setOnboardingData] = useState(getInitialOnboardingData);
+
+  const resetOnboardingData = (phone?: string) => {
+    try {
+      localStorage.removeItem('prinkout_merchant_onboarding');
+    } catch (e) {}
+    setOnboardingData(getDefaultOnboardingData(phone || authPhone));
+  };
 
   const updateOnboardingData = (data: Partial<any>) => {
     setOnboardingData(prev => {
@@ -286,6 +296,12 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const activeShopId = userData.shopId;
     const activeShopData = userData;
     const activePhone = phone || userData.mobile || authPhone;
+
+    // Clear any previous onboarding cache so stale shop names never carry over
+    try {
+      localStorage.removeItem('prinkout_merchant_onboarding');
+    } catch (e) {}
+    setOnboardingData(getDefaultOnboardingData(activePhone));
 
     const session = {
       isAuthenticated: true,
@@ -317,10 +333,11 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  // Logout handler
+  // Logout handler - clears session, onboarding cache, and resets all shop state
   const logout = () => {
     try {
       localStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem('prinkout_merchant_onboarding');
     } catch (e) {
       console.warn('Failed to remove session from localStorage:', e);
     }
@@ -329,6 +346,8 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setIsAuthenticated(false);
     setShopId('');
     setShopData(null);
+    setAuthPhone('');
+    setOnboardingData(getDefaultOnboardingData());
     setOrders([]);
     setAnalytics(null);
     setPayouts(null);
@@ -441,6 +460,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setAuthPhone,
         onboardingData,
         updateOnboardingData,
+        resetOnboardingData,
         shopId,
         setShopId,
         shopData,

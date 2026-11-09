@@ -146,13 +146,41 @@ export const ShopProfileScreen: React.FC = () => {
       });
       if (Array.isArray(shopData.documents)) {
         setDocuments(shopData.documents);
+      } else {
+        setDocuments([]);
       }
       if (Array.isArray(shopData.photos)) {
         setPhotos(shopData.photos.map((p: any, idx: number) => {
           if (typeof p === 'string') return { id: `photo_${idx}`, name: `Photo ${idx + 1}`, url: p, uploadedAt: new Date().toISOString() };
           return p;
         }));
+      } else {
+        setPhotos([]);
       }
+    } else {
+      setBasicForm({
+        shopName: '',
+        description: '',
+        address: '',
+        area: '',
+        city: '',
+        pincode: '',
+        mobile: '',
+        ownerName: '',
+      });
+      setBusinessForm({
+        businessType: 'Print Shop (Retail)',
+        gstNumber: '',
+        shopLicenseNo: '',
+        upiId: '',
+      });
+      setHoursForm({
+        openingTime: '09:00',
+        closingTime: '21:00',
+        workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      });
+      setDocuments([]);
+      setPhotos([]);
     }
   }, [shopData]);
 

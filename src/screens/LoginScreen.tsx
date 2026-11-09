@@ -6,12 +6,17 @@ import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
 export const LoginScreen: React.FC = () => {
-  const { setAuthPhone, authPhone, updateOnboardingData, navigateTo, showToast } = useMerchant();
+  const { setAuthPhone, authPhone, resetOnboardingData, navigateTo, showToast } = useMerchant();
   const [phoneNumber, setPhoneNumber] = useState(
     authPhone ? authPhone.replace('+91', '').trim() : ''
   );
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Clear any stale cached onboarding / shop name whenever login screen is accessed
+  React.useEffect(() => {
+    resetOnboardingData();
+  }, []);
 
   const handleSendOTP = async () => {
     setErrorMessage(null);
@@ -32,7 +37,7 @@ export const LoginScreen: React.FC = () => {
       if (!isRegistered) {
         setLoading(false);
         setAuthPhone(normalizedPhone);
-        updateOnboardingData({ mobile: digitsOnly, phone: digitsOnly });
+        resetOnboardingData(normalizedPhone);
         showToast('Mobile number not registered. Redirecting to create merchant account...');
         navigateTo('onboarding-1');
         return;
@@ -58,7 +63,7 @@ export const LoginScreen: React.FC = () => {
         err?.status === 401
       ) {
         setAuthPhone(normalizedPhone);
-        updateOnboardingData({ mobile: digitsOnly, phone: digitsOnly });
+        resetOnboardingData(normalizedPhone);
         showToast('Mobile number not registered. Redirecting to create merchant account...');
         navigateTo('onboarding-1');
         return;
