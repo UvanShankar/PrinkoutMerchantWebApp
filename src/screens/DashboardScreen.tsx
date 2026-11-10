@@ -17,10 +17,27 @@ export const DashboardScreen: React.FC = () => {
   const { orders, analytics, navigateTo, setSelectedOrderId } = useMerchant();
   const [timelineTab, setTimelineTab] = useState<'Today' | 'Week' | 'Month'>('Today');
 
-  const todayOrdersCount = orders.length > 0 ? orders.length : (analytics?.today?.ordersCount ?? 0);
-  const todayRevenue = orders.length > 0
+  const isToday = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  };
+
+  const totalOrdersCount = orders.length > 0 ? orders.length : (analytics?.summaryMetrics?.totalOrders ?? 0);
+  const totalLifetimeRevenue = orders.length > 0
     ? orders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0)
-    : (analytics?.today?.revenue ?? 0);
+    : (analytics?.summaryMetrics?.totalRevenue ?? 0);
+
+  const todayOrders = (orders || []).filter(o => isToday(o.createdAt));
+  const todayOrdersCount = analytics?.today?.ordersCount !== undefined
+    ? analytics.today.ordersCount
+    : todayOrders.length;
+
+  const todayRevenue = analytics?.today?.revenue !== undefined
+    ? analytics.today.revenue
+    : todayOrders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0);
+
   const inPrintingCount = orders.filter(o => o.status?.toLowerCase() === 'printing').length || (analytics?.today?.inPrinting ?? 0);
   const readyCount = orders.filter(o => {
     const s = o.status?.toLowerCase();
@@ -200,8 +217,11 @@ export const DashboardScreen: React.FC = () => {
                 borderRadius: 12,
               }}
             >
-              Live
+              Today
             </span>
+          </div>
+          <div style={{ fontSize: 11, color: '#7E8492', marginTop: 6, fontWeight: 500 }}>
+            {totalOrdersCount} lifetime orders
           </div>
           <DuneWave />
         </div>
@@ -233,8 +253,11 @@ export const DashboardScreen: React.FC = () => {
                 borderRadius: 12,
               }}
             >
-              Live
+              Today
             </span>
+          </div>
+          <div style={{ fontSize: 11, color: '#7E8492', marginTop: 6, fontWeight: 500 }}>
+            ₹ {totalLifetimeRevenue.toLocaleString()} total gross
           </div>
           <DuneWave />
         </div>
