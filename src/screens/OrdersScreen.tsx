@@ -40,13 +40,17 @@ export const OrdersScreen: React.FC = () => {
       ? new Date(o.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
       : 'Today';
 
+    const rawStatus = (o.status || 'received').toLowerCase();
+    const normalizedStatus = (rawStatus === 'pending') ? 'received' : rawStatus;
+
     return {
       orderId: o.orderId,
       customerName: o.customerName || (o.userId ? `Customer (${o.userId.slice(-6)})` : 'Customer'),
       customerPhone: o.customerPhone || '+91 98432 11234',
       specs: o.specs || `${o.paperSize || 'A4'} ${o.colorMode || 'Colour'} • ${o.orderDetails?.quantity || 1} copies`,
       totalPrice: o.totalPrice || o.orderDetails?.totalPrice || 0,
-      status: o.status || 'received',
+      status: normalizedStatus,
+      rawStatus: o.status,
       timeAgo: o.timeAgo || defaultTime,
       placedDate: `${defaultDate} at ${defaultTime}`,
       city: o.deliveryDetails?.deliveryAddress || o.pickupDetails?.pickupLocation || 'Pickup Counter',
@@ -66,7 +70,11 @@ export const OrdersScreen: React.FC = () => {
   });
 
   const filteredOrders = allOrdersList.filter(o => {
-    if (filterTab !== 'all' && (o.status || '').toLowerCase() !== filterTab) return false;
+    if (filterTab !== 'all') {
+      const s = (o.status || '').toLowerCase();
+      if (filterTab === 'received' && !(s === 'received' || s === 'pending')) return false;
+      if (filterTab !== 'received' && s !== filterTab) return false;
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -94,6 +102,7 @@ export const OrdersScreen: React.FC = () => {
   const renderStatusBadge = (status?: string) => {
     switch ((status || '').toLowerCase()) {
       case 'received':
+      case 'pending':
         return (
           <span
             style={{
@@ -147,7 +156,7 @@ export const OrdersScreen: React.FC = () => {
             }}
           >
             <CheckCircle2 size={12} />
-            <span>Ready</span>
+            <span>Ready to Deliver</span>
           </span>
         );
       case 'completed':
@@ -324,7 +333,7 @@ export const OrdersScreen: React.FC = () => {
               cursor: 'pointer',
             }}
           >
-            <span>Ready</span>
+            <span>Ready to Deliver</span>
             <span
               style={{
                 fontSize: 11,
@@ -457,6 +466,7 @@ export const OrdersScreen: React.FC = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
             <thead>
               <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #EBE7DF' }}>
+                <th style={{ padding: '8px 10px', width: 44 }}>S.NO</th>
                 <th style={{ padding: '8px 10px' }}>ORDER ID</th>
                 <th style={{ padding: '8px 10px' }}>CUSTOMER</th>
                 <th style={{ padding: '8px 10px' }}>ORDER DETAILS</th>
@@ -469,7 +479,7 @@ export const OrdersScreen: React.FC = () => {
             <tbody>
               {filteredOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '36px 12px', textAlign: 'center', color: '#8E929B', fontSize: 12.5 }}>
+                  <td colSpan={8} style={{ padding: '36px 12px', textAlign: 'center', color: '#8E929B', fontSize: 12.5 }}>
                     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                       <ShoppingBag size={28} color="#8E929B" style={{ opacity: 0.5 }} />
                       <div style={{ fontWeight: 600, color: '#1A1C20' }}>No orders found</div>
@@ -480,7 +490,7 @@ export const OrdersScreen: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map(row => {
+                filteredOrders.map((row, idx) => {
                   const isSelected = row.orderId === (activeOrder?.orderId || '');
                   return (
                     <tr
@@ -492,6 +502,9 @@ export const OrdersScreen: React.FC = () => {
                         backgroundColor: isSelected ? '#FAF8F5' : 'transparent',
                       }}
                     >
+                      <td style={{ padding: '12px 10px', fontWeight: 600, color: '#8E929B', fontSize: 12 }}>
+                        {idx + 1}
+                      </td>
                       <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>
                         #{row.orderId}
                       </td>
@@ -608,6 +621,14 @@ export const OrdersScreen: React.FC = () => {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {(() => {
+                  const sNo = filteredOrders.findIndex(o => o.orderId === activeOrder.orderId) + 1;
+                  return sNo > 0 ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#8E929B', backgroundColor: '#F0ECE4', padding: '3px 8px', borderRadius: 8 }}>
+                      S.No: {sNo}
+                    </span>
+                  ) : null;
+                })()}
                 <span style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20' }}>
                   Order #{activeOrder.orderId}
                 </span>
@@ -863,7 +884,7 @@ export const OrdersScreen: React.FC = () => {
             {activeOrder.status === 'received' || activeOrder.status === 'pending'
               ? 'Mark as Printing'
               : activeOrder.status === 'printing'
-              ? 'Mark as Ready'
+              ? 'Mark as Ready to Deliver'
               : activeOrder.status === 'ready'
               ? 'Mark as Completed'
               : 'Order Completed'}

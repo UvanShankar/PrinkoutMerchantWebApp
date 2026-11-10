@@ -97,18 +97,6 @@ export const Header: React.FC = () => {
             subtitle: 'Add team members and manage their access levels.',
           };
         }
-        if (settingsTab === 'integrations') {
-          return {
-            title: 'Integrations',
-            subtitle: 'Connect tools to make your workflow faster.',
-          };
-        }
-        if (settingsTab === 'security') {
-          return {
-            title: 'Security',
-            subtitle: 'Keep your account safe and secure.',
-          };
-        }
         return {
           title: 'Settings',
           subtitle: 'Manage your account, notifications, team and preferences.',

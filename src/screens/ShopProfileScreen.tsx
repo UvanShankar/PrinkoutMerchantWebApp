@@ -256,16 +256,21 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Save Business Info
   const handleSaveBusiness = async () => {
-    if (isApproved) {
-      showToast('Verified shop details are locked and cannot be edited.');
-      return;
-    }
     try {
       setSavingBusiness(true);
+      const payload = isApproved ? { upiId: businessForm.upiId } : businessForm;
       if (shopId) {
-        await merchantApi.updateShopProfile(shopId, businessForm);
+        await merchantApi.updateShopProfile(shopId, payload);
       }
-      setShopData((prev: any) => ({ ...prev, ...businessForm }));
+      setShopData((prev: any) => ({ ...prev, ...payload }));
+      try {
+        const raw = localStorage.getItem('prinkout_merchant_session');
+        if (raw) {
+          const session = JSON.parse(raw);
+          session.shopData = { ...(session.shopData || {}), ...payload };
+          localStorage.setItem('prinkout_merchant_session', JSON.stringify(session));
+        }
+      } catch (e) {}
       setIsEditingBusiness(false);
       showToast('Business details saved successfully!');
     } catch (err: any) {
@@ -1119,55 +1124,61 @@ export const ShopProfileScreen: React.FC = () => {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Business & Tax Info</span>
-                {isApproved ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#15803D' }}>
-                    <Lock size={12} />
-                    <span>Locked</span>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {isEditingBusiness && (
-                      <button
-                        onClick={handleSaveBusiness}
-                        disabled={savingBusiness}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '3px 8px',
-                          borderRadius: 10,
-                          backgroundColor: '#16A34A',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Check size={12} />
-                        <span>{savingBusiness ? 'Saving...' : 'Save'}</span>
-                      </button>
-                    )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Business & Tax Info</span>
+                  {isApproved && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, backgroundColor: '#DCFCE7', color: '#15803D', padding: '1px 6px', borderRadius: 8 }}>
+                      <Lock size={10} />
+                      Verified
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {isEditingBusiness && (
                     <button
-                      type="button"
-                      onClick={() => setIsEditingBusiness(prev => !prev)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B707B', padding: 2 }}
+                      onClick={handleSaveBusiness}
+                      disabled={savingBusiness}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '3px 8px',
+                        borderRadius: 10,
+                        backgroundColor: '#16A34A',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
                     >
-                      {isEditingBusiness ? <X size={15} /> : <Edit2 size={14} />}
+                      <Check size={12} />
+                      <span>{savingBusiness ? 'Saving...' : 'Save'}</span>
                     </button>
-                  </div>
-                )}
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingBusiness(prev => !prev)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B707B', padding: 2 }}
+                    title={isApproved ? "Edit Settlement UPI ID" : "Edit Business Info"}
+                  >
+                    {isEditingBusiness ? <X size={15} /> : <Edit2 size={14} />}
+                  </button>
+                </div>
               </div>
 
-              {isEditingBusiness && !isApproved ? (
+              {isEditingBusiness ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Business Type</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B' }}>Business Type</label>
+                      {isApproved && <span style={{ fontSize: 10, color: '#15803D', fontWeight: 600 }}>Locked</span>}
+                    </div>
                     <select
                       value={businessForm.businessType}
+                      disabled={isApproved}
                       onChange={e => setBusinessForm(f => ({ ...f, businessType: e.target.value }))}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: '#FFFFFF' }}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF', cursor: isApproved ? 'not-allowed' : 'default' }}
                     >
                       <option value="Print Shop (Retail)">Print Shop (Retail)</option>
                       <option value="Digital Printing Center">Digital Printing Center</option>
@@ -1176,33 +1187,44 @@ export const ShopProfileScreen: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>GST Number</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B' }}>GST Number</label>
+                      {isApproved && <span style={{ fontSize: 10, color: '#15803D', fontWeight: 600 }}>Locked</span>}
+                    </div>
                     <input
                       type="text"
                       placeholder="e.g. 33AABCU9603R1ZM"
                       value={businessForm.gstNumber}
+                      disabled={isApproved}
                       onChange={e => setBusinessForm(f => ({ ...f, gstNumber: e.target.value.toUpperCase() }))}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF', cursor: isApproved ? 'not-allowed' : 'default' }}
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Shop License / Act No</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B' }}>Shop License / Act No</label>
+                      {isApproved && <span style={{ fontSize: 10, color: '#15803D', fontWeight: 600 }}>Locked</span>}
+                    </div>
                     <input
                       type="text"
                       placeholder="Trade License number"
                       value={businessForm.shopLicenseNo}
+                      disabled={isApproved}
                       onChange={e => setBusinessForm(f => ({ ...f, shopLicenseNo: e.target.value }))}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF', cursor: isApproved ? 'not-allowed' : 'default' }}
                     />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>UPI ID for Settlements</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B' }}>UPI ID for Settlements</label>
+                      <span style={{ fontSize: 10, color: '#2563EB', fontWeight: 600 }}>Payout Destination</span>
+                    </div>
                     <input
                       type="text"
                       placeholder="merchant@upi"
                       value={businessForm.upiId}
                       onChange={e => setBusinessForm(f => ({ ...f, upiId: e.target.value }))}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                      style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #3B82F6', fontSize: 12.5, backgroundColor: '#FFFFFF' }}
                     />
                   </div>
                 </div>

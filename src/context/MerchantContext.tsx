@@ -17,7 +17,7 @@ export type ScreenType =
   | 'profile'
   | 'settings';
 
-export type SettingsSubTab = 'general' | 'notifications' | 'team' | 'integrations' | 'security';
+export type SettingsSubTab = 'general' | 'notifications' | 'team';
 
 interface MerchantContextType {
   currentScreen: ScreenType;
@@ -34,6 +34,22 @@ interface MerchantContextType {
   onboardingData: any;
   updateOnboardingData: (data: Partial<any>) => void;
   resetOnboardingData: (phone?: string) => void;
+
+  // 3-Step Setup Flow for New Merchants
+  isSetupPending: boolean;
+  setupStep: 1 | 2 | 3;
+  setSetupStep: (step: 1 | 2 | 3) => void;
+  submitSetupForReview: () => Promise<void>;
+
+  // Team & Access
+  teamMembers: any[];
+  accessActivity: any[];
+  addTeamMember: (member: { name: string; phone: string; role?: string; access?: string }) => Promise<void>;
+  removeTeamMember: (phoneOrId: string) => Promise<void>;
+
+  // Notifications
+  notificationPreferences: any;
+  saveNotificationPreferences: (prefs: any) => Promise<void>;
 
   // Active Shop & Status
   shopId: string;
@@ -151,7 +167,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const getInitialSettingsTab = (): SettingsSubTab => {
     if (typeof window !== 'undefined' && window.location.href.includes('tab=')) {
       const match = window.location.href.match(/tab=([a-z]+)/);
-      if (match && ['general', 'notifications', 'team', 'integrations', 'security'].includes(match[1])) {
+      if (match && ['general', 'notifications', 'team'].includes(match[1])) {
         return match[1] as SettingsSubTab;
       }
     }
@@ -198,7 +214,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (window.location.href.includes('tab=')) {
         const match = window.location.href.match(/tab=([a-z]+)/);
-        if (match && ['general', 'notifications', 'team', 'integrations', 'security'].includes(match[1])) {
+        if (match && ['general', 'notifications', 'team'].includes(match[1])) {
           setSettingsTab(match[1] as SettingsSubTab);
         }
       }
@@ -444,6 +460,189 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
+  // 3-Step Setup Flow state
+  const isSetupPending = Boolean(
+    shopData &&
+    !shopData.isSetupCompleted &&
+    (shopData.verificationStatus === 'draft' || !shopData.verificationStatus || shopData.verificationStatus === 'pending_setup')
+  );
+
+  const [setupStep, setSetupStepState] = useState<1 | 2 | 3>(() => {
+    if (currentScreen === 'profile') return 1;
+    if (currentScreen === 'settings') return 2;
+    if (currentScreen === 'pricing') return 3;
+    return 1;
+  });
+
+  const setSetupStep = (step: 1 | 2 | 3) => {
+    setSetupStepState(step);
+    if (step === 1) {
+      navigateTo('profile');
+    } else if (step === 2) {
+      setSettingsTab('general');
+      navigateTo('settings');
+    } else if (step === 3) {
+      navigateTo('pricing');
+    }
+  };
+
+  // Sync setupStep with current screen
+  useEffect(() => {
+    if (currentScreen === 'profile') setSetupStepState(1);
+    else if (currentScreen === 'settings' && settingsTab === 'general') setSetupStepState(2);
+    else if (currentScreen === 'pricing') setSetupStepState(3);
+  }, [currentScreen, settingsTab]);
+
+  // Team Members & Access Activity
+  const defaultOwner = {
+    id: `mem_owner_${String(shopData?.mobile || authPhone || '1212121212').replace(/\D/g, '').slice(-10)}`,
+    name: `${shopData?.ownerName || shopData?.shopName || 'Admin'} (You)`,
+    phone: shopData?.mobile || authPhone || '+91 1212121212',
+    role: 'Owner',
+    access: 'Full Access',
+    isOwner: true,
+    status: 'Active',
+    time: 'Just now',
+  };
+
+  const [teamMembers, setTeamMembers] = useState<any[]>(() => {
+    if (Array.isArray(shopData?.teamMembers) && shopData.teamMembers.length > 0) {
+      return shopData.teamMembers;
+    }
+    return [defaultOwner];
+  });
+
+  const [accessActivity, setAccessActivity] = useState<any[]>(() => {
+    if (Array.isArray(shopData?.accessActivity) && shopData.accessActivity.length > 0) {
+      return shopData.accessActivity;
+    }
+    return [];
+  });
+
+  // Sync team members when shopData updates
+  useEffect(() => {
+    if (shopData) {
+      if (Array.isArray(shopData.teamMembers) && shopData.teamMembers.length > 0) {
+        setTeamMembers(shopData.teamMembers);
+      } else {
+        const owner = {
+          id: `mem_owner_${String(shopData.mobile || authPhone || '1212121212').replace(/\D/g, '').slice(-10)}`,
+          name: `${shopData.ownerName || shopData.shopName || 'Admin'} (You)`,
+          phone: shopData.mobile || authPhone || '+91 1212121212',
+          role: 'Owner',
+          access: 'Full Access',
+          isOwner: true,
+          status: 'Active',
+          time: 'Just now',
+        };
+        setTeamMembers([owner]);
+      }
+      if (Array.isArray(shopData.accessActivity)) {
+        setAccessActivity(shopData.accessActivity);
+      }
+    }
+  }, [shopData]);
+
+  const addTeamMember = async (member: { name: string; phone: string; role?: string; access?: string }) => {
+    try {
+      const activeShopId = shopId || shopData?.shopId;
+      if (!activeShopId) throw new Error("No active shop");
+      const res = await merchantApi.addTeamMember(activeShopId, member);
+      if (res?.teamMembers) setTeamMembers(res.teamMembers);
+      if (res?.accessActivity) setAccessActivity(res.accessActivity);
+      showToast(`${member.name} added to team`);
+    } catch (err: any) {
+      const clean10 = String(member.phone).replace(/\D/g, '').slice(-10);
+      const newM = {
+        id: `mem_${Date.now()}`,
+        name: member.name,
+        phone: `+91${clean10}`,
+        role: member.role || 'Print Operator',
+        access: member.access || 'Orders, Print Queue',
+        isOwner: false,
+        status: 'Active',
+        time: 'Just now',
+      };
+      setTeamMembers(prev => [...prev, newM]);
+      const act = {
+        id: `act_${Date.now()}`,
+        action: `${shopData?.ownerName || 'Admin'} added ${member.name} (${newM.role} • ${newM.access})`,
+        time: `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        timestamp: Date.now(),
+      };
+      setAccessActivity(prev => [act, ...prev]);
+      showToast(`${member.name} added to team`);
+    }
+  };
+
+  const removeTeamMember = async (phoneOrId: string) => {
+    try {
+      const activeShopId = shopId || shopData?.shopId;
+      if (!activeShopId) throw new Error("No active shop");
+      const res = await merchantApi.deleteTeamMember(activeShopId, phoneOrId);
+      if (res?.teamMembers) setTeamMembers(res.teamMembers);
+      if (res?.accessActivity) setAccessActivity(res.accessActivity);
+      showToast("Team member removed");
+    } catch (err: any) {
+      setTeamMembers(prev => prev.filter(m => m.id !== phoneOrId && !m.phone.includes(phoneOrId)));
+      showToast("Team member removed");
+    }
+  };
+
+  // Notification Preferences
+  const [notificationPreferences, setNotificationPreferences] = useState<any>(() => {
+    return shopData?.notificationPreferences || {
+      newOrders: true,
+      orderUpdates: true,
+      payoutUpdates: true,
+      queueAlerts: true,
+      announcements: true,
+      channel: 'inApp',
+    };
+  });
+
+  const saveNotificationPreferences = async (prefs: any) => {
+    setNotificationPreferences(prefs);
+    try {
+      const activeShopId = shopId || shopData?.shopId;
+      if (activeShopId) {
+        await merchantApi.updateNotifications(activeShopId, prefs);
+      }
+      showToast('Notification preferences saved');
+    } catch (err) {
+      console.warn('Failed to save notification preferences:', err);
+    }
+  };
+
+  const submitSetupForReview = async () => {
+    const activeShopId = shopId || shopData?.shopId;
+    if (activeShopId) {
+      try {
+        await merchantApi.submitShopSetup(activeShopId);
+      } catch (err) {
+        console.warn('API submit setup error:', err);
+      }
+    }
+    setShopData((prev: any) => ({
+      ...prev,
+      isSetupCompleted: true,
+      verificationStatus: 'pending_approval',
+    }));
+    try {
+      const sess = getStoredSession();
+      if (sess) {
+        sess.shopData = {
+          ...sess.shopData,
+          isSetupCompleted: true,
+          verificationStatus: 'pending_approval',
+        };
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sess));
+      }
+    } catch {}
+    showToast('🎉 Shop setup submitted for review!');
+    navigateTo('dashboard');
+  };
+
   const selectedOrder = (selectedOrderId ? orders.find(o => o.orderId === selectedOrderId) : orders[0]) || null;
 
   return (
@@ -461,6 +660,16 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onboardingData,
         updateOnboardingData,
         resetOnboardingData,
+        isSetupPending,
+        setupStep,
+        setSetupStep,
+        submitSetupForReview,
+        teamMembers,
+        accessActivity,
+        addTeamMember,
+        removeTeamMember,
+        notificationPreferences,
+        saveNotificationPreferences,
         shopId,
         setShopId,
         shopData,

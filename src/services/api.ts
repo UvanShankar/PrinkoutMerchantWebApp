@@ -203,7 +203,7 @@ export const merchantApi = {
 
   // Orders
   async getShopOrders(shopId: string): Promise<MerchantOrder[]> {
-    const res = await apiClient.get(`/orders/shop/${shopId}`);
+    const res = await apiClient.get(`/orders/shop/${shopId}?limit=100`);
     return res.data?.data?.orders || [];
   },
 
@@ -225,6 +225,39 @@ export const merchantApi = {
   // Payouts
   async getShopPayouts(shopId: string): Promise<MerchantPayouts> {
     const res = await apiClient.get(`/shops/${shopId}/payouts`);
+    return res.data?.data;
+  },
+
+  // Team Members
+  async getTeamMembers(shopId: string) {
+    const res = await apiClient.get(`/shops/${shopId}/team-members`);
+    return res.data?.data;
+  },
+
+  async addTeamMember(shopId: string, member: { name: string; phone: string; role?: string; access?: string }) {
+    const res = await apiClient.post(`/shops/${shopId}/team-members`, member);
+    return res.data?.data;
+  },
+
+  async deleteTeamMember(shopId: string, memberPhone: string) {
+    const res = await apiClient.delete(`/shops/${shopId}/team-members/${encodeURIComponent(memberPhone)}`);
+    return res.data?.data;
+  },
+
+  // Notifications
+  async getNotifications(shopId: string) {
+    const res = await apiClient.get(`/shops/${shopId}/notifications`);
+    return res.data?.data;
+  },
+
+  async updateNotifications(shopId: string, prefs: any) {
+    const res = await apiClient.put(`/shops/${shopId}/notifications`, prefs);
+    return res.data?.data;
+  },
+
+  // Setup Completion
+  async submitShopSetup(shopId: string) {
+    const res = await apiClient.post(`/shops/${shopId}/submit-setup`);
     return res.data?.data;
   },
 };

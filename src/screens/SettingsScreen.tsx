@@ -6,53 +6,58 @@ import {
   Users,
   Printer,
   Link,
-  Shield,
   ChevronRight,
   Plus,
-  MoreVertical,
   CheckCircle2,
   ExternalLink,
   Radio,
   Clock,
-  Laptop,
-  Tablet,
   Smartphone,
-  Lock,
   Rocket,
   Info,
+  Trash2,
+  X,
+  CreditCard,
+  ShieldCheck,
+  Headphones,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const SettingsScreen: React.FC = () => {
-  const { settingsTab, setSettingsTab, showToast, logout, orders, payouts } = useMerchant();
+  const {
+    settingsTab,
+    setSettingsTab,
+    showToast,
+    logout,
+    orders,
+    payouts,
+    shopData,
+    authPhone,
+    teamMembers,
+    accessActivity,
+    addTeamMember,
+    removeTeamMember,
+    notificationPreferences,
+    saveNotificationPreferences,
+  } = useMerchant();
 
-  // Notification states (Page 15)
-  const [notifPreferences, setNotifPreferences] = useState({
-    newOrders: true,
-    orderUpdates: true,
-    payoutUpdates: true,
-    queueAlerts: false,
-    announcements: true,
-  });
-  const [notifChannel, setNotifChannel] = useState<'inApp' | 'whatsapp'>('inApp');
-
-  // Security states (Page 18)
-  const [twoFactorAuth, setTwoFactorAuth] = useState(true);
+  // Add Member Modal State
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberPhone, setNewMemberPhone] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('Print Operator');
+  const [newMemberAccess, setNewMemberAccess] = useState('Orders, Print Queue');
+  const [submittingMember, setSubmittingMember] = useState(false);
 
   // Preference states (Page 14)
   const [defaultOrderView, setDefaultOrderView] = useState('All Orders');
   const [pageSize, setPageSize] = useState('50');
   const [themePreference, setThemePreference] = useState<'Light' | 'Dark'>('Light');
 
-  // General 2FA toggle (Page 14)
-  const [generalTwoFactor, setGeneralTwoFactor] = useState(true);
-
   const subtabs: { id: SettingsSubTab; label: string }[] = [
     { id: 'general', label: 'General' },
     { id: 'notifications', label: 'Notifications' },
     { id: 'team', label: 'Team & Access' },
-    { id: 'integrations', label: 'Integrations' },
-    { id: 'security', label: 'Security' },
   ];
 
   // Helper iOS-style toggle matching PDF
@@ -150,23 +155,15 @@ export const SettingsScreen: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF' }}>
                   <span style={{ color: '#555963' }}>Owner Name</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>Sabarish S</span>
-                    <ChevronRight size={14} color="#8E929B" />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF' }}>
-                  <span style={{ color: '#555963' }}>Mobile Number</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>+91 98432 11234</span>
+                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>{shopData?.ownerName || shopData?.shopName || 'Merchant Owner'}</span>
                     <ChevronRight size={14} color="#8E929B" />
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
-                  <span style={{ color: '#555963' }}>Change Password</span>
+                  <span style={{ color: '#555963' }}>Mobile Number</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>••••••••</span>
+                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>{shopData?.mobile || authPhone || '+91 1212121212'}</span>
                     <ChevronRight size={14} color="#8E929B" />
                   </div>
                 </div>
@@ -191,17 +188,23 @@ export const SettingsScreen: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF' }}>
                   <span style={{ color: '#1A1C20', fontWeight: 600 }}>New Order Alerts</span>
-                  {renderToggle(notifPreferences.newOrders, () => setNotifPreferences({ ...notifPreferences, newOrders: !notifPreferences.newOrders }))}
+                  {renderToggle(!!notificationPreferences?.newOrders, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, newOrders: !notificationPreferences?.newOrders })
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF' }}>
                   <span style={{ color: '#1A1C20', fontWeight: 600 }}>Payout Updates</span>
-                  {renderToggle(notifPreferences.payoutUpdates, () => setNotifPreferences({ ...notifPreferences, payoutUpdates: !notifPreferences.payoutUpdates }))}
+                  {renderToggle(!!notificationPreferences?.payoutUpdates, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, payoutUpdates: !notificationPreferences?.payoutUpdates })
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
                   <span style={{ color: '#1A1C20', fontWeight: 600 }}>Prinkout Announcements</span>
-                  {renderToggle(notifPreferences.announcements, () => setNotifPreferences({ ...notifPreferences, announcements: !notifPreferences.announcements }))}
+                  {renderToggle(!!notificationPreferences?.announcements, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, announcements: !notificationPreferences?.announcements })
+                  )}
                 </div>
               </div>
             </div>
@@ -226,31 +229,20 @@ export const SettingsScreen: React.FC = () => {
                 <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 14 }}>Add team members and manage their access.</p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12.5 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: '#EDE9FE', color: '#6B21A8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
-                        S
+                  {teamMembers.slice(0, 2).map((m: any) => (
+                    <div key={m.id || m.phone} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: '#EDE9FE', color: '#6B21A8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                          {(m.name || 'M').charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20' }}>{m.name}</div>
+                          <div style={{ fontSize: 10.5, color: '#8E929B' }}>{m.role} • {m.access}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20' }}>Sabarish S (You)</div>
-                        <div style={{ fontSize: 10.5, color: '#8E929B' }}>Owner • Full Access</div>
-                      </div>
+                      <ChevronRight size={14} color="#8E929B" />
                     </div>
-                    <ChevronRight size={14} color="#8E929B" />
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: '#EDE9FE', color: '#6B21A8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
-                        A
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20' }}>Arun K</div>
-                        <div style={{ fontSize: 10.5, color: '#8E929B' }}>Staff • Orders, Print Queue</div>
-                      </div>
-                    </div>
-                    <ChevronRight size={14} color="#8E929B" />
-                  </div>
+                  ))}
                 </div>
               </div>
 
@@ -315,7 +307,7 @@ export const SettingsScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* 5: Integrations */}
+            {/* 5: Settlement & Fulfilment */}
             <div
               style={{
                 backgroundColor: theme.colors.creamCard,
@@ -325,50 +317,37 @@ export const SettingsScreen: React.FC = () => {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <Link size={16} color="#7C3AED" />
-                <h3 style={{ fontSize: 14.5, fontWeight: 700, color: '#1A1C20' }}>Integrations</h3>
+                <CreditCard size={16} color="#7C3AED" />
+                <h3 style={{ fontSize: 14.5, fontWeight: 700, color: '#1A1C20' }}>Settlement & Fulfilment</h3>
               </div>
-              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 14 }}>Connect tools to make your workflow faster.</p>
+              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 14 }}>Bank payout UPI & store pickup settings.</p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF' }}>
                   <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>Razorpay</div>
-                    <div style={{ fontSize: 10.5, color: '#8E929B' }}>For payouts and settlements</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>UPI Settlement</div>
+                    <div style={{ fontSize: 10.5, color: '#8E929B' }}>{shopData?.upiId || 'prinkoutmerchant@okaxis'}</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
-                      ✓ Connected
+                      ✓ Active
                     </span>
-                    <ChevronRight size={14} color="#8E929B" />
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
                   <div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>WhatsApp Business</div>
-                    <div style={{ fontSize: 10.5, color: '#8E929B' }}>For order notifications</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#1A1C20' }}>Fulfilment Mode</div>
+                    <div style={{ fontSize: 10.5, color: '#8E929B' }}>{shopData?.fulfilmentMode || 'Store Pickup Only'}</div>
                   </div>
-                  <button
-                    onClick={() => setSettingsTab('integrations')}
-                    style={{
-                      padding: '4px 12px',
-                      borderRadius: 14,
-                      backgroundColor: '#EFECE4',
-                      border: '1px solid #DAD5CB',
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      color: '#1A1C20',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Connect
-                  </button>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#4F46E5', backgroundColor: '#EEF2FF', padding: '2px 8px', borderRadius: 12 }}>
+                    Active
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* 6: Security */}
+            {/* 6: Partner Support */}
             <div
               style={{
                 backgroundColor: theme.colors.creamCard,
@@ -378,31 +357,25 @@ export const SettingsScreen: React.FC = () => {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <Shield size={16} color="#7C3AED" />
-                <h3 style={{ fontSize: 14.5, fontWeight: 700, color: '#1A1C20' }}>Security</h3>
+                <Headphones size={16} color="#7C3AED" />
+                <h3 style={{ fontSize: 14.5, fontWeight: 700, color: '#1A1C20' }}>Partner Support</h3>
               </div>
-              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 14 }}>Keep your account safe and secure.</p>
+              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 14 }}>Get dedicated assistance from Prinkout Ops.</p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF' }}>
-                  <span style={{ color: '#1A1C20', fontWeight: 600 }}>Two-Factor Authentication (2FA)</span>
-                  {renderToggle(generalTwoFactor, () => setGeneralTwoFactor(!generalTwoFactor))}
+                  <span style={{ color: '#555963' }}>Helpline</span>
+                  <span style={{ fontWeight: 600, color: '#1A1C20' }}>+91 90877 77488</span>
                 </div>
-
-                <div
-                  onClick={() => setSettingsTab('security')}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF', cursor: 'pointer' }}
-                >
-                  <span style={{ color: '#555963' }}>Login Activity</span>
-                  <ChevronRight size={14} color="#8E929B" />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #EBE7DF' }}>
+                  <span style={{ color: '#555963' }}>Support Email</span>
+                  <span style={{ fontWeight: 600, color: '#7C3AED' }}>support@prinkout.com</span>
                 </div>
-
-                <div
-                  onClick={() => setSettingsTab('security')}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', cursor: 'pointer' }}
-                >
-                  <span style={{ color: '#555963' }}>Manage Sessions</span>
-                  <ChevronRight size={14} color="#8E929B" />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                  <span style={{ color: '#555963' }}>Merchant Portal</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+                    Active
+                  </span>
                 </div>
               </div>
             </div>
@@ -539,15 +512,19 @@ export const SettingsScreen: React.FC = () => {
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>New Order Alerts</div>
                     <div style={{ fontSize: 11, color: '#8E929B' }}>Get notified when you receive a new order.</div>
                   </div>
-                  {renderToggle(notifPreferences.newOrders, () => setNotifPreferences({ ...notifPreferences, newOrders: !notifPreferences.newOrders }))}
+                  {renderToggle(!!notificationPreferences?.newOrders, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, newOrders: !notificationPreferences?.newOrders })
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '1px solid #EBE7DF' }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Order Updates</div>
-                    <div style={{ fontSize: 11, color: '#8E929B' }}>Updates on order status (In Progress, Ready, Completed).</div>
+                    <div style={{ fontSize: 11, color: '#8E929B' }}>Updates on order status (In Progress, Ready to Deliver, Completed).</div>
                   </div>
-                  {renderToggle(notifPreferences.orderUpdates, () => setNotifPreferences({ ...notifPreferences, orderUpdates: !notifPreferences.orderUpdates }))}
+                  {renderToggle(!!notificationPreferences?.orderUpdates, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, orderUpdates: !notificationPreferences?.orderUpdates })
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '1px solid #EBE7DF' }}>
@@ -555,7 +532,9 @@ export const SettingsScreen: React.FC = () => {
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Payout Updates</div>
                     <div style={{ fontSize: 11, color: '#8E929B' }}>Notifications for settlement, payouts and receipts.</div>
                   </div>
-                  {renderToggle(notifPreferences.payoutUpdates, () => setNotifPreferences({ ...notifPreferences, payoutUpdates: !notifPreferences.payoutUpdates }))}
+                  {renderToggle(!!notificationPreferences?.payoutUpdates, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, payoutUpdates: !notificationPreferences?.payoutUpdates })
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 10, borderBottom: '1px solid #EBE7DF' }}>
@@ -563,7 +542,9 @@ export const SettingsScreen: React.FC = () => {
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Print Queue Alerts</div>
                     <div style={{ fontSize: 11, color: '#8E929B' }}>Get alerts when print queue is high or delayed.</div>
                   </div>
-                  {renderToggle(notifPreferences.queueAlerts, () => setNotifPreferences({ ...notifPreferences, queueAlerts: !notifPreferences.queueAlerts }))}
+                  {renderToggle(!!notificationPreferences?.queueAlerts, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, queueAlerts: !notificationPreferences?.queueAlerts })
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -571,7 +552,9 @@ export const SettingsScreen: React.FC = () => {
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Announcements</div>
                     <div style={{ fontSize: 11, color: '#8E929B' }}>Product updates, new features and important announcements from Prinkout.</div>
                   </div>
-                  {renderToggle(notifPreferences.announcements, () => setNotifPreferences({ ...notifPreferences, announcements: !notifPreferences.announcements }))}
+                  {renderToggle(!!notificationPreferences?.announcements, () =>
+                    saveNotificationPreferences({ ...notificationPreferences, announcements: !notificationPreferences?.announcements })
+                  )}
                 </div>
               </div>
             </div>
@@ -590,34 +573,34 @@ export const SettingsScreen: React.FC = () => {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div
-                  onClick={() => setNotifChannel('inApp')}
+                  onClick={() => saveNotificationPreferences({ ...notificationPreferences, channel: 'inApp' })}
                   style={{
                     padding: '14px',
                     borderRadius: 12,
-                    backgroundColor: notifChannel === 'inApp' ? '#EDE9FE' : '#FAF8F5',
-                    border: `1.5px solid ${notifChannel === 'inApp' ? '#7C3AED' : '#DAD5CB'}`,
+                    backgroundColor: notificationPreferences?.channel === 'inApp' ? '#EDE9FE' : '#FAF8F5',
+                    border: `1.5px solid ${notificationPreferences?.channel === 'inApp' ? '#7C3AED' : '#DAD5CB'}`,
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: notifChannel === 'inApp' ? '#7C3AED' : '#FFFFFF', border: '1px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontSize: 10 }}>✓</div>
+                    <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: notificationPreferences?.channel === 'inApp' ? '#7C3AED' : '#FFFFFF', border: '1px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontSize: 10 }}>✓</div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>In-App</span>
                   </div>
                   <p style={{ fontSize: 11, color: '#555963', lineHeight: 1.3 }}>Receive notifications inside the merchant portal.</p>
                 </div>
 
                 <div
-                  onClick={() => setNotifChannel('whatsapp')}
+                  onClick={() => saveNotificationPreferences({ ...notificationPreferences, channel: 'whatsapp' })}
                   style={{
                     padding: '14px',
                     borderRadius: 12,
-                    backgroundColor: notifChannel === 'whatsapp' ? '#EDE9FE' : '#FAF8F5',
-                    border: `1.5px solid ${notifChannel === 'whatsapp' ? '#7C3AED' : '#DAD5CB'}`,
+                    backgroundColor: notificationPreferences?.channel === 'whatsapp' ? '#EDE9FE' : '#FAF8F5',
+                    border: `1.5px solid ${notificationPreferences?.channel === 'whatsapp' ? '#7C3AED' : '#DAD5CB'}`,
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: notifChannel === 'whatsapp' ? '#7C3AED' : '#FFFFFF', border: '1px solid #DAD5CB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontSize: 10 }}>{notifChannel === 'whatsapp' && '✓'}</div>
+                    <div style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: notificationPreferences?.channel === 'whatsapp' ? '#7C3AED' : '#FFFFFF', border: '1px solid #DAD5CB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontSize: 10 }}>{notificationPreferences?.channel === 'whatsapp' && '✓'}</div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>WhatsApp</span>
                   </div>
                   <p style={{ fontSize: 11, color: '#555963', lineHeight: 1.3 }}>Get important updates on WhatsApp.</p>
@@ -738,7 +721,7 @@ export const SettingsScreen: React.FC = () => {
               <div style={{ backgroundColor: '#EDE9FE', border: '1px solid #DDD6FE', borderRadius: 14, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <Users size={20} color="#7C3AED" />
                 <div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>3</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{teamMembers.length}</div>
                   <div style={{ fontSize: 11.5, color: '#6B21A8' }}>Team Members</div>
                 </div>
               </div>
@@ -746,7 +729,9 @@ export const SettingsScreen: React.FC = () => {
               <div style={{ backgroundColor: '#DCFCE7', border: '1px solid #BBF7D0', borderRadius: 14, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <CheckCircle2 size={20} color="#15803D" />
                 <div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>2</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>
+                    {teamMembers.filter((m: any) => m.isOwner || m.access?.toLowerCase().includes('full') || m.role?.toLowerCase().includes('admin')).length}
+                  </div>
                   <div style={{ fontSize: 11.5, color: '#15803D' }}>Full Access</div>
                 </div>
               </div>
@@ -754,14 +739,16 @@ export const SettingsScreen: React.FC = () => {
               <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 14, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <User size={20} color="#B45309" />
                 <div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>1</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>
+                    {teamMembers.filter((m: any) => !m.isOwner && !m.access?.toLowerCase().includes('full') && !m.role?.toLowerCase().includes('admin')).length}
+                  </div>
                   <div style={{ fontSize: 11.5, color: '#B45309' }}>Limited Access</div>
                 </div>
               </div>
             </div>
 
             <button
-              onClick={() => showToast('Invite team member')}
+              onClick={() => setShowAddMemberModal(true)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -793,7 +780,7 @@ export const SettingsScreen: React.FC = () => {
               }}
             >
               <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Team Members</h3>
-              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 16 }}>Manage your team and their access.</p>
+              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 16 }}>Manage your team and their access permissions.</p>
 
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
                 <thead>
@@ -802,20 +789,16 @@ export const SettingsScreen: React.FC = () => {
                     <th style={{ padding: '8px 10px' }}>Role & Access</th>
                     <th style={{ padding: '8px 10px' }}>Status</th>
                     <th style={{ padding: '8px 10px' }}>Last Active</th>
-                    <th style={{ padding: '8px 6px', textAlign: 'center' }}></th>
+                    <th style={{ padding: '8px 6px', textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { name: 'Sabarish S (You)', phone: '+91 98432 11234', role: 'Owner', access: 'Full Access', isOwner: true, time: 'Just now' },
-                    { name: 'Arun K', phone: '+91 98765 43210', role: 'Staff', access: 'Orders, Print Queue', isOwner: false, time: '24 min ago' },
-                    { name: 'Divya R', phone: '+91 98987 65432', role: 'Staff', access: 'Orders, Reports', isOwner: false, time: '2 hrs ago' },
-                  ].map(m => (
-                    <tr key={m.name} style={{ borderBottom: '1px solid #F0ECE4' }}>
+                  {teamMembers.map((m: any) => (
+                    <tr key={m.id || m.phone} style={{ borderBottom: '1px solid #F0ECE4' }}>
                       <td style={{ padding: '12px 10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: '#EDE9FE', color: '#6B21A8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
-                            {m.name.charAt(0)}
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', backgroundColor: m.isOwner ? '#EDE9FE' : '#E0F2FE', color: m.isOwner ? '#6B21A8' : '#0369A1', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+                            {(m.name || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <div style={{ fontWeight: 600, color: '#1A1C20' }}>{m.name}</div>
@@ -825,18 +808,38 @@ export const SettingsScreen: React.FC = () => {
                       </td>
                       <td style={{ padding: '12px 10px' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 12, backgroundColor: m.isOwner ? '#EDE9FE' : '#F3F4F6', color: m.isOwner ? '#6B21A8' : '#4B5563', fontSize: 11.5, fontWeight: 600 }}>
-                          <span>{m.role}</span>
-                          <span style={{ fontSize: 10, opacity: 0.75 }}>• {m.access}</span>
+                          <span>{m.role || 'Staff'}</span>
+                          <span style={{ fontSize: 10, opacity: 0.75 }}>• {m.access || 'Limited'}</span>
                         </div>
                       </td>
                       <td style={{ padding: '12px 10px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 12, backgroundColor: '#DCFCE7', color: '#15803D', fontSize: 11, fontWeight: 700 }}>
-                          ✓ Active
+                          ✓ {m.status || 'Active'}
                         </span>
                       </td>
-                      <td style={{ padding: '12px 10px', color: '#555963' }}>{m.time}</td>
-                      <td style={{ padding: '12px 6px', textAlign: 'center', color: '#8E929B' }}>
-                        <MoreVertical size={14} />
+                      <td style={{ padding: '12px 10px', color: '#555963' }}>{m.time || 'Just now'}</td>
+                      <td style={{ padding: '12px 6px', textAlign: 'center' }}>
+                        {m.isOwner ? (
+                          <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>Owner</span>
+                        ) : (
+                          <button
+                            onClick={() => removeTeamMember(m.phone || m.id)}
+                            title="Remove team member"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#EF4444',
+                              cursor: 'pointer',
+                              padding: '4px 6px',
+                              borderRadius: 6,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -858,24 +861,29 @@ export const SettingsScreen: React.FC = () => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ padding: '12px 14px', borderRadius: 12, backgroundColor: '#EDE9FE', border: '1px solid #DDD6FE' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#581C87', marginBottom: 2 }}>Owner</div>
-                  <div style={{ fontSize: 11.5, color: '#6B21A8' }}>Full access to all features, settings and payments.</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#581C87', marginBottom: 2 }}>Owner / Admin</div>
+                  <div style={{ fontSize: 11.5, color: '#6B21A8' }}>Full access to all features, settings, pricing and payments.</div>
                 </div>
 
                 <div style={{ padding: '12px 14px', borderRadius: 12, backgroundColor: '#FAF8F5', border: '1px solid #EBE7DF' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Staff (Full Access)</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Can manage orders, print queue, pricing and reports.</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Print Operator</div>
+                  <div style={{ fontSize: 11.5, color: '#555963' }}>Can manage incoming orders, print queue and status transitions.</div>
                 </div>
 
                 <div style={{ padding: '12px 14px', borderRadius: 12, backgroundColor: '#FAF8F5', border: '1px solid #EBE7DF' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Staff (Limited Access)</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Can view and manage only assigned sections (e.g., Orders or Print Queue).</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Cashier / Accounts</div>
+                  <div style={{ fontSize: 11.5, color: '#555963' }}>Can manage orders, verify billing payments and view payouts.</div>
+                </div>
+
+                <div style={{ padding: '12px 14px', borderRadius: 12, backgroundColor: '#FAF8F5', border: '1px solid #EBE7DF' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Front Desk / Reception</div>
+                  <div style={{ fontSize: 11.5, color: '#555963' }}>Can view received orders and assist customers with pickup.</div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Access Activity Timeline matching PDF */}
+          {/* Access Activity Timeline */}
           <div
             style={{
               backgroundColor: theme.colors.creamCard,
@@ -887,498 +895,236 @@ export const SettingsScreen: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
                 <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20' }}>Access Activity</h3>
-                <p style={{ fontSize: 11.5, color: '#8E929B' }}>Recent team actions on your account.</p>
+                <p style={{ fontSize: 11.5, color: '#8E929B' }}>Live audit log of team actions on your account.</p>
               </div>
 
               <div style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20', backgroundColor: '#EFECE4', padding: '5px 12px', borderRadius: 12 }}>
-                Last 7 Days ▼
+                Audit Log
               </div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
-              {[
-                { action: 'Arun K logged in', time: 'Today, 5:42 PM • Tirupur, IN' },
-                { action: 'Divya R updated print queue', time: 'Today, 3:16 PM • Tirupur, IN' },
-                { action: 'Sabarish S changed pricing for A4 (100 GSM)', time: 'Today, 11:27 AM • Tirupur, IN' },
-                { action: 'Sabarish S added Arun K to the team', time: 'Yesterday, 6:10 PM • Tirupur, IN' },
-              ].map(a => (
-                <div key={a.action} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderBottom: '1px solid #F0ECE4' }}>
-                  <span style={{ fontWeight: 600, color: '#1A1C20' }}>{a.action}</span>
-                  <span style={{ fontSize: 11.5, color: '#8E929B' }}>{a.time}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* PAGE 17: INTEGRATIONS */}
-      {/* ========================================================================= */}
-      {settingsTab === 'integrations' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
-            {/* Left list of integration partners */}
-            <div
-              style={{
-                backgroundColor: theme.colors.creamCard,
-                border: `1px solid ${theme.colors.creamCardBorder}`,
-                borderRadius: 18,
-                padding: '20px 22px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-              }}
-            >
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Integrations</h3>
-              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 10 }}>Connect tools to make your workflow faster.</p>
-
-              {/* Razorpay (Selected) */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#EDE9FE',
-                  border: '1.5px solid #7C3AED',
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#581C87' }}>Razorpay</div>
-                  <div style={{ fontSize: 11.5, color: '#6B21A8' }}>Accept payments and receive settlements.</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
-                    ✓ Connected
-                  </span>
-                  <ChevronRight size={14} color="#581C87" />
-                </div>
-              </div>
-
-              {/* WhatsApp Business */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#FAF8F5',
-                  border: '1px solid #EBE7DF',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>WhatsApp Business</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Send order updates to customers.</div>
-                </div>
-                <button
-                  onClick={() => showToast('WhatsApp Business connect dialog')}
-                  style={{ padding: '6px 14px', borderRadius: 14, backgroundColor: '#EFECE4', border: '1px solid #DAD5CB', fontSize: 12, fontWeight: 600, color: '#1A1C20', cursor: 'pointer' }}
-                >
-                  Connect
-                </button>
-              </div>
-
-              {/* Google Drive */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#FAF8F5',
-                  border: '1px solid #EBE7DF',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>Google Drive</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Save and access print files securely.</div>
-                </div>
-                <button
-                  onClick={() => showToast('Google Drive connect dialog')}
-                  style={{ padding: '6px 14px', borderRadius: 14, backgroundColor: '#EFECE4', border: '1px solid #DAD5CB', fontSize: 12, fontWeight: 600, color: '#1A1C20', cursor: 'pointer' }}
-                >
-                  Connect
-                </button>
-              </div>
-
-              {/* Tally */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#FAF8F5',
-                  border: '1px solid #EBE7DF',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>Tally (Optional)</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Sync invoices and sales data with Tally.</div>
-                </div>
-                <button
-                  onClick={() => showToast('Tally sync connect dialog')}
-                  style={{ padding: '6px 14px', borderRadius: 14, backgroundColor: '#EFECE4', border: '1px solid #DAD5CB', fontSize: 12, fontWeight: 600, color: '#1A1C20', cursor: 'pointer' }}
-                >
-                  Connect
-                </button>
-              </div>
-            </div>
-
-            {/* Right Panel: Razorpay Details matching PDF */}
-            <div
-              style={{
-                backgroundColor: theme.colors.creamCard,
-                border: `1px solid ${theme.colors.creamCardBorder}`,
-                borderRadius: 18,
-                padding: '22px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20' }}>Razorpay</div>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
-                    ✓ Connected
-                  </span>
-                </div>
-                <p style={{ fontSize: 12, color: '#6B707B', marginBottom: 18 }}>
-                  Accept online payments from your customers and receive settlements directly to your bank account.
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 12.5 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#555963' }}>Settlement Account</span>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>ICICI Bank – ****4321</span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#555963' }}>Settlement Cycle</span>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>T+1 (Next business day)</span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#555963' }}>Transaction Charges</span>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>2% + GST (as per Razorpay)</span>
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid #EBE7DF', marginTop: 16, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#15803D' }}>
-                    <span>✓</span>
-                    <span style={{ color: '#1A1C20' }}>Accept UPI, Cards & Netbanking</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#15803D' }}>
-                    <span>✓</span>
-                    <span style={{ color: '#1A1C20' }}>Auto payment confirmation</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#15803D' }}>
-                    <span>✓</span>
-                    <span style={{ color: '#1A1C20' }}>Secure & PCI compliant</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                <button
-                  onClick={() => showToast('View Transactions')}
-                  style={{
-                    flex: 1,
-                    padding: '9px',
-                    borderRadius: 12,
-                    backgroundColor: '#EFECE4',
-                    border: '1px solid #DAD5CB',
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    color: '#1A1C20',
-                    cursor: 'pointer',
-                  }}
-                >
-                  View Transactions
-                </button>
-                <button
-                  onClick={() => showToast('Disconnect Razorpay')}
-                  style={{
-                    padding: '9px 16px',
-                    borderRadius: 12,
-                    backgroundColor: 'transparent',
-                    border: '1px solid #FCA5A5',
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    color: '#EF4444',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Banner matching PDF */}
-          <div
-            style={{
-              backgroundColor: '#EDE9FE',
-              borderRadius: 16,
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              color: '#581C87',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>More Integrations Coming Soon</div>
-              <div style={{ fontSize: 12, opacity: 0.85 }}>Inventory, accounting and logistics integrations will be available in upcoming updates.</div>
-            </div>
-            <Rocket size={24} color="#7C3AED" />
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* PAGE 18: SECURITY */}
-      {/* ========================================================================= */}
-      {settingsTab === 'security' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
-            {/* Left Security Options */}
-            <div
-              style={{
-                backgroundColor: theme.colors.creamCard,
-                border: `1px solid ${theme.colors.creamCardBorder}`,
-                borderRadius: 18,
-                padding: '20px 22px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 14,
-              }}
-            >
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Security</h3>
-              <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 10 }}>Keep your account safe and secure.</p>
-
-              {/* 2FA Card (Lavender highlight) */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#EDE9FE',
-                  border: '1px solid #DDD6FE',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#581C87' }}>Two-Factor Authentication (2FA)</div>
-                  <div style={{ fontSize: 11.5, color: '#6B21A8' }}>Add an extra layer of security to your account.</div>
-                </div>
-                {renderToggle(twoFactorAuth, () => setTwoFactorAuth(!twoFactorAuth))}
-              </div>
-
-              {/* Login Activity */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#FAF8F5',
-                  border: '1px solid #EBE7DF',
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A1C20' }}>Login Activity</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>View recent logins and active sessions.</div>
-                </div>
-                <ChevronRight size={15} color="#8E929B" />
-              </div>
-
-              {/* Manage Sessions */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#FAF8F5',
-                  border: '1px solid #EBE7DF',
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A1C20' }}>Manage Sessions</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Log out from other devices.</div>
-                </div>
-                <ChevronRight size={15} color="#8E929B" />
-              </div>
-
-              {/* Change Password */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#FAF8F5',
-                  border: '1px solid #EBE7DF',
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A1C20' }}>Change Password</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Update your account password regularly.</div>
-                </div>
-                <ChevronRight size={15} color="#8E929B" />
-              </div>
-
-              {/* Account Security Tips */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  borderRadius: 14,
-                  backgroundColor: '#FAF8F5',
-                  border: '1px solid #EBE7DF',
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1A1C20' }}>Account Security Tips</div>
-                  <div style={{ fontSize: 11.5, color: '#555963' }}>Best practices to keep your account protected.</div>
-                </div>
-                <ChevronRight size={15} color="#8E929B" />
-              </div>
-            </div>
-
-            {/* Right Panel: Account Security & Recent Activity matching PDF */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Account Security */}
-              <div
-                style={{
-                  backgroundColor: theme.colors.creamCard,
-                  border: `1px solid ${theme.colors.creamCardBorder}`,
-                  borderRadius: 18,
-                  padding: '20px 22px',
-                }}
-              >
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Account Security</h3>
-                <p style={{ fontSize: 11.5, color: '#8E929B', marginBottom: 14 }}>Your account is protected.</p>
-
-                <div style={{ padding: '14px 16px', borderRadius: 12, backgroundColor: '#DCFCE7', border: '1px solid #BBF7D0', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <CheckCircle2 size={18} color="#15803D" />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#15803D' }}>Your Account is Secure</div>
-                    <div style={{ fontSize: 11.5, color: '#166534' }}>2FA is enabled and no security issues found.</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Login Activity */}
-              <div
-                style={{
-                  backgroundColor: theme.colors.creamCard,
-                  border: `1px solid ${theme.colors.creamCardBorder}`,
-                  borderRadius: 18,
-                  padding: '20px 22px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20' }}>Recent Login Activity</h3>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#7C3AED', cursor: 'pointer' }}>View All →</span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              {accessActivity && accessActivity.length > 0 ? (
+                accessActivity.map((a: any, idx: number) => (
+                  <div key={a.id || idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid #F0ECE4' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Laptop size={16} color="#6B707B" />
-                      <div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1A1C20' }}>MacBook Pro</div>
-                        <div style={{ fontSize: 11, color: '#8E929B' }}>Tirupur, IN • Today, 5:42 PM</div>
-                      </div>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#7C3AED' }} />
+                      <span style={{ fontWeight: 600, color: '#1A1C20' }}>{a.action}</span>
                     </div>
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
-                      Current Device
+                    <span style={{ fontSize: 11.5, color: '#8E929B' }}>{a.time}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderBottom: '1px solid #F0ECE4' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#15803D' }} />
+                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>
+                      Account initialized with Admin ({shopData?.mobile || authPhone || '+91 1212121212'})
                     </span>
                   </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Tablet size={16} color="#6B707B" />
-                      <div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1A1C20' }}>iPad Air</div>
-                        <div style={{ fontSize: 11, color: '#8E929B' }}>Tirupur, IN • Today, 11:20 AM</div>
-                      </div>
-                    </div>
-                    <MoreVertical size={14} color="#8E929B" />
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Smartphone size={16} color="#6B707B" />
-                      <div>
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#1A1C20' }}>iPhone</div>
-                        <div style={{ fontSize: 11, color: '#8E929B' }}>Coimbatore, IN • Yesterday, 7:14 PM</div>
-                      </div>
-                    </div>
-                    <MoreVertical size={14} color="#8E929B" />
-                  </div>
+                  <span style={{ fontSize: 11.5, color: '#8E929B' }}>Initial Setup</span>
                 </div>
+              )}
+            </div>
+          </div>
 
-                <div style={{ borderTop: '1px solid #EBE7DF', marginTop: 16, paddingTop: 12 }}>
+          {/* Add Team Member Modal */}
+          {showAddMemberModal && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                backdropFilter: 'blur(3px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+              }}
+            >
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 20,
+                  padding: '28px 32px',
+                  width: 480,
+                  maxWidth: '92vw',
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+                  border: '1px solid #EBE7DF',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <div>
+                    <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1A1C20', margin: 0 }}>Add Team Member</h2>
+                    <p style={{ fontSize: 12, color: '#8E929B', margin: '4px 0 0 0' }}>Invite staff with role-based permissions.</p>
+                  </div>
                   <button
-                    onClick={logout}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      borderRadius: 10,
-                      backgroundColor: '#EFECE4',
-                      border: '1px solid #DAD5CB',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: '#EF4444',
-                      cursor: 'pointer',
-                    }}
+                    onClick={() => setShowAddMemberModal(false)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8E929B', padding: 4 }}
                   >
-                    Log Out of This Device
+                    <X size={20} />
                   </button>
                 </div>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const clean10 = newMemberPhone.replace(/\D/g, '').slice(-10);
+                    if (clean10.length !== 10) {
+                      showToast('Please enter a valid 10-digit mobile number');
+                      return;
+                    }
+                    if (!newMemberName.trim()) {
+                      showToast('Please enter member name');
+                      return;
+                    }
+                    setSubmittingMember(true);
+                    try {
+                      await addTeamMember({
+                        name: newMemberName.trim(),
+                        phone: `+91${clean10}`,
+                        role: newMemberRole,
+                        access: newMemberAccess,
+                      });
+                      setShowAddMemberModal(false);
+                      setNewMemberName('');
+                      setNewMemberPhone('');
+                    } catch (err) {
+                      showToast('Failed to add team member');
+                    } finally {
+                      setSubmittingMember(false);
+                    }
+                  }}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+                >
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#4B5563', marginBottom: 6 }}>
+                      Full Name <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Rahul Sharma"
+                      value={newMemberName}
+                      onChange={e => setNewMemberName(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #D1D5DB',
+                        fontSize: 13,
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#4B5563', marginBottom: 6 }}>
+                      Mobile Number (+91 E.164) <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 10, overflow: 'hidden' }}>
+                      <span style={{ padding: '10px 12px', backgroundColor: '#F3F4F6', fontSize: 13, fontWeight: 600, color: '#374151', borderRight: '1px solid #D1D5DB' }}>
+                        +91
+                      </span>
+                      <input
+                        type="tel"
+                        required
+                        maxLength={10}
+                        placeholder="9876543210"
+                        value={newMemberPhone}
+                        onChange={e => setNewMemberPhone(e.target.value.replace(/\D/g, ''))}
+                        style={{
+                          flex: 1,
+                          padding: '10px 14px',
+                          border: 'none',
+                          fontSize: 13,
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#4B5563', marginBottom: 6 }}>
+                      Role & Access Permissions <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <select
+                      value={newMemberRole}
+                      onChange={e => {
+                        const r = e.target.value;
+                        setNewMemberRole(r);
+                        if (r === 'Admin / Store Manager') setNewMemberAccess('Full Access');
+                        else if (r === 'Print Operator') setNewMemberAccess('Orders, Print Queue');
+                        else if (r === 'Cashier / Accounts') setNewMemberAccess('Orders, Payouts, Reports');
+                        else if (r === 'Front Desk / Reception') setNewMemberAccess('Orders Only');
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #D1D5DB',
+                        fontSize: 13,
+                        backgroundColor: '#FFFFFF',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      <option value="Print Operator">Print Operator (Orders & Print Queue)</option>
+                      <option value="Admin / Store Manager">Admin / Store Manager (Full Access)</option>
+                      <option value="Cashier / Accounts">Cashier / Accounts (Orders, Payouts, Reports)</option>
+                      <option value="Front Desk / Reception">Front Desk / Reception (Orders Only)</option>
+                    </select>
+                    <div style={{ marginTop: 6, fontSize: 11, color: '#6B7280' }}>
+                      Access granted: <strong style={{ color: '#7C3AED' }}>{newMemberAccess}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMemberModal(false)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: 10,
+                        border: '1px solid #D1D5DB',
+                        backgroundColor: '#F3F4F6',
+                        color: '#374151',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingMember}
+                      style={{
+                        flex: 1.5,
+                        padding: '10px',
+                        borderRadius: 10,
+                        border: 'none',
+                        backgroundColor: '#7C3AED',
+                        color: '#FFFFFF',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: submittingMember ? 'not-allowed' : 'pointer',
+                        opacity: submittingMember ? 0.7 : 1,
+                      }}
+                    >
+                      {submittingMember ? 'Adding...' : 'Add Member'}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
-          </div>
-
-          {/* Bottom Banner matching PDF */}
-          <div
-            style={{
-              backgroundColor: '#EDE9FE',
-              borderRadius: 16,
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              color: '#581C87',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 2 }}>Keep Your Account Safe</div>
-              <div style={{ fontSize: 12, opacity: 0.85 }}>Use a strong password, enable 2FA and review your login activity regularly.</div>
-            </div>
-            <Lock size={22} color="#7C3AED" />
-          </div>
+          )}
         </div>
       )}
     </div>

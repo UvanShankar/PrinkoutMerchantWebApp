@@ -51,14 +51,18 @@ export const DashboardScreen: React.FC = () => {
     ? orders.filter(o => (o.status || '').toLowerCase() === 'completed').length
     : (analytics?.pipeline?.completed ?? 0);
 
-  const displayOrders = (orders || []).slice(0, 5).map(o => ({
-    id: o.orderId.startsWith('#') ? o.orderId : `#${o.orderId.slice(0, 4)}`,
-    customer: o.customerName || (o.userId ? `Customer (${o.userId.slice(-6)})` : 'Customer'),
-    type: o.specs || `${o.paperSize || 'A4'} ${o.colorMode || 'Colour'} (${o.orderDetails?.quantity || 1} copies)`,
-    amount: (o.totalPrice || o.orderDetails?.totalPrice || 0).toLocaleString(),
-    status: o.status || 'received',
-    time: o.timeAgo || (o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'),
-  }));
+  const displayOrders = (orders || []).slice(0, 5).map(o => {
+    const rawStatus = (o.status || 'received').toLowerCase();
+    const normalizedStatus = (rawStatus === 'pending') ? 'received' : rawStatus;
+    return {
+      id: o.orderId.startsWith('#') ? o.orderId : `#${o.orderId.slice(0, 4)}`,
+      customer: o.customerName || (o.userId ? `Customer (${o.userId.slice(-6)})` : 'Customer'),
+      type: o.specs || `${o.paperSize || 'A4'} ${o.colorMode || 'Colour'} (${o.orderDetails?.quantity || 1} copies)`,
+      amount: (o.totalPrice || o.orderDetails?.totalPrice || 0).toLocaleString(),
+      status: normalizedStatus,
+      time: o.timeAgo || (o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'),
+    };
+  });
 
   // Status badge renderer matching PDF colors
   const renderStatusBadge = (status: string) => {
@@ -98,10 +102,11 @@ export const DashboardScreen: React.FC = () => {
             }}
           >
             <CheckCircle2 size={12} />
-            <span>Ready</span>
+            <span>Ready to Deliver</span>
           </span>
         );
       case 'received':
+      case 'pending':
         return (
           <span
             style={{
@@ -267,7 +272,7 @@ export const DashboardScreen: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <Package size={16} color="#555963" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Ready for Pickup</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Ready to Deliver</span>
           </div>
           <span style={{ fontSize: 32, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{readyCount}</span>
           <DuneWave />
@@ -387,11 +392,11 @@ export const DashboardScreen: React.FC = () => {
               }}
               onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
               onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}
-              title="View Ready Orders"
+              title="View Ready to Deliver Orders"
             >
               <CheckCircle2 size={18} color="#1A1C20" style={{ marginBottom: 4 }} />
               <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>{readyPipelineCount}</div>
-              <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Ready</div>
+              <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>Ready to Deliver</div>
             </div>
 
             <ArrowRight size={16} color="#A3A7AF" />
@@ -532,6 +537,7 @@ export const DashboardScreen: React.FC = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12.5 }}>
               <thead>
                 <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid #EBE7DF' }}>
+                  <th style={{ padding: '8px 10px', width: 44 }}>S.NO</th>
                   <th style={{ padding: '8px 10px' }}>ORDER ID</th>
                   <th style={{ padding: '8px 10px' }}>CUSTOMER</th>
                   <th style={{ padding: '8px 10px' }}>TYPE</th>
@@ -544,12 +550,12 @@ export const DashboardScreen: React.FC = () => {
               <tbody>
                 {displayOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: '28px 10px', textAlign: 'center', color: '#6B707B', fontSize: 13 }}>
+                    <td colSpan={8} style={{ padding: '28px 10px', textAlign: 'center', color: '#6B707B', fontSize: 13 }}>
                       No active orders found for this shop. When customers place orders, they will appear here.
                     </td>
                   </tr>
                 ) : (
-                  displayOrders.map(row => (
+                  displayOrders.map((row, idx) => (
                     <tr
                       key={row.id}
                       onClick={() => {
@@ -559,6 +565,7 @@ export const DashboardScreen: React.FC = () => {
                       style={{ borderBottom: '1px solid #F0ECE4', cursor: 'pointer' }}
                       title="Click to view order details"
                     >
+                      <td style={{ padding: '12px 10px', color: '#8E929B', fontWeight: 600, fontSize: 12 }}>{idx + 1}</td>
                       <td style={{ padding: '12px 10px', fontWeight: 600, color: '#1A1C20' }}>{row.id}</td>
                       <td style={{ padding: '12px 10px', color: '#1A1C20', fontWeight: 500 }}>{row.customer}</td>
                       <td style={{ padding: '12px 10px', color: '#555963' }}>{row.type}</td>

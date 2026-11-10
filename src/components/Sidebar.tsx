@@ -15,11 +15,12 @@ import {
   Headphones,
   ArrowRight,
   LogOut,
+  Lock,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const Sidebar: React.FC = () => {
-  const { currentScreen, navigateTo, settingsTab, setSettingsTab, logout } = useMerchant();
+  const { currentScreen, navigateTo, settingsTab, setSettingsTab, logout, isSetupPending, showToast } = useMerchant();
 
   const isSettingsActive = currentScreen === 'settings';
 
@@ -38,8 +39,6 @@ export const Sidebar: React.FC = () => {
     { id: 'general', label: 'General' },
     { id: 'notifications', label: 'Notifications' },
     { id: 'team', label: 'Team & Access' },
-    { id: 'integrations', label: 'Integrations' },
-    { id: 'security', label: 'Security' },
   ];
 
   return (
@@ -70,13 +69,20 @@ export const Sidebar: React.FC = () => {
             const Icon = item.icon;
             const isActive = currentScreen === item.id;
             const isSettings = item.id === 'settings';
+            const isLocked = isSetupPending && !['profile', 'settings', 'pricing'].includes(item.id);
 
             return (
               <div key={item.id}>
                 <button
+                  disabled={isLocked}
                   onClick={() => {
+                    if (isLocked) {
+                      showToast('Complete the 3 setup steps (Profile, Settings, Pricing) to unlock');
+                      return;
+                    }
                     navigateTo(item.id);
                   }}
+                  title={isLocked ? 'Complete Setup to Unlock' : undefined}
                   style={{
                     width: '100%',
                     display: 'flex',
@@ -86,24 +92,29 @@ export const Sidebar: React.FC = () => {
                     borderRadius: 22,
                     border: 'none',
                     backgroundColor: isActive ? '#FFFFFF' : 'transparent',
-                    color: isActive ? '#111215' : '#9CA3AF',
+                    color: isActive ? '#111215' : isLocked ? '#4B5563' : '#9CA3AF',
                     fontSize: 13,
                     fontWeight: isActive ? 600 : 500,
-                    cursor: 'pointer',
+                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                    opacity: isLocked ? 0.45 : 1,
                     transition: 'all 0.15s ease',
                     textAlign: 'left',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Icon size={16} strokeWidth={isActive ? 2.4 : 2} color={isActive ? '#111215' : '#9CA3AF'} />
+                    <Icon size={16} strokeWidth={isActive ? 2.4 : 2} color={isActive ? '#111215' : isLocked ? '#4B5563' : '#9CA3AF'} />
                     <span>{item.label}</span>
                   </div>
 
-                  {isSettings && (
-                    isSettingsActive ? (
-                      <ChevronUp size={14} color={isActive ? '#111215' : '#9CA3AF'} />
-                    ) : (
-                      <ChevronDown size={14} color="#9CA3AF" />
+                  {isLocked ? (
+                    <Lock size={12} color="#6B7280" />
+                  ) : (
+                    isSettings && (
+                      isSettingsActive ? (
+                        <ChevronUp size={14} color={isActive ? '#111215' : '#9CA3AF'} />
+                      ) : (
+                        <ChevronDown size={14} color="#9CA3AF" />
+                      )
                     )
                   )}
                 </button>

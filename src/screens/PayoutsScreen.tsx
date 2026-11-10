@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import {
   Calendar,
@@ -11,32 +11,155 @@ import {
   Printer,
   Wallet,
   ChevronRight,
+  Download,
+  Clock,
+  ShieldCheck,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const PayoutsScreen: React.FC = () => {
-  const { payouts, orders, showToast } = useMerchant();
+  const { payouts, orders, showToast, shopData } = useMerchant();
   const [activeTab, setActiveTab] = useState<'Overview' | 'Transactions' | 'Settlement'>('Overview');
+  const [dateFilter, setDateFilter] = useState<'this_month' | 'last_7_days' | 'last_30_days' | 'all'>('this_month');
+  const [transactionStatusFilter, setTransactionStatusFilter] = useState<'all' | 'settled' | 'pending'>('all');
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
-  const totalSales = payouts?.totalSales ?? orders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0);
-  const platformFeeRate = payouts?.platformFeeRate ?? 0.1;
-  const platformFee = payouts?.platformFee ?? Math.round(totalSales * platformFeeRate);
-  const netEarnings = payouts?.netEarnings ?? (totalSales - platformFee);
-  const nextPayoutAmount = payouts?.nextPayoutAmount ?? (totalSales > 0 ? Math.round(netEarnings * 0.28) : 0);
-  const nextPayoutDate = payouts?.nextPayoutDate ?? 'Tomorrow, 10:00 AM';
+  const now = new Date();
+
+  // Filter orders by date range
+  const filteredOrders = useMemo(() => {
+    if (orders.length === 0) return [];
+    if (dateFilter === 'all') return orders;
+
+    const cutoff = new Date();
+    if (dateFilter === 'last_7_days') {
+      cutoff.setDate(now.getDate() - 7);
+      return orders.filter(o => o.createdAt && new Date(o.createdAt) >= cutoff);
+    }
+    if (dateFilter === 'last_30_days') {
+      cutoff.setDate(now.getDate() - 30);
+      return orders.filter(o => o.createdAt && new Date(o.createdAt) >= cutoff);
+    }
+    // this_month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return orders.filter(o => o.createdAt && new Date(o.createdAt) >= startOfMonth);
+  }, [orders, dateFilter]);
+
+  // Financial calculations from filtered orders
+  const totalSales = filteredOrders.reduce((sum, o) => sum + (Number(o.totalPrice) || Number(o.orderDetails?.totalPrice) || 0), 0);
+  const platformFeeRate = 0.10;
+  const platformFee = Math.round(totalSales * platformFeeRate);
+  const netEarnings = totalSales - platformFee;
+
+  const completedOrders = filteredOrders.filter(o => (o.status || '').toLowerCase() === 'completed');
+  const completedSales = completedOrders.reduce((sum, o) => sum + (Number(o.totalPrice) || 0), 0);
+  const completedNet = completedSales - Math.round(completedSales * platformFeeRate);
+
+  const pendingOrders = filteredOrders.filter(o => (o.status || '').toLowerCase() !== 'completed');
+  const pendingSales = pendingOrders.reduce((sum, o) => sum + (Number(o.totalPrice) || 0), 0);
+  const pendingNet = pendingSales - Math.round(pendingSales * platformFeeRate);
+
+  const nextPayoutAmount = pendingNet > 0 ? pendingNet : (totalSales > 0 ? Math.round(netEarnings * 0.28) : 0);
+  const nextPayoutDate = totalSales > 0 ? 'Tomorrow, 10:00 AM' : 'Next Settlement Cycle';
+
+  // Real Daily Net Earnings Trend for the last 7 days
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dailyEarnings = useMemo(() => {
+    const points: Array<{ date: string; day: string; label: string; netAmount: number; grossSales: number; orders: number }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+
+      const dayOrders = filteredOrders.filter(o => {
+        if (!o.createdAt) return false;
+        const od = new Date(o.createdAt);
+        return od.getFullYear() === d.getFullYear() &&
+               od.getMonth() === d.getMonth() &&
+               od.getDate() === d.getDate();
+      });
+
+      const daySales = dayOrders.reduce((sum, o) => sum + (Number(o.totalPrice) || Number(o.orderDetails?.totalPrice) || 0), 0);
+      const dayNet = Math.round(daySales * 0.90);
+
+      points.push({
+        date: d.toISOString().split('T')[0],
+        day: daysOfWeek[d.getDay()],
+        label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        netAmount: dayNet,
+        grossSales: daySales,
+        orders: dayOrders.length,
+      });
+    }
+    return points;
+  }, [filteredOrders]);
+
+  // Real SVG Chart Coordinate calculation
+  const maxEarnings = Math.max(...dailyEarnings.map(p => p.netAmount), 500);
+  const plotWidth = 280;
+  const plotHeight = 75;
+  const paddingX = 20;
+  const baselineY = 105;
+
+  const svgCoords = dailyEarnings.map((p, idx) => {
+    const x = paddingX + (idx / Math.max(1, dailyEarnings.length - 1)) * plotWidth;
+    const y = baselineY - (p.netAmount / maxEarnings) * plotHeight;
+    return { ...p, x, y };
+  });
+
+  const chartPathD = svgCoords.length > 0
+    ? `M ${svgCoords[0].x} ${svgCoords[0].y} ` + svgCoords.slice(1).map(c => `L ${c.x} ${c.y}`).join(' ')
+    : '';
+
+  const chartAreaD = svgCoords.length > 0
+    ? `${chartPathD} L ${svgCoords[svgCoords.length - 1].x} ${baselineY} L ${svgCoords[0].x} ${baselineY} Z`
+    : '';
+
+  const activePoint = hoveredPointIndex !== null && svgCoords[hoveredPointIndex]
+    ? svgCoords[hoveredPointIndex]
+    : svgCoords.find(p => p.netAmount > 0) || svgCoords[svgCoords.length - 1];
+
+  // Dynamic Recent Payouts list
+  const recentPayoutsList = useMemo(() => {
+    const list: any[] = [];
+    if (completedOrders.length > 0) {
+      list.push({
+        payoutId: 'PO-' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212') + '-01',
+        period: 'Completed Orders Settlement',
+        date: new Date(Date.now() - 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        ordersCount: completedOrders.length,
+        orderValue: completedSales,
+        commission: Math.round(completedSales * platformFeeRate),
+        amount: completedNet,
+        status: 'Settled',
+        utr: 'UTR' + (shopData?.mobile ? shopData.mobile.slice(-6) : '121212') + '01',
+        bankAccount: '•••• ' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212'),
+      });
+    }
+    if (totalSales > 0) {
+      list.push({
+        payoutId: 'PO-' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212') + '-02',
+        period: 'Active Settlement Cycle',
+        date: 'Today (Settlement T+1)',
+        ordersCount: filteredOrders.length,
+        orderValue: totalSales,
+        commission: platformFee,
+        amount: netEarnings,
+        status: 'Pending Payout',
+        utr: 'Scheduled (Daily T+1 at 10:00 AM)',
+        bankAccount: '•••• ' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212'),
+      });
+    }
+    return list;
+  }, [completedOrders, completedSales, completedNet, totalSales, platformFee, netEarnings, shopData, filteredOrders]);
 
   const tabs = ['Overview', 'Transactions', 'Settlement'] as const;
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const dateRangeDisplay = `${startOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} – ${endOfMonth.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  const currentMonthShort = now.toLocaleDateString([], { month: 'short' });
-  const monthDayLabels = [1, 5, 9, 13, 17, 21, 25, 29].map(d => `${currentMonthShort} ${d}`);
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Top Filter Bar matching PDF */}
+      {/* Top Filter Bar */}
       <div
         style={{
           display: 'flex',
@@ -46,6 +169,8 @@ export const PayoutsScreen: React.FC = () => {
           border: `1px solid ${theme.colors.creamCardBorder}`,
           borderRadius: 18,
           padding: '12px 18px',
+          flexWrap: 'wrap',
+          gap: 12,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#EFECE4', padding: 4, borderRadius: 20 }}>
@@ -54,7 +179,7 @@ export const PayoutsScreen: React.FC = () => {
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{
-                padding: '6px 16px',
+                padding: '7px 18px',
                 borderRadius: 16,
                 border: 'none',
                 backgroundColor: activeTab === tab ? '#1C1D21' : 'transparent',
@@ -62,6 +187,7 @@ export const PayoutsScreen: React.FC = () => {
                 fontSize: 12.5,
                 fontWeight: 600,
                 cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               {tab}
@@ -69,24 +195,32 @@ export const PayoutsScreen: React.FC = () => {
           ))}
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            backgroundColor: '#EFECE4',
-            border: '1px solid #DAD5CB',
-            borderRadius: 12,
-            padding: '7px 14px',
-            fontSize: 12.5,
-            fontWeight: 600,
-            color: '#1A1C20',
-            cursor: 'pointer',
-          }}
-        >
-          <Calendar size={14} color="#6B707B" />
-          <span>{dateRangeDisplay}</span>
-          <span style={{ fontSize: 10, color: '#6B707B' }}>▼</span>
+        {/* Date Filter Dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <select
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value as any)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#EFECE4',
+              border: '1px solid #DAD5CB',
+              borderRadius: 12,
+              padding: '8px 14px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: '#1A1C20',
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'auto',
+            }}
+          >
+            <option value="this_month">This Month ({now.toLocaleDateString([], { month: 'short', year: 'numeric' })})</option>
+            <option value="last_7_days">Last 7 Days</option>
+            <option value="last_30_days">Last 30 Days</option>
+            <option value="all">All Time</option>
+          </select>
         </div>
       </div>
 
@@ -110,7 +244,7 @@ export const PayoutsScreen: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <span style={{ fontSize: 28, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>₹ {totalSales.toLocaleString()}</span>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
-              ↑ +32%
+              Gross
             </span>
           </div>
           <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
@@ -132,9 +266,9 @@ export const PayoutsScreen: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <Layers size={16} color="#555963" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Prinkout Commission (10%)</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Prinkout Fee (10%)</span>
           </div>
-          <span style={{ fontSize: 28, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>₹ {platformFee.toLocaleString()}</span>
+          <span style={{ fontSize: 28, fontWeight: 700, color: '#EF4444', lineHeight: 1 }}>- ₹ {platformFee.toLocaleString()}</span>
           <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
             <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4 L 200 38 Z" fill="rgba(251, 146, 60, 0.22)" />
             <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4" stroke="#FB923C" strokeWidth="1.2" opacity="0.45" />
@@ -154,16 +288,16 @@ export const PayoutsScreen: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <Wallet size={16} color="#555963" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Net Payout</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Net Payout (90%)</span>
           </div>
-          <span style={{ fontSize: 28, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>₹ {netEarnings.toLocaleString()}</span>
+          <span style={{ fontSize: 28, fontWeight: 700, color: '#15803D', lineHeight: 1 }}>₹ {netEarnings.toLocaleString()}</span>
           <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
             <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4 L 200 38 Z" fill="rgba(52, 211, 153, 0.22)" />
             <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4" stroke="#34D399" strokeWidth="1.2" opacity="0.45" />
           </svg>
         </div>
 
-        {/* Next Payout (Lavender Card matching PDF) */}
+        {/* Next Payout */}
         <div
           style={{
             backgroundColor: '#EDE9FE',
@@ -176,7 +310,7 @@ export const PayoutsScreen: React.FC = () => {
             <Calendar size={16} color="#6B21A8" />
             <span style={{ fontSize: 13, fontWeight: 600, color: '#6B21A8' }}>Next Payout</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20', lineHeight: 1.1 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#1A1C20', lineHeight: 1.1 }}>
             {nextPayoutDate}
           </div>
           <div style={{ fontSize: 11, color: '#6B21A8', marginTop: 4 }}>
@@ -185,334 +319,593 @@ export const PayoutsScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Middle Row: Earnings Trend & Payout Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14 }}>
-        {/* Earnings Trend Card */}
-        <div
-          style={{
-            backgroundColor: theme.colors.creamCard,
-            border: `1px solid ${theme.colors.creamCardBorder}`,
-            borderRadius: 18,
-            padding: '18px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20' }}>Earnings Trend</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
-                ↑ +32% vs previous period
-              </span>
+      {/* ========================================================================= */}
+      {/* TAB 1: OVERVIEW */}
+      {/* ========================================================================= */}
+      {activeTab === 'Overview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Middle Row: Earnings Trend & Payout Summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14 }}>
+            {/* Earnings Trend Card */}
+            <div
+              style={{
+                backgroundColor: theme.colors.creamCard,
+                border: `1px solid ${theme.colors.creamCardBorder}`,
+                borderRadius: 18,
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20' }}>Net Earnings Trend</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: 12 }}>
+                    90% Net Settlement
+                  </span>
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: '#1A1C20', marginBottom: 16 }}>
+                  ₹ {netEarnings.toLocaleString()}
+                </div>
+              </div>
+
+              <div style={{ width: '100%', height: 160, position: 'relative', display: 'flex', alignItems: 'stretch' }}>
+                {/* Y-axis labels */}
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 9.5, color: '#8E929B', paddingRight: 8, paddingBottom: 20 }}>
+                  <span>₹{maxEarnings}</span>
+                  <span>₹{Math.round(maxEarnings * 0.66)}</span>
+                  <span>₹{Math.round(maxEarnings * 0.33)}</span>
+                  <span>₹0</span>
+                </div>
+
+                <div style={{ flex: 1, position: 'relative' }}>
+                  {activePoint && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 28,
+                        backgroundColor: '#FFFFFF',
+                        borderRadius: 8,
+                        padding: '4px 8px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        border: '1px solid #E5E1D6',
+                        textAlign: 'center',
+                        zIndex: 3,
+                      }}
+                    >
+                      <div style={{ fontSize: 11.5, fontWeight: 700, color: '#15803D' }}>₹ {activePoint.netAmount.toLocaleString()} Net</div>
+                      <div style={{ fontSize: 9.5, color: '#8E929B' }}>{activePoint.label} • {activePoint.orders} orders</div>
+                    </div>
+                  )}
+
+                  <svg viewBox="0 0 320 120" style={{ width: '100%', height: 'calc(100% - 20px)', overflow: 'visible' }}>
+                    <defs>
+                      <linearGradient id="payoutGradReal" x1="0" y1="0" x2="0" y2="120" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                      </linearGradient>
+                    </defs>
+
+                    <line x1="20" y1="30" x2="300" y2="30" stroke="#EBE7DF" strokeDasharray="3 3" />
+                    <line x1="20" y1="65" x2="300" y2="65" stroke="#EBE7DF" strokeDasharray="3 3" />
+                    <line x1="20" y1="105" x2="300" y2="105" stroke="#EBE7DF" />
+
+                    {totalSales > 0 && chartPathD ? (
+                      <>
+                        <path d={chartAreaD} fill="url(#payoutGradReal)" />
+                        <path d={chartPathD} fill="none" stroke="#10B981" strokeWidth="2.5" />
+                        {svgCoords.map((pt, idx) => (
+                          <circle
+                            key={idx}
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={hoveredPointIndex === idx ? 6 : 4}
+                            fill={hoveredPointIndex === idx ? '#047857' : '#10B981'}
+                            stroke="#FFFFFF"
+                            strokeWidth="2"
+                            style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                            onMouseEnter={() => setHoveredPointIndex(idx)}
+                            onMouseLeave={() => setHoveredPointIndex(null)}
+                          />
+                        ))}
+                      </>
+                    ) : (
+                      <line x1="20" y1="105" x2="300" y2="105" stroke="#D1D5DB" strokeWidth="2" strokeDasharray="4 4" />
+                    )}
+                  </svg>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#8E929B', marginTop: 4, paddingLeft: 12, paddingRight: 12 }}>
+                    {svgCoords.map((lbl, idx) => (
+                      <span key={idx}>{lbl.day}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: '#1A1C20', marginBottom: 16 }}>
-              ₹ {totalSales.toLocaleString()}
+
+            {/* Payout Summary Card */}
+            <div
+              style={{
+                backgroundColor: theme.colors.creamCard,
+                border: `1px solid ${theme.colors.creamCardBorder}`,
+                borderRadius: 18,
+                padding: '20px 22px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 18 }}>
+                  Payout Summary
+                </h3>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Printer size={15} color="#6B707B" />
+                      <span style={{ fontSize: 13, color: '#555963' }}>Total Order Value</span>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>₹ {totalSales.toLocaleString()}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Layers size={15} color="#6B707B" />
+                      <span style={{ fontSize: 13, color: '#555963' }}>Prinkout Fee (10%)</span>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#EF4444' }}>- ₹ {platformFee.toLocaleString()}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Clock size={15} color="#6B707B" />
+                      <span style={{ fontSize: 13, color: '#555963' }}>Settlement Cycle</span>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Daily (T+1)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Net Payout Banner */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: '#EDE9FE',
+                  borderRadius: 12,
+                  padding: '12px 16px',
+                  marginTop: 20,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Wallet size={16} color="#6B21A8" />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#581C87' }}>Net Receivable</span>
+                </div>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#581C87' }}>₹ {netEarnings.toLocaleString()}</span>
+              </div>
             </div>
           </div>
 
-          <div style={{ width: '100%', height: 160, position: 'relative', display: 'flex', alignItems: 'stretch' }}>
-            {/* Y-axis labels matching PDF */}
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 9.5, color: '#8E929B', paddingRight: 8, paddingBottom: 20 }}>
-              <span>60K</span>
-              <span>50K</span>
-              <span>40K</span>
-              <span>30K</span>
-              <span>20K</span>
-              <span>10K</span>
-              <span>0</span>
-            </div>
-
-            <div style={{ flex: 1, position: 'relative' }}>
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 28,
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 8,
-                  padding: '4px 8px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  border: '1px solid #E5E1D6',
-                  textAlign: 'center',
-                  zIndex: 2,
-                }}
-              >
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#1A1C20' }}>₹ 6,480</div>
-                <div style={{ fontSize: 9.5, color: '#8E929B' }}>Jul 29, 2026</div>
+          {/* Bottom Row: Recent Payouts & Payout Settings */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14 }}>
+            {/* Recent Payouts Table */}
+            <div
+              style={{
+                backgroundColor: theme.colors.creamCard,
+                border: `1px solid ${theme.colors.creamCardBorder}`,
+                borderRadius: 18,
+                padding: '18px 20px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20' }}>Recent Settlement Batches</h3>
+                <span
+                  onClick={() => setActiveTab('Transactions')}
+                  style={{ fontSize: 12, fontWeight: 600, color: '#7C3AED', cursor: 'pointer' }}
+                >
+                  View All Transactions →
+                </span>
               </div>
 
-              <svg viewBox="0 0 320 120" style={{ width: '100%', height: 'calc(100% - 20px)', overflow: 'visible' }}>
-                <defs>
-                  <linearGradient id="payoutGrad" x1="0" y1="0" x2="0" y2="120" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, borderBottom: '1px solid #EBE7DF' }}>
+                    <th style={{ padding: '8px 10px', width: 44 }}>S.NO</th>
+                    <th style={{ padding: '8px 10px' }}>PAYOUT ID</th>
+                    <th style={{ padding: '8px 10px' }}>PERIOD</th>
+                    <th style={{ padding: '8px 10px' }}>GROSS VALUE</th>
+                    <th style={{ padding: '8px 10px' }}>FEE (10%)</th>
+                    <th style={{ padding: '8px 10px' }}>NET PAYOUT</th>
+                    <th style={{ padding: '8px 10px' }}>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentPayoutsList.map((row, idx) => (
+                    <tr key={row.payoutId} style={{ borderBottom: '1px solid #F0ECE4' }}>
+                      <td style={{ padding: '10px', color: '#8E929B', fontWeight: 600 }}>{idx + 1}</td>
+                      <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>{row.payoutId}</td>
+                      <td style={{ padding: '10px', color: '#555963' }}>{row.period}</td>
+                      <td style={{ padding: '10px', color: '#1A1C20' }}>₹ {row.orderValue.toLocaleString()}</td>
+                      <td style={{ padding: '10px', color: '#EF4444' }}>- ₹ {row.commission.toLocaleString()}</td>
+                      <td style={{ padding: '10px', fontWeight: 700, color: '#15803D' }}>₹ {row.amount.toLocaleString()}</td>
+                      <td style={{ padding: '10px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '3px 8px',
+                            borderRadius: 12,
+                            backgroundColor: row.status === 'Settled' ? '#DCFCE7' : '#FEF3C7',
+                            color: row.status === 'Settled' ? '#15803D' : '#B45309',
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                        >
+                          <CheckCircle2 size={11} />
+                          <span>{row.status}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {recentPayoutsList.length === 0 && (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#8E929B' }}>
+                        No settlement batches found for this period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-                <line x1="0" y1="10" x2="320" y2="10" stroke="#EBE7DF" strokeDasharray="3 3" />
-                <line x1="0" y1="35" x2="320" y2="35" stroke="#EBE7DF" strokeDasharray="3 3" />
-                <line x1="0" y1="60" x2="320" y2="60" stroke="#EBE7DF" strokeDasharray="3 3" />
-                <line x1="0" y1="85" x2="320" y2="85" stroke="#EBE7DF" strokeDasharray="3 3" />
-                <line x1="0" y1="110" x2="320" y2="110" stroke="#EBE7DF" />
+            {/* Payout Settings Card */}
+            <div
+              style={{
+                backgroundColor: theme.colors.creamCard,
+                border: `1px solid ${theme.colors.creamCardBorder}`,
+                borderRadius: 18,
+                padding: '18px 20px',
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 16 }}>
+                Settlement Settings
+              </h3>
 
-                <path
-                  d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40 L 295 110 L 20 110 Z"
-                  fill="url(#payoutGrad)"
-                />
-                <path
-                  d="M 20 95 C 40 92, 55 75, 75 75 C 95 75, 110 82, 130 80 C 150 78, 165 65, 185 60 C 205 55, 220 50, 240 45 C 260 40, 275 52, 295 40"
-                  fill="none"
-                  stroke="#8B5CF6"
-                  strokeWidth="2.5"
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div
+                  onClick={() => setActiveTab('Settlement')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    backgroundColor: '#FAF8F5',
+                    border: '1px solid #EBE7DF',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Building size={16} color="#6B707B" />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
+                        {payouts?.bankAccount?.bankName || 'State Bank of India'}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#8E929B' }}>
+                        {payouts?.bankAccount?.accountNumberMasked || '•••• 1212'} (Verified)
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={15} color="#8E929B" />
+                </div>
 
-                {[
-                  { x: 20, y: 95 },
-                  { x: 75, y: 75 },
-                  { x: 130, y: 80 },
-                  { x: 185, y: 60 },
-                  { x: 240, y: 45 },
-                  { x: 295, y: 40 },
-                ].map((dot, idx) => (
-                  <circle key={idx} cx={dot.x} cy={dot.y} r="4" fill="#8B5CF6" stroke="#FFFFFF" strokeWidth="2" />
-                ))}
-              </svg>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#8E929B', marginTop: 4 }}>
-                {monthDayLabels.map((lbl, idx) => (
-                  <span key={idx}>{lbl}</span>
-                ))}
+                <div
+                  onClick={() => showToast('Settlement is processed daily at 10:00 AM')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    backgroundColor: '#FAF8F5',
+                    border: '1px solid #EBE7DF',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Calendar size={16} color="#6B707B" />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Settlement Frequency</div>
+                      <div style={{ fontSize: 11, color: '#8E929B' }}>Daily at 10:00 AM (T+1)</div>
+                    </div>
+                  </div>
+                  <ChevronRight size={15} color="#8E929B" />
+                </div>
               </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Payout Summary Card */}
-        <div
-          style={{
-            backgroundColor: theme.colors.creamCard,
-            border: `1px solid ${theme.colors.creamCardBorder}`,
-            borderRadius: 18,
-            padding: '20px 22px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 18 }}>
-              Payout Summary
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Printer size={15} color="#6B707B" />
-                  <span style={{ fontSize: 13, color: '#555963' }}>Total Order Value</span>
-                </div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>₹ {totalSales.toLocaleString()}</span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Layers size={15} color="#6B707B" />
-                  <span style={{ fontSize: 13, color: '#555963' }}>Prinkout Commission (10%)</span>
-                </div>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#EF4444' }}>- ₹ {platformFee.toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Net Payout Banner matching PDF */}
+      {/* ========================================================================= */}
+      {/* TAB 2: TRANSACTIONS BREAKDOWN */}
+      {/* ========================================================================= */}
+      {activeTab === 'Transactions' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Status Filter */}
           <div
             style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '14px 20px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              backgroundColor: '#EDE9FE',
-              borderRadius: 12,
-              padding: '12px 16px',
-              marginTop: 20,
+              flexWrap: 'wrap',
+              gap: 12,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Wallet size={16} color="#6B21A8" />
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#581C87' }}>Net Payout</span>
+              {[
+                { id: 'all', label: `All Transactions (${filteredOrders.length})` },
+                { id: 'settled', label: `Settled (${completedOrders.length})` },
+                { id: 'pending', label: `Pending Cycle (${pendingOrders.length})` },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setTransactionStatusFilter(f.id as any)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 12,
+                    border: transactionStatusFilter === f.id ? '1.5px solid #7C3AED' : '1px solid #DAD5CB',
+                    backgroundColor: transactionStatusFilter === f.id ? '#EDE9FE' : '#FFFFFF',
+                    color: transactionStatusFilter === f.id ? '#6B21A8' : '#374151',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
-            <span style={{ fontSize: 18, fontWeight: 800, color: '#581C87' }}>₹ {netEarnings.toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
 
-      {/* Bottom Row: Recent Payouts & Payout Settings */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 14 }}>
-        {/* Recent Payouts Table */}
-        <div
-          style={{
-            backgroundColor: theme.colors.creamCard,
-            border: `1px solid ${theme.colors.creamCardBorder}`,
-            borderRadius: 18,
-            padding: '18px 20px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1A1C20' }}>Recent Payouts</h3>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20', cursor: 'pointer' }}>
-              View All Payouts →
-            </span>
+            <div style={{ fontSize: 12, color: '#6B7280' }}>
+              Platform Fee: <strong>10%</strong> • Net Credited: <strong>90%</strong>
+            </div>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
-            <thead>
-              <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, borderBottom: '1px solid #EBE7DF' }}>
-                <th style={{ padding: '8px 10px' }}>PAYOUT ID</th>
-                <th style={{ padding: '8px 10px' }}>PERIOD</th>
-                <th style={{ padding: '8px 10px' }}>ORDER VALUE</th>
-                <th style={{ padding: '8px 10px' }}>COMMISSION</th>
-                <th style={{ padding: '8px 10px' }}>PAYOUT AMOUNT</th>
-                <th style={{ padding: '8px 10px' }}>STATUS</th>
-                <th style={{ padding: '8px 6px', textAlign: 'center' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {payouts?.recentPayouts && payouts.recentPayouts.length > 0 ? (
-                payouts.recentPayouts.map(row => (
-                  <tr key={row.payoutId} style={{ borderBottom: '1px solid #F0ECE4' }}>
-                    <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>{row.payoutId}</td>
-                    <td style={{ padding: '10px', color: '#555963' }}>{row.date}</td>
-                    <td style={{ padding: '10px', color: '#1A1C20' }}>₹ {row.amount.toLocaleString()}</td>
-                    <td style={{ padding: '10px', color: '#555963' }}>₹ {Math.round(row.amount * 0.1).toLocaleString()}</td>
-                    <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>₹ {Math.round(row.amount * 0.9).toLocaleString()}</td>
-                    <td style={{ padding: '10px' }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '3px 8px',
-                          borderRadius: 12,
-                          backgroundColor: '#DCFCE7',
-                          color: '#15803D',
-                          fontSize: 11,
-                          fontWeight: 600,
-                        }}
-                      >
-                        <CheckCircle2 size={11} />
-                        <span>{row.status}</span>
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'center', color: '#8E929B' }}>
-                      <MoreVertical size={14} />
-                    </td>
+          {/* Transactions Table */}
+          <div
+            style={{
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 18,
+              padding: '20px 22px',
+            }}
+          >
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 14 }}>
+              Order Settlement Journal
+            </h3>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ color: '#8E929B', fontSize: 10.5, fontWeight: 700, borderBottom: '1px solid #EBE7DF' }}>
+                    <th style={{ padding: '10px', width: 44 }}>S.NO</th>
+                    <th style={{ padding: '10px' }}>ORDER ID</th>
+                    <th style={{ padding: '10px' }}>DATE & TIME</th>
+                    <th style={{ padding: '10px' }}>CUSTOMER</th>
+                    <th style={{ padding: '10px' }}>PAYMENT METHOD</th>
+                    <th style={{ padding: '10px' }}>GROSS VALUE (₹)</th>
+                    <th style={{ padding: '10px' }}>FEE (10%)</th>
+                    <th style={{ padding: '10px' }}>NET SHARE (90%)</th>
+                    <th style={{ padding: '10px' }}>STATUS</th>
                   </tr>
-                ))
-              ) : totalSales > 0 ? (
-                <tr style={{ borderBottom: '1px solid #F0ECE4' }}>
-                  <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>#PO-0124</td>
-                  <td style={{ padding: '10px', color: '#555963' }}>Current Period</td>
-                  <td style={{ padding: '10px', color: '#1A1C20' }}>₹ {totalSales.toLocaleString()}</td>
-                  <td style={{ padding: '10px', color: '#555963' }}>₹ {platformFee.toLocaleString()}</td>
-                  <td style={{ padding: '10px', fontWeight: 700, color: '#1A1C20' }}>₹ {netEarnings.toLocaleString()}</td>
-                  <td style={{ padding: '10px' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        padding: '3px 8px',
-                        borderRadius: 12,
-                        backgroundColor: '#DCFCE7',
-                        color: '#15803D',
-                        fontSize: 11,
-                        fontWeight: 600,
-                      }}
-                    >
-                      <CheckCircle2 size={11} />
-                      <span>Pending Payout</span>
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px', textAlign: 'center', color: '#8E929B' }}>
-                    <MoreVertical size={14} />
-                  </td>
-                </tr>
-              ) : (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '24px', color: '#8E929B' }}>
-                    No payout records found for this period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Payout Settings Card */}
-        <div
-          style={{
-            backgroundColor: theme.colors.creamCard,
-            border: `1px solid ${theme.colors.creamCardBorder}`,
-            borderRadius: 18,
-            padding: '18px 20px',
-          }}
-        >
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 16 }}>
-            Payout Settings
-          </h3>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div
-              onClick={() => showToast('Manage Bank Accounts')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 14px',
-                borderRadius: 12,
-                backgroundColor: '#FAF8F5',
-                border: '1px solid #EBE7DF',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Building size={16} color="#6B707B" />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
-                    {payouts?.bankAccount?.bankName || 'Bank Account'}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#8E929B' }}>
-                    {payouts?.bankAccount?.accountNumberMasked || '**** 4321'} ({payouts?.bankAccount?.status || 'Active'})
-                  </div>
-                </div>
-              </div>
-              <ChevronRight size={15} color="#8E929B" />
-            </div>
-
-            <div
-              onClick={() => showToast('Update Settlement Frequency')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 14px',
-                borderRadius: 12,
-                backgroundColor: '#FAF8F5',
-                border: '1px solid #EBE7DF',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Calendar size={16} color="#6B707B" />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Settlement Frequency</div>
-                  <div style={{ fontSize: 11, color: '#8E929B' }}>Daily</div>
-                </div>
-              </div>
-              <ChevronRight size={15} color="#8E929B" />
+                </thead>
+                <tbody>
+                  {filteredOrders
+                    .filter(o => {
+                      if (transactionStatusFilter === 'settled') return (o.status || '').toLowerCase() === 'completed';
+                      if (transactionStatusFilter === 'pending') return (o.status || '').toLowerCase() !== 'completed';
+                      return true;
+                    })
+                    .map((o, idx) => {
+                      const gross = Number(o.totalPrice) || Number(o.orderDetails?.totalPrice) || 0;
+                      const fee = Math.round(gross * 0.10);
+                      const net = gross - fee;
+                      const isSettled = (o.status || '').toLowerCase() === 'completed';
+                      return (
+                        <tr key={o.orderId} style={{ borderBottom: '1px solid #F0ECE4' }}>
+                          <td style={{ padding: '12px 10px', color: '#8E929B', fontWeight: 600 }}>{idx + 1}</td>
+                          <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>
+                            #{o.orderId.length > 8 ? o.orderId.slice(-6) : o.orderId}
+                          </td>
+                          <td style={{ padding: '12px 10px', color: '#555963' }}>
+                            {o.createdAt ? new Date(o.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <div style={{ fontWeight: 600, color: '#1A1C20' }}>{o.customerName || 'Customer'}</div>
+                            <div style={{ fontSize: 11, color: '#8E929B' }}>{o.customerPhone || o.userId}</div>
+                          </td>
+                          <td style={{ padding: '12px 10px', color: '#555963' }}>
+                            {o.orderDetails?.paymentMethod || 'Razorpay (UPI)'}
+                          </td>
+                          <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>
+                            ₹ {gross.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 10px', color: '#EF4444' }}>
+                            - ₹ {fee.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 10px', fontWeight: 700, color: '#15803D' }}>
+                            ₹ {net.toLocaleString()}
+                          </td>
+                          <td style={{ padding: '12px 10px' }}>
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '3px 8px',
+                                borderRadius: 12,
+                                backgroundColor: isSettled ? '#DCFCE7' : '#FEF3C7',
+                                color: isSettled ? '#15803D' : '#B45309',
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {isSettled ? '✓ Settled' : '⏳ Scheduled T+1'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: SETTLEMENT SETTINGS & BANK ACCOUNT */}
+      {/* ========================================================================= */}
+      {activeTab === 'Settlement' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
+            {/* Primary Bank Card */}
+            <div
+              style={{
+                backgroundColor: theme.colors.creamCard,
+                border: `1px solid ${theme.colors.creamCardBorder}`,
+                borderRadius: 18,
+                padding: '22px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Building size={20} color="#7C3AED" />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', margin: 0 }}>
+                        {payouts?.bankAccount?.bankName || 'State Bank of India'}
+                      </h3>
+                      <div style={{ fontSize: 11.5, color: '#6B707B' }}>Primary Settlement Account</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '3px 10px', borderRadius: 12 }}>
+                    ✓ Verified Account
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
+                    <span style={{ color: '#6B7280' }}>Account Holder</span>
+                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>
+                      {payouts?.bankAccount?.holderName || shopData?.ownerName || 'Merchant Owner'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
+                    <span style={{ color: '#6B7280' }}>Account Number</span>
+                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>
+                      {payouts?.bankAccount?.accountNumberMasked || '•••• 1212'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
+                    <span style={{ color: '#6B7280' }}>IFSC Code</span>
+                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>
+                      {payouts?.bankAccount?.ifsc || 'SBIN0001428'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#6B7280' }}>Direct UPI VPA</span>
+                    <span style={{ fontWeight: 600, color: '#7C3AED' }}>
+                      {(payouts?.bankAccount as any)?.upiId || shopData?.upiId || 'prinkoutmerchant@okaxis'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => showToast('Bank details are verified and locked for your security')}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    borderRadius: 12,
+                    backgroundColor: '#EFECE4',
+                    border: '1px solid #DAD5CB',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: '#1A1C20',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Manage Bank Details
+                </button>
+              </div>
+            </div>
+
+            {/* Settlement Rules Card */}
+            <div
+              style={{
+                backgroundColor: theme.colors.creamCard,
+                border: `1px solid ${theme.colors.creamCardBorder}`,
+                borderRadius: 18,
+                padding: '22px 24px',
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 14 }}>
+                Settlement Rules & Terms
+              </h3>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 12.5, color: '#555963' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <strong style={{ color: '#1A1C20' }}>Daily Automatic Payout:</strong> Settlements are processed every morning at 10:00 AM for all orders completed prior.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <strong style={{ color: '#1A1C20' }}>Zero Transfer Fees:</strong> Bank deposits via IMPS/NEFT are 100% free with no gateway surcharges.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <strong style={{ color: '#1A1C20' }}>Transparent 10% Fee:</strong> Standard flat 10% platform commission deducted automatically at order completion.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <strong style={{ color: '#1A1C20' }}>Minimum Threshold:</strong> ₹100 minimum threshold. Lower balances roll over to the subsequent morning.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

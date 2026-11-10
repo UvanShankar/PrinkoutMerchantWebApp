@@ -3,6 +3,7 @@ import { MerchantProvider, useMerchant } from './context/MerchantContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Toast } from './components/Toast';
+import { SetupProgressBar } from './components/SetupProgressBar';
 
 // Auth & Onboarding Screens (Pages 1 - 6)
 import { LoginScreen } from './screens/LoginScreen';
@@ -74,6 +75,7 @@ const MainNavigator: React.FC = () => {
           {currentScreen === 'profile' && <ShopProfileScreen />}
           {currentScreen === 'settings' && <SettingsScreen />}
         </main>
+        <SetupProgressBar />
       </div>
       <Toast />
     </div>
