@@ -293,7 +293,7 @@ export const PayoutsScreen: React.FC = () => {
           </svg>
         </div>
 
-        {/* Commission */}
+        {/* Fulfilled Orders */}
         <div
           style={{
             backgroundColor: theme.colors.creamCard,
@@ -305,10 +305,10 @@ export const PayoutsScreen: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <Layers size={16} color="#555963" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Prinkout Fee (10%)</span>
+            <Printer size={16} color="#555963" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Fulfilled Orders</span>
           </div>
-          <span style={{ fontSize: 28, fontWeight: 700, color: '#EF4444', lineHeight: 1 }}>- ₹ {platformFee.toLocaleString()}</span>
+          <span style={{ fontSize: 28, fontWeight: 700, color: '#1A1C20', lineHeight: 1 }}>{completedOrders.length}</span>
           <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
             <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4 L 200 38 Z" fill="rgba(251, 146, 60, 0.22)" />
             <path d="M 0 38 C 40 32, 70 12, 120 18 C 160 22, 180 8, 200 4" stroke="#FB923C" strokeWidth="1.2" opacity="0.45" />
@@ -328,7 +328,7 @@ export const PayoutsScreen: React.FC = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <Wallet size={16} color="#555963" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Net Payout (90%)</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#555963' }}>Total Earnings</span>
           </div>
           <span style={{ fontSize: 28, fontWeight: 700, color: '#15803D', lineHeight: 1 }}>₹ {netEarnings.toLocaleString()}</span>
           <svg style={{ position: 'absolute', bottom: 0, right: 0, width: '100%', height: 38, pointerEvents: 'none' }} viewBox="0 0 200 38" preserveAspectRatio="none" fill="none">
@@ -493,10 +493,10 @@ export const PayoutsScreen: React.FC = () => {
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Layers size={15} color="#6B707B" />
-                      <span style={{ fontSize: 13, color: '#555963' }}>Prinkout Fee (10%)</span>
+                      <Printer size={15} color="#6B707B" />
+                      <span style={{ fontSize: 13, color: '#555963' }}>Fulfilled Orders</span>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#EF4444' }}>- ₹ {platformFee.toLocaleString()}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>{completedOrders.length} orders</span>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -717,10 +717,6 @@ export const PayoutsScreen: React.FC = () => {
                 </button>
               ))}
             </div>
-
-            <div style={{ fontSize: 12, color: '#6B7280' }}>
-              Platform Fee: <strong>10%</strong> • Net Credited: <strong>90%</strong>
-            </div>
           </div>
 
           {/* Transactions Table */}
@@ -746,8 +742,7 @@ export const PayoutsScreen: React.FC = () => {
                     <th style={{ padding: '10px' }}>CUSTOMER</th>
                     <th style={{ padding: '10px' }}>PAYMENT METHOD</th>
                     <th style={{ padding: '10px' }}>GROSS VALUE (₹)</th>
-                    <th style={{ padding: '10px' }}>FEE (10%)</th>
-                    <th style={{ padding: '10px' }}>NET SHARE (90%)</th>
+                    <th style={{ padding: '10px' }}>SETTLEMENT AMOUNT (₹)</th>
                     <th style={{ padding: '10px' }}>STATUS</th>
                   </tr>
                 </thead>
@@ -760,8 +755,7 @@ export const PayoutsScreen: React.FC = () => {
                     })
                     .map((o, idx) => {
                       const gross = Number(o.totalPrice) || Number(o.orderDetails?.totalPrice) || 0;
-                      const fee = Math.round(gross * 0.10);
-                      const net = gross - fee;
+                      const net = Math.round(gross * 0.90);
                       const isSettled = (o.status || '').toLowerCase() === 'completed';
                       return (
                         <tr key={o.orderId} style={{ borderBottom: '1px solid #F0ECE4' }}>
@@ -781,9 +775,6 @@ export const PayoutsScreen: React.FC = () => {
                           </td>
                           <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>
                             ₹ {gross.toLocaleString()}
-                          </td>
-                          <td style={{ padding: '12px 10px', color: '#EF4444' }}>
-                            - ₹ {fee.toLocaleString()}
                           </td>
                           <td style={{ padding: '12px 10px', fontWeight: 700, color: '#15803D' }}>
                             ₹ {net.toLocaleString()}

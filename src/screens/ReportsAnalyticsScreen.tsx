@@ -882,29 +882,23 @@ export const ReportsAnalyticsScreen: React.FC = () => {
       {activeTab === 'Revenue' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Revenue Breakdown Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
             <div style={{ backgroundColor: theme.colors.creamCard, border: `1px solid ${theme.colors.creamCardBorder}`, borderRadius: 16, padding: '16px 18px' }}>
               <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Gross Sales</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20' }}>₹ {totalRev.toLocaleString()}</div>
               <div style={{ fontSize: 11, color: '#15803D', marginTop: 4 }}>100% of order values</div>
             </div>
 
-            <div style={{ backgroundColor: theme.colors.creamCard, border: `1px solid ${theme.colors.creamCardBorder}`, borderRadius: 16, padding: '16px 18px' }}>
-              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Platform Fee (10%)</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: '#EF4444' }}>- ₹ {platformFee.toLocaleString()}</div>
-              <div style={{ fontSize: 11, color: '#6B7280', marginTop: 4 }}>Standard Prinkout Commission</div>
-            </div>
-
             <div style={{ backgroundColor: '#EDE9FE', border: '1px solid #DDD6FE', borderRadius: 16, padding: '16px 18px' }}>
               <div style={{ fontSize: 12, color: '#6B21A8', marginBottom: 4 }}>Net Merchant Payout</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#581C87' }}>₹ {netEarnings.toLocaleString()}</div>
-              <div style={{ fontSize: 11, color: '#6B21A8', marginTop: 4 }}>90% settled to your bank</div>
+              <div style={{ fontSize: 11, color: '#6B21A8', marginTop: 4 }}>Directly credited to your account</div>
             </div>
 
             <div style={{ backgroundColor: theme.colors.creamCard, border: `1px solid ${theme.colors.creamCardBorder}`, borderRadius: 16, padding: '16px 18px' }}>
               <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Average Order Value</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#1A1C20' }}>₹ {avgOrderValue.toLocaleString()}</div>
-              <div style={{ fontSize: 11, color: '#15803D', marginTop: 4 }}>Across all service types</div>
+              <div style={{ fontSize: 11, color: '#15803D', marginTop: 4 }}>Across fulfilled orders</div>
             </div>
           </div>
 
@@ -929,7 +923,6 @@ export const ReportsAnalyticsScreen: React.FC = () => {
                   <th style={{ padding: '10px' }}>DAY</th>
                   <th style={{ padding: '10px' }}>ORDERS</th>
                   <th style={{ padding: '10px' }}>GROSS REVENUE</th>
-                  <th style={{ padding: '10px' }}>COMMISSION (10%)</th>
                   <th style={{ padding: '10px' }}>NET SETTLEMENT</th>
                   <th style={{ padding: '10px' }}>STATUS</th>
                 </tr>
@@ -937,8 +930,7 @@ export const ReportsAnalyticsScreen: React.FC = () => {
               <tbody>
                 {trendPoints.map((row, idx) => {
                   const gross = row.amount;
-                  const comm = Math.round(gross * 0.10);
-                  const net = gross - comm;
+                  const net = Math.round(gross * 0.90);
                   return (
                     <tr key={row.date} style={{ borderBottom: '1px solid #F0ECE4' }}>
                       <td style={{ padding: '12px 10px', color: '#8E929B', fontWeight: 600 }}>{idx + 1}</td>
@@ -946,7 +938,6 @@ export const ReportsAnalyticsScreen: React.FC = () => {
                       <td style={{ padding: '12px 10px', color: '#555963' }}>{row.day}</td>
                       <td style={{ padding: '12px 10px', color: '#1A1C20' }}>{row.orders} orders</td>
                       <td style={{ padding: '12px 10px', fontWeight: 700, color: '#1A1C20' }}>₹ {gross.toLocaleString()}</td>
-                      <td style={{ padding: '12px 10px', color: '#EF4444' }}>- ₹ {comm.toLocaleString()}</td>
                       <td style={{ padding: '12px 10px', fontWeight: 700, color: '#15803D' }}>₹ {net.toLocaleString()}</td>
                       <td style={{ padding: '12px 10px' }}>
                         <span
