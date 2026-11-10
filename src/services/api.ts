@@ -260,4 +260,23 @@ export const merchantApi = {
     const res = await apiClient.post(`/shops/${shopId}/submit-setup`);
     return res.data?.data;
   },
+
+  // Serviceability & Coverage
+  async checkServiceability(pincode: string) {
+    try {
+      const res = await apiClient.get(`/serviceability/check?pincode=${encodeURIComponent(pincode)}`);
+      return res.data?.data;
+    } catch {
+      return { serviceable: false, status: 'COMING_SOON', message: 'Unable to verify location' };
+    }
+  },
+
+  async getServiceableLocations() {
+    try {
+      const res = await apiClient.get('/serviceability/locations');
+      return res.data?.data || [];
+    } catch {
+      return [];
+    }
+  },
 };
