@@ -194,13 +194,13 @@ export const PricingServicesScreen: React.FC = () => {
   };
 
   const servicesList = [
-    { id: 'standard', name: 'Standard Prints', desc: 'A4, A3, A0', icon: Layers },
-    { id: 'posters', name: 'Posters', desc: 'Photo / Glossy', icon: ImageIcon },
-    { id: 'banners', name: 'Banners & Flex', desc: 'Outdoor / Signage', icon: Tv },
-    { id: 'cards', name: 'Business Cards', desc: 'Matte / Velvet', icon: CreditCard },
-    { id: 'tshirt', name: 'T-shirt Printing', desc: 'Cotton / Polo', icon: Shirt },
-    { id: 'invitations', name: 'Invitations', desc: 'Cards / Envelopes', icon: Mail },
-    { id: 'packaging', name: 'Packaging', desc: 'Boxes / Labels', icon: Box },
+    { id: 'standard', name: 'Standard Prints', desc: 'A4, A3, A0', icon: Layers, enabled: true },
+    { id: 'posters', name: 'Posters', desc: 'Photo / Glossy', icon: ImageIcon, enabled: false },
+    { id: 'banners', name: 'Banners & Flex', desc: 'Outdoor / Signage', icon: Tv, enabled: false },
+    { id: 'cards', name: 'Business Cards', desc: 'Matte / Velvet', icon: CreditCard, enabled: false },
+    { id: 'tshirt', name: 'T-shirt Printing', desc: 'Cotton / Polo', icon: Shirt, enabled: false },
+    { id: 'invitations', name: 'Invitations', desc: 'Cards / Envelopes', icon: Mail, enabled: false },
+    { id: 'packaging', name: 'Packaging', desc: 'Boxes / Labels', icon: Box, enabled: false },
   ];
 
   // Helper iOS-style toggle
@@ -260,14 +260,21 @@ export const PricingServicesScreen: React.FC = () => {
           {servicesList.map(srv => {
             const isSelected = selectedServiceId === srv.id;
             const Icon = srv.icon;
+            const isEnabled = srv.enabled;
 
             return (
               <div
                 key={srv.id}
-                onClick={() => setSelectedServiceId(srv.id)}
+                onClick={() => {
+                  if (!isEnabled) {
+                    showToast(`${srv.name} is disabled. Only Standard Prints are currently enabled on Prinkout.`);
+                    return;
+                  }
+                  setSelectedServiceId(srv.id);
+                }}
                 style={{
-                  backgroundColor: isSelected ? '#FFFFFF' : '#FAF8F5',
-                  border: `2px solid ${isSelected ? '#4F46E5' : '#E8E4DA'}`,
+                  backgroundColor: isSelected ? '#FFFFFF' : (isEnabled ? '#FAF8F5' : '#F5F3EF'),
+                  border: `2px solid ${isSelected ? '#16A34A' : '#E8E4DA'}`,
                   borderRadius: 14,
                   padding: '16px 10px',
                   display: 'flex',
@@ -275,47 +282,45 @@ export const PricingServicesScreen: React.FC = () => {
                   alignItems: 'center',
                   textAlign: 'center',
                   position: 'relative',
-                  cursor: 'pointer',
+                  cursor: isEnabled ? 'pointer' : 'not-allowed',
+                  opacity: isEnabled ? 1 : 0.45,
                   transition: 'all 0.15s ease',
-                  boxShadow: isSelected ? '0 4px 14px rgba(79, 70, 229, 0.14)' : '0 2px 4px rgba(0,0,0,0.02)',
+                  boxShadow: isSelected ? '0 4px 14px rgba(22, 163, 74, 0.14)' : 'none',
                 }}
               >
-                {/* Active selection badge */}
-                {isSelected && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 6,
-                      right: 6,
-                      width: 16,
-                      height: 16,
-                      borderRadius: '50%',
-                      backgroundColor: '#4F46E5',
-                      color: '#FFFFFF',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Check size={10} strokeWidth={3} />
-                  </div>
-                )}
+                {/* Status badge */}
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    padding: '2px 5px',
+                    borderRadius: 6,
+                    backgroundColor: isEnabled ? '#DCFCE7' : '#E5E7EB',
+                    color: isEnabled ? '#15803D' : '#6B7280',
+                  }}
+                >
+                  {isEnabled ? 'Active' : 'Disabled'}
+                </span>
 
                 <div
                   style={{
                     width: 36,
                     height: 36,
                     borderRadius: 10,
-                    backgroundColor: isSelected ? '#EEF2FF' : '#EFECE4',
+                    backgroundColor: isSelected ? '#DCFCE7' : '#EFECE4',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: 8,
+                    marginTop: 4,
                   }}
                 >
-                  <Icon size={20} color={isSelected ? '#4F46E5' : '#1A1C20'} />
+                  <Icon size={20} color={isSelected ? '#15803D' : (isEnabled ? '#1A1C20' : '#9CA3AF')} />
                 </div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#1A1C20', marginBottom: 2, lineHeight: 1.2 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: isEnabled ? '#1A1C20' : '#6B7280', marginBottom: 2, lineHeight: 1.2 }}>
                   {srv.name}
                 </div>
                 <div style={{ fontSize: 10, color: '#8E929B' }}>{srv.desc}</div>
@@ -339,9 +344,9 @@ export const PricingServicesScreen: React.FC = () => {
           {/* Service Title Bar */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 8, backgroundColor: '#EEF2FF', color: '#4F46E5', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 8, backgroundColor: '#DCFCE7', color: '#15803D', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
                 <Sparkles size={11} />
-                <span>Selected Service</span>
+                <span>Active Service Category</span>
               </div>
               <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1A1C20', marginBottom: 2 }}>
                 {selectedServiceId === 'standard' && 'Standard Prints — Pricing'}

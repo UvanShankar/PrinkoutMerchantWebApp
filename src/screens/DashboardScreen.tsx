@@ -6,7 +6,6 @@ import {
   Printer,
   Package,
   ArrowRight,
-  UploadCloud,
   Tag,
   Clock,
   MoreVertical,
@@ -440,26 +439,6 @@ export const DashboardScreen: React.FC = () => {
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div
-              onClick={() => navigateTo('pricing')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '11px 14px',
-                backgroundColor: '#EFECE4',
-                borderRadius: 12,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <UploadCloud size={16} color="#1A1C20" />
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>Upload Sample Price List</span>
-              </div>
-              <ArrowRight size={14} color="#6B707B" />
-            </div>
-
             <div
               onClick={() => navigateTo('pricing')}
               style={{

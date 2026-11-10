@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
+import { merchantApi } from '../services/api';
 import {
   Calendar,
   Layers,
@@ -16,15 +17,52 @@ import {
   ShieldCheck,
   Check,
   AlertCircle,
+  Smartphone,
+  Edit2,
+  Zap,
 } from 'lucide-react';
 import { theme } from '../theme';
 
 export const PayoutsScreen: React.FC = () => {
-  const { payouts, orders, showToast, shopData } = useMerchant();
+  const { payouts, orders, showToast, shopData, shopId, refreshData } = useMerchant();
   const [activeTab, setActiveTab] = useState<'Overview' | 'Transactions' | 'Settlement'>('Overview');
   const [dateFilter, setDateFilter] = useState<'this_month' | 'last_7_days' | 'last_30_days' | 'all'>('this_month');
   const [transactionStatusFilter, setTransactionStatusFilter] = useState<'all' | 'settled' | 'pending'>('all');
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+
+  // UPI State & inline edit
+  const [isEditingUpi, setIsEditingUpi] = useState(false);
+  const [upiInput, setUpiInput] = useState(shopData?.upiId || '');
+  const [savingUpi, setSavingUpi] = useState(false);
+
+  useEffect(() => {
+    if (shopData?.upiId) {
+      setUpiInput(shopData.upiId);
+    }
+  }, [shopData?.upiId]);
+
+  const handleSaveUpi = async () => {
+    const cleanUpi = upiInput.trim();
+    if (!cleanUpi.includes('@')) {
+      showToast('Please enter a valid UPI ID (e.g. yourshop@okhdfcbank)');
+      return;
+    }
+    if (!shopId) {
+      showToast('No active shop found');
+      return;
+    }
+    setSavingUpi(true);
+    try {
+      await merchantApi.updateShopProfile(shopId, { upiId: cleanUpi });
+      await refreshData();
+      showToast('UPI ID saved successfully for daily settlements!');
+      setIsEditingUpi(false);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update UPI ID');
+    } finally {
+      setSavingUpi(false);
+    }
+  };
 
   const now = new Date();
 
@@ -126,7 +164,7 @@ export const PayoutsScreen: React.FC = () => {
     const list: any[] = [];
     if (completedOrders.length > 0) {
       list.push({
-        payoutId: 'PO-' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212') + '-01',
+        payoutId: 'PO-UPI-' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212') + '-01',
         period: 'Completed Orders Settlement',
         date: new Date(Date.now() - 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         ordersCount: completedOrders.length,
@@ -134,13 +172,14 @@ export const PayoutsScreen: React.FC = () => {
         commission: Math.round(completedSales * platformFeeRate),
         amount: completedNet,
         status: 'Settled',
-        utr: 'UTR' + (shopData?.mobile ? shopData.mobile.slice(-6) : '121212') + '01',
-        bankAccount: '•••• ' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212'),
+        utr: 'UPI/' + (shopData?.mobile ? shopData.mobile.slice(-6) : '121212') + '01',
+        method: 'UPI Autopay',
+        upiId: shopData?.upiId || 'prinkoutmerchant@okaxis',
       });
     }
     if (totalSales > 0) {
       list.push({
-        payoutId: 'PO-' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212') + '-02',
+        payoutId: 'PO-UPI-' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212') + '-02',
         period: 'Active Settlement Cycle',
         date: 'Today (Settlement T+1)',
         ordersCount: filteredOrders.length,
@@ -148,8 +187,9 @@ export const PayoutsScreen: React.FC = () => {
         commission: platformFee,
         amount: netEarnings,
         status: 'Pending Payout',
-        utr: 'Scheduled (Daily T+1 at 10:00 AM)',
-        bankAccount: '•••• ' + (shopData?.mobile ? shopData.mobile.slice(-4) : '1212'),
+        utr: 'Scheduled (Daily T+1 at 10:00 AM via UPI)',
+        method: 'UPI Autopay',
+        upiId: shopData?.upiId || 'prinkoutmerchant@okaxis',
       });
     }
     return list;
@@ -591,13 +631,15 @@ export const PayoutsScreen: React.FC = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Building size={16} color="#6B707B" />
+                    <div style={{ width: 34, height: 34, borderRadius: 8, backgroundColor: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Smartphone size={16} color="#7C3AED" />
+                    </div>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1C20' }}>
-                        {payouts?.bankAccount?.bankName || 'State Bank of India'}
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>
+                        {shopData?.upiId || 'prinkoutmerchant@okaxis'}
                       </div>
-                      <div style={{ fontSize: 11, color: '#8E929B' }}>
-                        {payouts?.bankAccount?.accountNumberMasked || '•••• 1212'} (Verified)
+                      <div style={{ fontSize: 11, color: '#15803D', fontWeight: 600 }}>
+                        Direct UPI Settlement (Verified)
                       </div>
                     </div>
                   </div>
@@ -774,12 +816,12 @@ export const PayoutsScreen: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 3: SETTLEMENT SETTINGS & BANK ACCOUNT */}
+      {/* TAB 3: SETTLEMENT SETTINGS & UPI VPA */}
       {/* ========================================================================= */}
       {activeTab === 'Settlement' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 16 }}>
-            {/* Primary Bank Card */}
+            {/* Primary UPI Settlement Card */}
             <div
               style={{
                 backgroundColor: theme.colors.creamCard,
@@ -792,71 +834,157 @@ export const PayoutsScreen: React.FC = () => {
               }}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Building size={20} color="#7C3AED" />
+                    <div style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Smartphone size={22} color="#7C3AED" />
                     </div>
                     <div>
                       <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', margin: 0 }}>
-                        {payouts?.bankAccount?.bankName || 'State Bank of India'}
+                        Direct UPI Settlement
                       </h3>
-                      <div style={{ fontSize: 11.5, color: '#6B707B' }}>Primary Settlement Account</div>
+                      <div style={{ fontSize: 11.5, color: '#6B707B' }}>Linked VPA for Daily Disbursals</div>
                     </div>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#15803D', backgroundColor: '#DCFCE7', padding: '3px 10px', borderRadius: 12 }}>
-                    ✓ Verified Account
+                    ✓ Active UPI Route
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16, fontSize: 13 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
-                    <span style={{ color: '#6B7280' }}>Account Holder</span>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>
-                      {payouts?.bankAccount?.holderName || shopData?.ownerName || 'Merchant Owner'}
-                    </span>
-                  </div>
+                {!isEditingUpi ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16, fontSize: 13 }}>
+                    <div style={{ padding: '14px 16px', borderRadius: 12, backgroundColor: '#FAF8F5', border: '1px solid #EBE7DF' }}>
+                      <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Registered UPI ID / VPA
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#1A1C20', fontFamily: 'monospace' }}>
+                        {shopData?.upiId || 'prinkoutmerchant@okaxis'}
+                      </div>
+                    </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
-                    <span style={{ color: '#6B7280' }}>Account Number</span>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>
-                      {payouts?.bankAccount?.accountNumberMasked || '•••• 1212'}
-                    </span>
-                  </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
+                      <span style={{ color: '#6B7280' }}>Beneficiary Name</span>
+                      <span style={{ fontWeight: 600, color: '#1A1C20' }}>
+                        {shopData?.ownerName || 'Merchant Owner'}
+                      </span>
+                    </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
-                    <span style={{ color: '#6B7280' }}>IFSC Code</span>
-                    <span style={{ fontWeight: 600, color: '#1A1C20' }}>
-                      {payouts?.bankAccount?.ifsc || 'SBIN0001428'}
-                    </span>
-                  </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
+                      <span style={{ color: '#6B7280' }}>Registered Shop</span>
+                      <span style={{ fontWeight: 600, color: '#1A1C20' }}>
+                        {shopData?.shopName || 'Print Shop'}
+                      </span>
+                    </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#6B7280' }}>Direct UPI VPA</span>
-                    <span style={{ fontWeight: 600, color: '#7C3AED' }}>
-                      {(payouts?.bankAccount as any)?.upiId || shopData?.upiId || 'prinkoutmerchant@okaxis'}
-                    </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 8, borderBottom: '1px solid #EBE7DF' }}>
+                      <span style={{ color: '#6B7280' }}>Settlement Network</span>
+                      <span style={{ fontWeight: 600, color: '#15803D' }}>
+                        NPCI / BHIM UPI Instant Autopay
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#6B7280' }}>Transfer Surcharge</span>
+                      <span style={{ fontWeight: 700, color: '#1A1C20' }}>
+                        ₹0 (100% Free UPI)
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: '#1A1C20', display: 'block', marginBottom: 6 }}>
+                        Enter New UPI ID / VPA
+                      </label>
+                      <input
+                        type="text"
+                        value={upiInput}
+                        onChange={e => setUpiInput(e.target.value)}
+                        placeholder="e.g. 9876543210@paytm, yourshop@okhdfcbank"
+                        style={{
+                          width: '100%',
+                          padding: '10px 14px',
+                          borderRadius: 10,
+                          backgroundColor: '#FAF8F5',
+                          border: '1.5px solid #7C3AED',
+                          fontSize: 14,
+                          fontWeight: 600,
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <p style={{ fontSize: 11, color: '#6B7280', marginTop: 6, margin: 0 }}>
+                        All daily customer order payouts will be credited directly to this UPI handle.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
-                <button
-                  onClick={() => showToast('Bank details are verified and locked for your security')}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    borderRadius: 12,
-                    backgroundColor: '#EFECE4',
-                    border: '1px solid #DAD5CB',
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    color: '#1A1C20',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Manage Bank Details
-                </button>
+              <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
+                {!isEditingUpi ? (
+                  <button
+                    onClick={() => {
+                      setUpiInput(shopData?.upiId || '');
+                      setIsEditingUpi(true);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '11px',
+                      borderRadius: 12,
+                      backgroundColor: '#1C1D21',
+                      border: 'none',
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <Edit2 size={13} />
+                    <span>Change UPI ID</span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsEditingUpi(false)}
+                      disabled={savingUpi}
+                      style={{
+                        flex: 1,
+                        padding: '11px',
+                        borderRadius: 12,
+                        backgroundColor: '#EFECE4',
+                        border: '1px solid #DAD5CB',
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        color: '#1A1C20',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveUpi}
+                      disabled={savingUpi}
+                      style={{
+                        flex: 1,
+                        padding: '11px',
+                        borderRadius: 12,
+                        backgroundColor: '#16A34A',
+                        border: 'none',
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: '#FFFFFF',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {savingUpi ? 'Saving...' : 'Save UPI ID'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -870,35 +998,42 @@ export const PayoutsScreen: React.FC = () => {
               }}
             >
               <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 14 }}>
-                Settlement Rules & Terms
+                UPI Settlement Rules & Terms
               </h3>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontSize: 12.5, color: '#555963' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
                   <div>
-                    <strong style={{ color: '#1A1C20' }}>Daily Automatic Payout:</strong> Settlements are processed every morning at 10:00 AM for all orders completed prior.
+                    <strong style={{ color: '#1A1C20' }}>Daily Automatic UPI Payout:</strong> Settlements are disbursed automatically every morning at 10:00 AM directly to your registered UPI ID.
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
                   <div>
-                    <strong style={{ color: '#1A1C20' }}>Zero Transfer Fees:</strong> Bank deposits via IMPS/NEFT are 100% free with no gateway surcharges.
+                    <strong style={{ color: '#1A1C20' }}>Instant Bank Credit via UPI:</strong> Zero bank hold times. UPI autopay credits straight to your linked bank account with no multi-day NEFT clearing delay.
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
                   <div>
-                    <strong style={{ color: '#1A1C20' }}>Transparent 10% Fee:</strong> Standard flat 10% platform commission deducted automatically at order completion.
+                    <strong style={{ color: '#1A1C20' }}>Zero Transfer Surcharges:</strong> Direct UPI disbursements are 100% free with 0% gateway processing or transaction fees.
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
                   <div>
-                    <strong style={{ color: '#1A1C20' }}>Minimum Threshold:</strong> ₹100 minimum threshold. Lower balances roll over to the subsequent morning.
+                    <strong style={{ color: '#1A1C20' }}>Transparent 10% Fee:</strong> Standard flat 10% platform commission on completed prints; 90% net earnings transferred to your UPI.
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <CheckCircle2 size={16} color="#15803D" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    <strong style={{ color: '#1A1C20' }}>Minimum Threshold:</strong> ₹100 minimum threshold for automatic dispatch. Balances under ₹100 roll over to the subsequent morning.
                   </div>
                 </div>
               </div>
