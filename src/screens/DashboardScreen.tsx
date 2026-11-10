@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import {
   ShoppingBag,
@@ -13,15 +13,49 @@ import {
 } from 'lucide-react';
 import { theme } from '../theme';
 
+type TimelinePeriod = 'Today' | 'Week' | 'Month' | 'All';
+
 export const DashboardScreen: React.FC = () => {
-  const { orders, analytics, navigateTo, setSelectedOrderId } = useMerchant();
-  const [timelineTab, setTimelineTab] = useState<'Today' | 'Week' | 'Month'>('Today');
+  const { orders, analytics, navigateTo, setSelectedOrderId, refreshData } = useMerchant();
+  const [timelineTab, setTimelineTab] = useState<TimelinePeriod>('Today');
+
+  // Keep live orders fresh on mount and periodically
+  useEffect(() => {
+    refreshData();
+    const timer = setInterval(() => {
+      refreshData();
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   const isToday = (dateStr?: string) => {
     if (!dateStr) return false;
     const d = new Date(dateStr);
     const now = new Date();
     return d.toDateString() === now.toDateString();
+  };
+
+  const filterByTimeline = (o: any) => {
+    if (timelineTab === 'All') return true;
+    const dateStr = o.createdAt;
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const now = new Date();
+
+    if (timelineTab === 'Today') {
+      return d.toDateString() === now.toDateString();
+    }
+    if (timelineTab === 'Week') {
+      const diffMs = now.getTime() - d.getTime();
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      return diffDays >= 0 && diffDays <= 7;
+    }
+    if (timelineTab === 'Month') {
+      const diffMs = now.getTime() - d.getTime();
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      return diffDays >= 0 && diffDays <= 30;
+    }
+    return true;
   };
 
   const totalOrdersCount = orders.length > 0 ? orders.length : (analytics?.summaryMetrics?.totalOrders ?? 0);
@@ -38,40 +72,53 @@ export const DashboardScreen: React.FC = () => {
     ? analytics.today.revenue
     : todayOrders.reduce((sum, o) => sum + (o.totalPrice || o.orderDetails?.totalPrice || 0), 0);
 
-  const inPrintingCount = orders.filter(o => o.status?.toLowerCase() === 'printing').length || (analytics?.today?.inPrinting ?? 0);
+  const inPrintingCount = orders.filter(o => {
+    const s = (o.status || '').toLowerCase();
+    return s === 'printing' || s === 'in_progress';
+  }).length || (analytics?.today?.inPrinting ?? 0);
+
   const readyCount = orders.filter(o => {
-    const s = o.status?.toLowerCase();
-    return s === 'ready' || s === 'ready_for_pickup';
+    const s = (o.status || '').toLowerCase();
+    return s === 'ready' || s === 'ready_for_pickup' || s === 'accepted';
   }).length || (analytics?.today?.readyForPickup ?? 0);
 
-  // Dynamic Orders Overview pipeline counts
+  // Dynamic Orders Overview pipeline counts filtered strictly by the selected timeline tab
+  const timelineOrders = orders.filter(filterByTimeline);
+
   const receivedPipelineCount = orders.length > 0
-    ? orders.filter(o => {
+    ? timelineOrders.filter(o => {
         const s = (o.status || '').toLowerCase();
-        return s === 'received' || s === 'pending' || s === 'accepted' || s === 'in_progress';
+        return s === 'received' || s === 'pending' || s === 'placed' || s === 'paid';
       }).length
-    : (analytics?.pipeline?.received ?? 0);
+    : (timelineTab === 'Today' ? 0 : (analytics?.pipeline?.received ?? 0));
 
   const printingPipelineCount = orders.length > 0
-    ? orders.filter(o => (o.status || '').toLowerCase() === 'printing').length
-    : (analytics?.pipeline?.printing ?? 0);
+    ? timelineOrders.filter(o => {
+        const s = (o.status || '').toLowerCase();
+        return s === 'printing' || s === 'in_progress';
+      }).length
+    : (timelineTab === 'Today' ? 0 : (analytics?.pipeline?.printing ?? 0));
 
   const readyPipelineCount = orders.length > 0
-    ? orders.filter(o => {
+    ? timelineOrders.filter(o => {
         const s = (o.status || '').toLowerCase();
-        return s === 'ready' || s === 'ready_for_pickup';
+        return s === 'ready' || s === 'ready_for_pickup' || s === 'accepted';
       }).length
-    : (analytics?.pipeline?.ready ?? 0);
+    : (timelineTab === 'Today' ? 0 : (analytics?.pipeline?.ready ?? 0));
 
   const completedPipelineCount = orders.length > 0
-    ? orders.filter(o => (o.status || '').toLowerCase() === 'completed').length
-    : (analytics?.pipeline?.completed ?? 0);
+    ? timelineOrders.filter(o => {
+        const s = (o.status || '').toLowerCase();
+        return s === 'completed' || s === 'delivered';
+      }).length
+    : (timelineTab === 'Today' ? 0 : (analytics?.pipeline?.completed ?? 0));
 
   const displayOrders = (orders || []).slice(0, 5).map(o => {
     const rawStatus = (o.status || 'received').toLowerCase();
     const normalizedStatus = (rawStatus === 'pending') ? 'received' : rawStatus;
     return {
-      id: o.orderId.startsWith('#') ? o.orderId : `#${o.orderId.slice(0, 4)}`,
+      rawId: o.orderId,
+      id: o.orderId.startsWith('#') ? o.orderId : `#${o.orderId.slice(0, 6)}`,
       customer: o.customerName || (o.userId ? `Customer (${o.userId.slice(-6)})` : 'Customer'),
       type: o.specs || `${o.paperSize || 'A4'} ${o.colorMode || 'Colour'} (${o.orderDetails?.quantity || 1} copies)`,
       amount: (o.totalPrice || o.orderDetails?.totalPrice || 0).toLocaleString(),
@@ -313,7 +360,21 @@ export const DashboardScreen: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20' }}>Orders Overview</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', margin: 0 }}>Orders Overview</h2>
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: '#6B707B',
+                  backgroundColor: '#EBE7DF',
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                }}
+              >
+                {timelineOrders.length} {timelineOrders.length === 1 ? 'order' : 'orders'}
+              </span>
+            </div>
 
             {/* Segmented control */}
             <div
@@ -324,12 +385,12 @@ export const DashboardScreen: React.FC = () => {
                 padding: '3px',
               }}
             >
-              {(['Today', 'Week', 'Month'] as const).map(tab => (
+              {(['Today', 'Week', 'Month', 'All'] as const).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setTimelineTab(tab)}
                   style={{
-                    padding: '5px 14px',
+                    padding: '5px 12px',
                     borderRadius: 16,
                     border: 'none',
                     backgroundColor: timelineTab === tab ? '#1C1D21' : 'transparent',
@@ -561,7 +622,7 @@ export const DashboardScreen: React.FC = () => {
                     <tr
                       key={row.id}
                       onClick={() => {
-                        setSelectedOrderId(row.id.replace('#', ''));
+                        setSelectedOrderId(row.rawId);
                         navigateTo('orders');
                       }}
                       style={{ borderBottom: '1px solid #F0ECE4', cursor: 'pointer' }}

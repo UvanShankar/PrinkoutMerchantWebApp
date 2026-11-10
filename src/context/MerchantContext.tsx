@@ -436,11 +436,16 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setOrders(prev =>
       prev.map(o => (o.orderId === orderId ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o))
     );
-    showToast(`Order #${orderId} marked as ${newStatus.toUpperCase()}`);
+    showToast(`Order #${orderId.slice(0, 8)} marked as ${newStatus.toUpperCase()}`);
 
     try {
       const targetOrder = orders.find(o => o.orderId === orderId);
       await merchantApi.updateOrderStatus(orderId, newStatus, targetOrder?.userId, shopId);
+      if (shopId) {
+        merchantApi.getShopAnalytics(shopId).then(a => {
+          if (a) setAnalytics(a);
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error('Failed to persist order status:', err);
     }
