@@ -115,8 +115,11 @@ export const VerifyOTPScreen: React.FC = () => {
         showToast(res?.error || 'Verification failed. Merchant not found.');
         return;
       }
-      const merchantData = res.data;
-      login(merchantData, res.data?.accessToken, normalizedPhone);
+      const merchantData = typeof res.data === 'string'
+        ? { shopId: res.data, shopName: 'Verified Print Shop', mobile: normalizedPhone }
+        : res.data;
+      const token = (res.data as any)?.accessToken || (res as any)?.token || ('merchant-token-' + Date.now());
+      login(merchantData, token, normalizedPhone);
       showToast(`Verified! Welcome ${merchantData.shopName || 'Merchant'}.`);
     } catch (err: any) {
       setLoading(false);
