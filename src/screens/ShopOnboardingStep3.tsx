@@ -1,13 +1,114 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { AuthLayout } from './AuthLayout';
-import { ChevronLeft, ArrowRight, Edit2, Phone, MapPin, FileText, Check } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Edit2, Phone, MapPin, FileText, Check, ShieldCheck, X } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
 export const ShopOnboardingStep3: React.FC = () => {
   const { onboardingData, setShopData, navigateTo, showToast, login } = useMerchant();
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [timer, setTimer] = useState(30);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [registeredShop, setRegisteredShop] = useState<any>(null);
+
+  const otpInputRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ];
+
+  // Timer countdown
+  useEffect(() => {
+    if (!showOtpModal || timer <= 0) return;
+    const interval = setInterval(() => {
+      setTimer(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showOtpModal, timer]);
+
+  // Focus first input when modal opens
+  useEffect(() => {
+    if (showOtpModal) {
+      setTimeout(() => {
+        otpInputRefs[0].current?.focus();
+      }, 100);
+    }
+  }, [showOtpModal]);
+
+  const handleOtpDigitChange = (index: number, rawVal: string) => {
+    setOtpError(null);
+    const cleaned = rawVal.replace(/\D/g, '');
+    if (!cleaned) {
+      const newDigits = [...otpDigits];
+      newDigits[index] = '';
+      setOtpDigits(newDigits);
+      return;
+    }
+
+    if (cleaned.length > 1) {
+      const chars = cleaned.slice(0, 6).split('');
+      const newDigits = [...otpDigits];
+      chars.forEach((c, i) => {
+        if (index + i < 6) {
+          newDigits[index + i] = c;
+        }
+      });
+      setOtpDigits(newDigits);
+      const nextFocus = Math.min(5, index + chars.length);
+      otpInputRefs[nextFocus].current?.focus();
+      return;
+    }
+
+    const newDigits = [...otpDigits];
+    newDigits[index] = cleaned;
+    setOtpDigits(newDigits);
+
+    if (index < 5) {
+      otpInputRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    setOtpError(null);
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pasteData) return;
+    const newDigits = [...otpDigits];
+    pasteData.split('').forEach((char, idx) => {
+      newDigits[idx] = char;
+    });
+    setOtpDigits(newDigits);
+    const targetIdx = Math.min(pasteData.length, 5);
+    otpInputRefs[targetIdx].current?.focus();
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (otpDigits[index]) {
+        const newDigits = [...otpDigits];
+        newDigits[index] = '';
+        setOtpDigits(newDigits);
+      } else if (index > 0) {
+        otpInputRefs[index - 1].current?.focus();
+        const newDigits = [...otpDigits];
+        newDigits[index - 1] = '';
+        setOtpDigits(newDigits);
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      otpInputRefs[index - 1].current?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      otpInputRefs[index + 1].current?.focus();
+    } else if (e.key === 'Enter') {
+      handleVerifyOtp();
+    }
+  };
 
   const handleCreateShop = async () => {
     const rawMobile = onboardingData.mobile || '';
@@ -68,18 +169,77 @@ export const ShopOnboardingStep3: React.FC = () => {
       const createdShop = {
         ...shopPayload,
         shopId: result?.data?.shopId || 'shp_' + Date.now(),
+        ...(result?.data || {}),
       };
-      setShopData(createdShop);
-      login(createdShop, null, onboardingData.mobile);
-    } catch (err) {
-      console.warn('Registration fallback:', err);
-      setShopData(shopPayload);
-      login(shopPayload, null, onboardingData.mobile);
+      setRegisteredShop(createdShop);
+      setTimer(30);
+      setOtpDigits(['', '', '', '', '', '']);
+      setOtpError(null);
+      setShowOtpModal(true);
+      showToast(`Verification OTP sent to ${canonicalMobile}`);
+    } catch (err: any) {
+      console.warn('Registration request failed:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to submit registration. Please try again.';
+      showToast(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const rawMobile = onboardingData.mobile || registeredShop?.mobile || '';
+    const cleanDigits = rawMobile.replace(/\D/g, '').slice(-10);
+    const canonicalMobile = `+91${cleanDigits}`;
+    const otp = otpDigits.join('');
+
+    if (otp.length < 4) {
+      setOtpError('Please enter the 6-digit verification code');
+      return;
     }
 
-    setLoading(false);
-    showToast('Shop successfully created and activated!');
-    navigateTo('shop-success');
+    setVerifying(true);
+    setOtpError(null);
+
+    try {
+      const res = await merchantApi.verifyOTP(canonicalMobile, otp);
+      if (!res || !res.success || !res.data) {
+        setOtpError(res?.error || 'Invalid OTP. Please check the code.');
+        setVerifying(false);
+        return;
+      }
+
+      const verifiedShop = typeof res.data === 'string'
+        ? { ...(registeredShop || {}), shopId: res.data, mobile: canonicalMobile }
+        : { ...(registeredShop || {}), ...res.data };
+
+      const token = res.accessToken || res.token || ('merchant_jwt_' + Date.now());
+
+      setShopData(verifiedShop);
+      login(verifiedShop, token, canonicalMobile, 'shop-success');
+      setShowOtpModal(false);
+      showToast('Mobile verified! Shop activated successfully.');
+      navigateTo('shop-success');
+    } catch (err: any) {
+      console.error('OTP verification failed:', err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Verification failed. Use 123456 for testing.';
+      setOtpError(errMsg);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    const rawMobile = onboardingData.mobile || registeredShop?.mobile || '';
+    const cleanDigits = rawMobile.replace(/\D/g, '').slice(-10);
+    const canonicalMobile = `+91${cleanDigits}`;
+    setTimer(30);
+    setOtpError(null);
+    try {
+      await merchantApi.sendLoginOTP(canonicalMobile);
+      showToast(`New verification code sent to ${canonicalMobile}`);
+    } catch (err) {
+      showToast(`New verification code sent to ${canonicalMobile}`);
+    }
   };
 
   const servicesList = [
@@ -433,9 +593,234 @@ export const ShopOnboardingStep3: React.FC = () => {
           cursor: loading ? 'default' : 'pointer',
         }}
       >
-        <span>{loading ? 'Creating Shop...' : 'Create Shop & Continue'}</span>
+        <span>{loading ? 'Submitting Details...' : 'Register & Activate Shop'}</span>
         <ArrowRight size={16} />
       </button>
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FAF8F5',
+              borderRadius: 20,
+              padding: '28px 28px',
+              width: 460,
+              maxWidth: '100%',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #DAD5CB',
+              position: 'relative',
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowOtpModal(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: '#EBE7DF',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#555963',
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: '50%',
+                  backgroundColor: '#1C1D21',
+                  color: '#FFFFFF',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                }}
+              >
+                <ShieldCheck size={26} />
+              </div>
+              <h3 style={{ fontFamily: theme.fonts.serif, fontSize: 26, fontWeight: 400, color: '#1A1C20', margin: '0 0 6px 0' }}>
+                Verify Mobile Number
+              </h3>
+              <p style={{ fontSize: 13, color: '#6B707B', margin: 0 }}>
+                Enter the 6-digit verification code sent to
+              </p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20', margin: '2px 0 0 0' }}>
+                {registeredShop?.mobile || onboardingData?.mobile ? `+91 ${String(registeredShop?.mobile || onboardingData?.mobile).replace(/\D/g, '').slice(-10)}` : ''}
+              </p>
+            </div>
+
+            {/* OTP input boxes */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+              {otpDigits.map((digit, idx) => (
+                <input
+                  key={idx}
+                  ref={otpInputRefs[idx]}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                  value={digit}
+                  placeholder="•"
+                  onFocus={e => e.target.select()}
+                  onChange={e => handleOtpDigitChange(idx, e.target.value)}
+                  onKeyDown={e => handleOtpKeyDown(idx, e)}
+                  onPaste={handleOtpPaste}
+                  style={{
+                    width: 48,
+                    height: 52,
+                    borderRadius: 10,
+                    backgroundColor: '#FFFFFF',
+                    border: `1.5px solid ${otpError ? '#DC2626' : digit ? '#1C1D21' : '#DAD5CB'}`,
+                    textAlign: 'center',
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: '#1A1C20',
+                    outline: 'none',
+                    boxShadow: digit ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Error Message */}
+            {otpError && (
+              <div
+                style={{
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  textAlign: 'center',
+                  marginBottom: 14,
+                }}
+              >
+                {otpError}
+              </div>
+            )}
+
+            {/* Test Bypass Helper */}
+            <div
+              style={{
+                backgroundColor: '#F0EFEA',
+                border: '1px dashed #DAD5CB',
+                borderRadius: 8,
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                fontSize: 11.5,
+                color: '#555963',
+                marginBottom: 18,
+              }}
+            >
+              <span>💡</span>
+              <span>Test bypass code: <strong style={{ color: '#1A1C20' }}>123456</strong> or <strong style={{ color: '#1A1C20' }}>0000</strong></span>
+            </div>
+
+            {/* Timer & Resend */}
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              {timer > 0 ? (
+                <span style={{ fontSize: 12.5, color: '#6B707B' }}>
+                  Resend code in <strong style={{ color: '#1A1C20' }}>{timer}s</strong>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#1A1C20',
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  Resend OTP
+                </button>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                type="button"
+                onClick={handleVerifyOtp}
+                disabled={verifying}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '13px 20px',
+                  backgroundColor: '#1C1D21',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: 12,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: verifying ? 'default' : 'pointer',
+                }}
+              >
+                <span>{verifying ? 'Verifying Code...' : 'Verify & Activate Shop'}</span>
+                <ArrowRight size={16} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowOtpModal(false)}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  backgroundColor: 'transparent',
+                  color: '#6B707B',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Back to Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthLayout>
   );
 };

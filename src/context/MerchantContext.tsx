@@ -27,7 +27,7 @@ interface MerchantContextType {
   
   // Auth & Session
   isAuthenticated: boolean;
-  login: (userData?: any, token?: string, phone?: string) => void;
+  login: (userData?: any, token?: string, phone?: string, targetScreenOverride?: ScreenType) => void;
   logout: () => void;
   authPhone: string;
   setAuthPhone: (phone: string) => void;
@@ -304,7 +304,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [shopStatus, setShopStatus] = useState<'active' | 'away'>('active');
 
   // Login handler
-  const login = (userData?: any, token?: string, phone?: string) => {
+  const login = (userData?: any, token?: string, phone?: string, targetScreenOverride?: ScreenType) => {
     if (!userData || !userData.shopId) {
       console.error('Cannot login without merchant data');
       return;
@@ -341,7 +341,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (activePhone) setAuthPhone(activePhone);
 
     const isVerified = activeShopData?.isVerified === true || activeShopData?.verificationStatus === 'approved';
-    const targetScreen: ScreenType = isVerified ? 'dashboard' : 'profile';
+    const targetScreen: ScreenType = targetScreenOverride || (isVerified ? 'dashboard' : 'profile');
 
     setCurrentScreenState(targetScreen);
     if (typeof window !== 'undefined') {
@@ -425,10 +425,11 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
+    const onboardingScreens = ['onboarding-1', 'onboarding-2', 'onboarding-3', 'shop-success', 'login', 'verify-otp'];
+    if (isAuthenticated && !onboardingScreens.includes(currentScreen)) {
       refreshData();
     }
-  }, [shopId, isAuthenticated]);
+  }, [shopId, isAuthenticated, currentScreen]);
 
   // Order status update
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
