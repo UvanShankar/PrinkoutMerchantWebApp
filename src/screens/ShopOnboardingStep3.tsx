@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { AuthLayout } from './AuthLayout';
-import { ChevronLeft, ArrowRight, Edit2, Phone, MapPin, FileText, Check, ShieldCheck, X } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Edit2, Phone, MapPin, FileText, Check, ShieldCheck, X, Store } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
@@ -131,6 +131,22 @@ export const ShopOnboardingStep3: React.FC = () => {
     }
 
     setLoading(true);
+
+    // Dynamic Geolocation Resolution (Production standard)
+    let userLat = onboardingData.latitude || '';
+    let userLng = onboardingData.longitude || '';
+    if (!userLat && typeof navigator !== 'undefined' && navigator.geolocation) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((res, rej) => {
+          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 3000, enableHighAccuracy: true });
+        });
+        userLat = String(pos.coords.latitude.toFixed(6));
+        userLng = String(pos.coords.longitude.toFixed(6));
+      } catch (geoErr) {
+        // Geolocation denied or unavailable; backend/admin will geocode based on address & pincode
+      }
+    }
+
     const shopPayload: any = {
       shopName: onboardingData.shopName.trim(),
       ownerName: onboardingData.ownerName || 'Merchant Owner',
@@ -140,8 +156,8 @@ export const ShopOnboardingStep3: React.FC = () => {
       city: onboardingData.city || '',
       state_name: 'Tamil Nadu',
       pincode: onboardingData.pincode || '',
-      latitude: '11.1085',
-      longitude: '77.3411',
+      latitude: userLat,
+      longitude: userLng,
       servicesOffered: onboardingData.services || ['Standard Prints'],
       gstNumber: onboardingData.gstNumber?.trim() || '',
       isOnlineEnabled: true,
@@ -395,28 +411,41 @@ export const ShopOnboardingStep3: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: 12 }}>
-            {/* Shopfront mock thumbnail */}
-            <div
-              style={{
-                width: 72,
-                height: 72,
-                borderRadius: 8,
-                backgroundColor: '#2A2D34',
-                backgroundImage: 'linear-gradient(145deg, #1A1C21, #3A3D46)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                color: '#FFFFFF',
-                fontSize: 10,
-                fontWeight: 700,
-                textAlign: 'center',
-                padding: 4,
-                border: '1px solid rgba(0,0,0,0.1)',
-              }}
-            >
-              {onboardingData.shopName || 'Shop Preview'}
-            </div>
+            {/* Real Shopfront photo or verified store icon */}
+            {onboardingData.shopPhoto || onboardingData.profilePicture || (Array.isArray(onboardingData.photos) && onboardingData.photos.length > 0) ? (
+              <img
+                src={onboardingData.shopPhoto || onboardingData.profilePicture || (typeof onboardingData.photos[0] === 'string' ? onboardingData.photos[0] : onboardingData.photos[0]?.url)}
+                alt={onboardingData.shopName || 'Shop'}
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 8,
+                  objectFit: 'cover',
+                  flexShrink: 0,
+                  border: '1px solid #DAD5CB',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 8,
+                  backgroundColor: '#EBE7DF',
+                  border: '1px dashed #DAD5CB',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  color: '#555963',
+                  gap: 3,
+                }}
+              >
+                <Store size={22} color="#555963" />
+                <span style={{ fontSize: 9, textAlign: 'center', fontWeight: 600 }}>No Photo</span>
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>

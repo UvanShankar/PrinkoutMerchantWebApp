@@ -418,7 +418,23 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       if (fetchedAnalytics) setAnalytics(fetchedAnalytics);
       if (fetchedPayouts) setPayouts(fetchedPayouts);
-      if (fetchedShop) setShopData(fetchedShop);
+      if (fetchedShop) {
+        setShopData(fetchedShop);
+        if (Array.isArray(fetchedShop.pricingCombinations) && fetchedShop.pricingCombinations.length > 0) {
+          const dynamicPricing = fetchedShop.pricingCombinations.map((p: any, idx: number) => ({
+            id: p.id || `prc_${p.paperSize}_${p.paperTexture}_${idx}`,
+            size: p.paperSize || 'A4',
+            gsm: p.gsm || (p.paperSize === 'A3' ? '80 GSM' : '75 GSM'),
+            type: p.paperTexture || 'Plain Paper',
+            bwPrice: p.printMode === 'Black_&_White' ? String(p.pricePerUnit) : '2.00',
+            colorPrice: p.printMode === 'Color' ? String(p.pricePerUnit) : '8.00',
+            singleSide: true,
+            doubleSide: true,
+            active: p.active !== false,
+          }));
+          setPricingItems(dynamicPricing);
+        }
+      }
     } catch (err) {
       console.warn('Initial data load warning:', err);
     }
@@ -500,15 +516,19 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [currentScreen, settingsTab]);
 
   // Team Members & Access Activity
+  const ownerMobile = shopData?.mobile || authPhone || '';
+  const cleanOwnerDigits = ownerMobile.replace(/\D/g, '').slice(-10);
+  const displayOwnerPhone = cleanOwnerDigits.length === 10 ? `+91 ${cleanOwnerDigits.slice(0, 5)} ${cleanOwnerDigits.slice(5)}` : (ownerMobile || 'Pending Registration');
+
   const defaultOwner = {
-    id: `mem_owner_${String(shopData?.mobile || authPhone || '1212121212').replace(/\D/g, '').slice(-10)}`,
-    name: `${shopData?.ownerName || shopData?.shopName || 'Admin'} (You)`,
-    phone: shopData?.mobile || authPhone || '+91 1212121212',
+    id: `mem_owner_${cleanOwnerDigits || 'primary'}`,
+    name: `${shopData?.ownerName || shopData?.shopName || 'Shop Owner'} (You)`,
+    phone: displayOwnerPhone,
     role: 'Owner',
     access: 'Full Access',
     isOwner: true,
     status: 'Active',
-    time: 'Just now',
+    time: 'Account Creation',
   };
 
   const [teamMembers, setTeamMembers] = useState<any[]>(() => {
