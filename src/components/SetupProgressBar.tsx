@@ -68,39 +68,40 @@ export const SetupProgressBar: React.FC = () => {
           left: 0,
           right: 0,
           zIndex: 40,
-          padding: '12px 24px',
-          background: 'linear-gradient(180deg, rgba(20, 22, 27, 0.96) 0%, #0D0E11 100%)',
-          backdropFilter: 'blur(16px)',
-          borderTop: '1.5px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: '0 -8px 24px rgba(0, 0, 0, 0.45)',
+          padding: '14px 28px',
+          background: 'linear-gradient(180deg, #1C1F27 0%, #111318 100%)',
+          backdropFilter: 'blur(20px)',
+          borderTop: '2px solid #6366F1',
+          boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.75)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 16,
+          gap: 20,
         }}
       >
         {/* Left Step Title & Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 260 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 280 }}>
           <div
             style={{
-              width: 38,
-              height: 38,
+              width: 42,
+              height: 42,
               borderRadius: 12,
-              background: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+              background: 'linear-gradient(135deg, #6366F1 0%, #4338CA 100%)',
+              border: '2px solid #A5B4FC',
               color: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 800,
-              fontSize: 15,
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)',
+              fontSize: 17,
+              boxShadow: '0 0 16px rgba(99, 102, 241, 0.55)',
               flexShrink: 0,
             }}
           >
             {setupStep}
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>
                 {setupStep === 1
                   ? 'Step 1: Shop Profile'
@@ -110,18 +111,21 @@ export const SetupProgressBar: React.FC = () => {
               </span>
               <span
                 style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '2px 7px',
-                  borderRadius: 10,
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                  color: '#CBD5E1',
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: 6,
+                  backgroundColor: '#EF4444',
+                  color: '#FFFFFF',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.6px',
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.45)',
                 }}
               >
                 Required
               </span>
             </div>
-            <div style={{ fontSize: 11, color: '#94A3B8' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#F1F5F9', marginTop: 3 }}>
               {setupStep === 1
                 ? 'Fill shop contact, address & verification documents'
                 : setupStep === 2
@@ -133,9 +137,19 @@ export const SetupProgressBar: React.FC = () => {
 
         {/* Center 3D Progress Bar */}
         <div style={{ flex: 1, maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11, fontWeight: 700 }}>
-            <span style={{ color: '#E2E8F0', letterSpacing: '0.4px' }}>MANDATORY SETUP PROGRESS</span>
-            <span style={{ color: progressPercent === 100 ? '#4ADE80' : '#818CF8' }}>{progressPercent}% Complete</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 800 }}>
+            <span style={{ color: '#FFFFFF', letterSpacing: '0.6px', textTransform: 'uppercase' }}>MANDATORY SETUP PROGRESS</span>
+            <span
+              style={{
+                color: progressPercent === 100 ? '#4ADE80' : '#93C5FD',
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                padding: '2px 8px',
+                borderRadius: 6,
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+              }}
+            >
+              {progressPercent}% Complete
+            </span>
           </div>
 
           {/* 3D Track */}
@@ -341,7 +355,7 @@ export const SetupProgressBar: React.FC = () => {
                     <CheckCircle2 size={16} color="#16A34A" />
                   </div>
                   <div style={{ fontSize: 11.5, color: '#555963', marginTop: 2 }}>
-                    Owner: {shopData?.ownerName || 'Merchant'} • Phone: {shopData?.mobile || authPhone || '+91 1212121212'} • Admin Full Access
+                    Owner: {shopData?.ownerName || 'Merchant'} • Phone: {shopData?.mobile || authPhone || ''} • Admin Full Access
                   </div>
                 </div>
               </div>

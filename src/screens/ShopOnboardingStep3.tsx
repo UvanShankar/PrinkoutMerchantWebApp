@@ -147,37 +147,64 @@ export const ShopOnboardingStep3: React.FC = () => {
       }
     }
 
+    const cleanPin = (onboardingData.pincode || '').toString().trim().replace(/\D/g, '');
     const shopPayload: any = {
       shopName: onboardingData.shopName.trim(),
-      ownerName: onboardingData.ownerName || 'Merchant Owner',
       mobile: canonicalMobile,
       address: onboardingData.address.trim(),
-      area: onboardingData.area || '',
-      city: onboardingData.city || '',
-      state_name: 'Tamil Nadu',
-      pincode: onboardingData.pincode || '',
-      latitude: userLat,
-      longitude: userLng,
-      servicesOffered: onboardingData.services || ['Standard Prints'],
-      gstNumber: onboardingData.gstNumber?.trim() || '',
-      isOnlineEnabled: true,
-      isPickupAvailable: true,
-      isDeliveryAvailable: true,
-      openingTime: '09:00',
-      closingTime: '21:00',
-      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      pricingCombinations: [
-        { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a4Bw || '3') },
-        { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a4Color || '8') },
-        { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a3Bw || '6') },
-        { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a3Color || '15') },
-        { paperSize: 'A0', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing?.a0Bw || '40') },
-        { paperSize: 'A0', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing?.a0Color || '80') },
-      ],
+      pincode: cleanPin,
     };
 
+    if (onboardingData.ownerName && onboardingData.ownerName.trim()) {
+      shopPayload.ownerName = onboardingData.ownerName.trim();
+    }
+    if (onboardingData.gstNumber && onboardingData.gstNumber.trim()) {
+      shopPayload.gstNumber = onboardingData.gstNumber.trim();
+    }
     if (onboardingData.email && onboardingData.email.trim()) {
       shopPayload.email = onboardingData.email.trim();
+    }
+    if (onboardingData.area && onboardingData.area.trim()) {
+      shopPayload.area = onboardingData.area.trim();
+    }
+    if (onboardingData.city && onboardingData.city.trim()) {
+      shopPayload.city = onboardingData.city.trim();
+    }
+    if (onboardingData.state_name && onboardingData.state_name.trim()) {
+      shopPayload.state_name = onboardingData.state_name.trim();
+    }
+    if (userLat) {
+      shopPayload.latitude = userLat;
+    }
+    if (userLng) {
+      shopPayload.longitude = userLng;
+    }
+    if (onboardingData.services && onboardingData.services.length > 0) {
+      shopPayload.servicesOffered = onboardingData.services;
+    }
+    if (onboardingData.pricing) {
+      const combos: any[] = [];
+      if (onboardingData.pricing.a4Bw) {
+        combos.push({ paperSize: 'A4', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing.a4Bw) });
+      }
+      if (onboardingData.pricing.a4Color) {
+        combos.push({ paperSize: 'A4', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing.a4Color) });
+      }
+      if (onboardingData.pricing.a3Bw) {
+        combos.push({ paperSize: 'A3', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing.a3Bw) });
+      }
+      if (onboardingData.pricing.a3Color) {
+        combos.push({ paperSize: 'A3', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing.a3Color) });
+      }
+      if (onboardingData.pricing.a0Bw) {
+        combos.push({ paperSize: 'A0', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: parseFloat(onboardingData.pricing.a0Bw) });
+      }
+      if (onboardingData.pricing.a0Color) {
+        combos.push({ paperSize: 'A0', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: parseFloat(onboardingData.pricing.a0Color) });
+      }
+      if (combos.length > 0) {
+        shopPayload.pricingCombinations = combos;
+      }
     }
 
     try {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { AuthLayout } from './AuthLayout';
-import { ChevronLeft, ArrowRight, Store, Phone, FileText, MapPin, CheckCircle2, Clock, AlertTriangle, X } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Store, User, Phone, FileText, MapPin, CheckCircle2, Clock, AlertTriangle, X } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 
@@ -9,10 +9,11 @@ export const ShopOnboardingStep1: React.FC = () => {
   const { onboardingData, updateOnboardingData, navigateTo, showToast } = useMerchant();
   const [form, setForm] = useState({
     shopName: onboardingData.shopName || '',
+    ownerName: onboardingData.ownerName || '',
     mobile: onboardingData.mobile || '',
     gstNumber: onboardingData.gstNumber || '',
     address: onboardingData.address || '',
-    pincode: onboardingData.pincode || '641601',
+    pincode: onboardingData.pincode || '',
   });
 
   const [serviceStatus, setServiceStatus] = useState<{
@@ -30,13 +31,15 @@ export const ShopOnboardingStep1: React.FC = () => {
   useEffect(() => {
     setForm({
       shopName: onboardingData.shopName || '',
+      ownerName: onboardingData.ownerName || '',
       mobile: onboardingData.mobile || '',
       gstNumber: onboardingData.gstNumber || '',
       address: onboardingData.address || '',
-      pincode: onboardingData.pincode || '641601',
+      pincode: onboardingData.pincode || '',
     });
   }, [
     onboardingData.shopName,
+    onboardingData.ownerName,
     onboardingData.mobile,
     onboardingData.gstNumber,
     onboardingData.address,
@@ -90,8 +93,9 @@ export const ShopOnboardingStep1: React.FC = () => {
     const canonicalPhone = `+91${cleanPhone}`;
     updateOnboardingData({
       ...form,
+      ownerName: form.ownerName?.trim() || '',
       pincode: cleanPin,
-      city: serviceStatus?.city || onboardingData.city || 'Tiruppur',
+      city: serviceStatus?.city || onboardingData.city || '',
       area: serviceStatus?.area || onboardingData.area || '',
       mobile: canonicalPhone,
       phone: canonicalPhone,
@@ -221,37 +225,73 @@ export const ShopOnboardingStep1: React.FC = () => {
 
       {/* Form Fields matching PDF */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
-            Shop Name <span style={{ color: '#EF4444' }}>*</span>
-          </label>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              backgroundColor: '#EBE7DF',
-              border: '1px solid #DAD5CB',
-              borderRadius: 12,
-              padding: '10px 14px',
-            }}
-          >
-            <Store size={16} color="#6B707B" />
-            <input
-              type="text"
-              value={form.shopName}
-              onChange={e => setForm({ ...form, shopName: e.target.value })}
-              placeholder="Enter shop name"
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
+              Shop Name <span style={{ color: '#EF4444' }}>*</span>
+            </label>
+            <div
               style={{
-                flex: 1,
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                fontSize: 14,
-                fontWeight: 500,
-                color: '#1A1C20',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                backgroundColor: '#EBE7DF',
+                border: '1px solid #DAD5CB',
+                borderRadius: 12,
+                padding: '10px 14px',
               }}
-            />
+            >
+              <Store size={16} color="#6B707B" />
+              <input
+                type="text"
+                value={form.shopName}
+                onChange={e => setForm({ ...form, shopName: e.target.value })}
+                placeholder="Enter shop name"
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: '#1A1C20',
+                }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
+              Owner Name (Optional)
+            </label>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                backgroundColor: '#EBE7DF',
+                border: '1px solid #DAD5CB',
+                borderRadius: 12,
+                padding: '10px 14px',
+              }}
+            >
+              <User size={16} color="#6B707B" />
+              <input
+                type="text"
+                value={form.ownerName}
+                onChange={e => setForm({ ...form, ownerName: e.target.value })}
+                placeholder="Owner name"
+                style={{
+                  flex: 1,
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: '#1A1C20',
+                }}
+              />
+            </div>
           </div>
         </div>
 
