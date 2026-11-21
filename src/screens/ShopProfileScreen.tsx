@@ -235,18 +235,17 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Save Basic Details
   const handleSaveBasic = async () => {
-    if (isApproved) {
-      showToast('Verified shop details are locked and cannot be edited.');
-      return;
-    }
     try {
       setSavingBasic(true);
+      const payload = isApproved
+        ? { description: basicForm.description }
+        : basicForm;
       if (shopId) {
-        await merchantApi.updateShopProfile(shopId, basicForm);
+        await merchantApi.updateShopProfile(shopId, payload);
       }
-      setShopData((prev: any) => ({ ...prev, ...basicForm }));
+      setShopData((prev: any) => ({ ...prev, ...payload }));
       setIsEditingBasic(false);
-      showToast('Shop basic details saved successfully!');
+      showToast('Shop details saved successfully!');
     } catch (err: any) {
       showToast(err.message || 'Failed to update shop details');
     } finally {
@@ -924,9 +923,9 @@ export const ShopProfileScreen: React.FC = () => {
                   </div>
                 </div>
 
-                {isApproved ? (
+                {isApproved && (
                   <div
-                    title="Profile is verified & locked"
+                    title="Profile is verified"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -940,32 +939,32 @@ export const ShopProfileScreen: React.FC = () => {
                     }}
                   >
                     <Lock size={12} />
-                    <span>Locked</span>
+                    <span>Verified</span>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingBasic(prev => !prev)}
-                    title={isEditingBasic ? 'Cancel edit' : 'Edit basic details'}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      padding: 4,
-                      display: 'flex',
-                      alignItems: 'center',
-                      color: isEditingBasic ? '#DC2626' : '#6B707B',
-                    }}
-                  >
-                    {isEditingBasic ? <X size={16} /> : <Edit2 size={15} />}
-                  </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsEditingBasic(prev => !prev)}
+                  title={isEditingBasic ? 'Cancel edit' : 'Edit details'}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: isEditingBasic ? '#DC2626' : '#6B707B',
+                  }}
+                >
+                  {isEditingBasic ? <X size={16} /> : <Edit2 size={15} />}
+                </button>
               </div>
 
               <div style={{ borderTop: '1px solid #EBE7DF', paddingTop: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Basic Details</span>
-                  {isEditingBasic && !isApproved && (
+                  {isEditingBasic && (
                     <button
                       onClick={handleSaveBasic}
                       disabled={savingBasic}
@@ -989,32 +988,38 @@ export const ShopProfileScreen: React.FC = () => {
                   )}
                 </div>
 
-                {isEditingBasic && !isApproved ? (
+                {isEditingBasic ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Shop Name *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>
+                        Shop Name * {isApproved && <span style={{ fontSize: 10, color: '#15803D' }}>(Verified)</span>}
+                      </label>
                       <input
                         type="text"
                         placeholder="e.g. Tirupur Digital Print Hub"
+                        disabled={isApproved}
                         value={basicForm.shopName}
                         onChange={e => setBasicForm(f => ({ ...f, shopName: e.target.value }))}
-                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Owner Name</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>
+                        Owner Name {isApproved && <span style={{ fontSize: 10, color: '#15803D' }}>(Verified)</span>}
+                      </label>
                       <input
                         type="text"
                         placeholder="Owner full name"
+                        disabled={isApproved}
                         value={basicForm.ownerName}
                         onChange={e => setBasicForm(f => ({ ...f, ownerName: e.target.value }))}
-                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Description</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Shop Description</label>
                       <textarea
-                        rows={2}
+                        rows={3}
                         value={basicForm.description}
                         onChange={e => setBasicForm(f => ({ ...f, description: e.target.value }))}
                         placeholder="Describe your printing and copying services..."
@@ -1022,13 +1027,16 @@ export const ShopProfileScreen: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Shop Address *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>
+                        Shop Address * {isApproved && <span style={{ fontSize: 10, color: '#15803D' }}>(Verified)</span>}
+                      </label>
                       <input
                         type="text"
                         placeholder="Door number, street name"
+                        disabled={isApproved}
                         value={basicForm.address}
                         onChange={e => setBasicForm(f => ({ ...f, address: e.target.value }))}
-                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -1037,9 +1045,10 @@ export const ShopProfileScreen: React.FC = () => {
                         <input
                           type="text"
                           placeholder="City"
+                          disabled={isApproved}
                           value={basicForm.city}
                           onChange={e => setBasicForm(f => ({ ...f, city: e.target.value }))}
-                          style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                         />
                       </div>
                       <div>
@@ -1047,19 +1056,23 @@ export const ShopProfileScreen: React.FC = () => {
                         <input
                           type="text"
                           placeholder="6 digits"
+                          disabled={isApproved}
                           value={basicForm.pincode}
                           onChange={e => setBasicForm(f => ({ ...f, pincode: e.target.value }))}
-                          style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                          style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                         />
                       </div>
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Phone Number *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>
+                        Phone Number * {isApproved && <span style={{ fontSize: 10, color: '#15803D' }}>(Verified)</span>}
+                      </label>
                       <input
                         type="text"
+                        disabled={isApproved}
                         value={basicForm.mobile}
                         onChange={e => setBasicForm(f => ({ ...f, mobile: e.target.value }))}
-                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5 }}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
                   </div>
@@ -1077,10 +1090,29 @@ export const ShopProfileScreen: React.FC = () => {
 
                     <div style={{ display: 'flex', gap: 10 }}>
                       <FileText size={15} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
-                      <div>
-                        <div style={{ fontSize: 11, color: '#8E929B' }}>Description</div>
-                        <div style={{ fontSize: 12.5, color: basicForm.description ? '#555963' : '#9CA3AF', lineHeight: 1.4 }}>
-                          {basicForm.description || 'No description provided yet.'}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ fontSize: 11, color: '#8E929B' }}>Description</div>
+                          {!isEditingBasic && (
+                            <button
+                              type="button"
+                              onClick={() => setIsEditingBasic(true)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#4F46E5',
+                                fontSize: 11,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                padding: 0,
+                              }}
+                            >
+                              {basicForm.description ? 'Edit' : '+ Add Description'}
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12.5, color: basicForm.description ? '#555963' : '#6B707B', lineHeight: 1.4, marginTop: 2 }}>
+                          {basicForm.description || `${basicForm.shopName || 'Print Shop'} — Quality Xerox, colour printing, scanning, and binding services.`}
                         </div>
                       </div>
                     </div>
@@ -2253,7 +2285,7 @@ export const ShopProfileScreen: React.FC = () => {
               </div>
 
               <div style={{ fontSize: 12.5, color: '#555963', lineHeight: 1.5, marginBottom: 16 }}>
-                {basicForm.description || 'No description provided.'}
+                {basicForm.description || `${basicForm.shopName || 'Print Shop'} — Quality Xerox, colour printing, scanning, and binding services.`}
               </div>
 
               <div style={{ borderTop: '1px solid #EBE7DF', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#6B707B' }}>

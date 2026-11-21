@@ -158,6 +158,9 @@ export const ShopOnboardingStep3: React.FC = () => {
     if (onboardingData.ownerName && onboardingData.ownerName.trim()) {
       shopPayload.ownerName = onboardingData.ownerName.trim();
     }
+    if (onboardingData.description && onboardingData.description.trim()) {
+      shopPayload.description = onboardingData.description.trim();
+    }
     if (onboardingData.gstNumber && onboardingData.gstNumber.trim()) {
       shopPayload.gstNumber = onboardingData.gstNumber.trim();
     }

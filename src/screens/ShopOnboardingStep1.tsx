@@ -14,6 +14,7 @@ export const ShopOnboardingStep1: React.FC = () => {
     gstNumber: onboardingData.gstNumber || '',
     address: onboardingData.address || '',
     pincode: onboardingData.pincode || '',
+    description: onboardingData.description || '',
   });
 
   const [serviceStatus, setServiceStatus] = useState<{
@@ -36,6 +37,7 @@ export const ShopOnboardingStep1: React.FC = () => {
       gstNumber: onboardingData.gstNumber || '',
       address: onboardingData.address || '',
       pincode: onboardingData.pincode || '',
+      description: onboardingData.description || '',
     });
   }, [
     onboardingData.shopName,
@@ -44,6 +46,7 @@ export const ShopOnboardingStep1: React.FC = () => {
     onboardingData.gstNumber,
     onboardingData.address,
     onboardingData.pincode,
+    onboardingData.description,
   ]);
 
   // Live serviceability check on pincode change
@@ -94,6 +97,7 @@ export const ShopOnboardingStep1: React.FC = () => {
     updateOnboardingData({
       ...form,
       ownerName: form.ownerName?.trim() || '',
+      description: form.description?.trim() || '',
       pincode: cleanPin,
       city: serviceStatus?.city || onboardingData.city || '',
       area: serviceStatus?.area || onboardingData.area || '',
@@ -485,6 +489,43 @@ export const ShopOnboardingStep1: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Shop Description (Optional) */}
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
+            Shop Description (Optional)
+          </label>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              backgroundColor: '#EBE7DF',
+              border: '1px solid #DAD5CB',
+              borderRadius: 12,
+              padding: '10px 14px',
+            }}
+          >
+            <FileText size={16} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+            <textarea
+              rows={2}
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              placeholder="e.g. Specializing in high-speed Xerox, colour prints, scanning, and spiral binding."
+              style={{
+                flex: 1,
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontSize: 13,
+                fontWeight: 500,
+                color: '#1A1C20',
+                resize: 'none',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
         </div>
       </div>
 
