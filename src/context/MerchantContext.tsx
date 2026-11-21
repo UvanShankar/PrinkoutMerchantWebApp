@@ -18,12 +18,15 @@ export type ScreenType =
   | 'settings';
 
 export type SettingsSubTab = 'general' | 'notifications' | 'team';
+export type ProfileTab = 'details' | 'documents' | 'hours' | 'preview';
 
 interface MerchantContextType {
   currentScreen: ScreenType;
   navigateTo: (screen: ScreenType) => void;
   settingsTab: SettingsSubTab;
   setSettingsTab: (tab: SettingsSubTab) => void;
+  profileTab: ProfileTab;
+  setProfileTab: (tab: ProfileTab) => void;
   
   // Auth & Session
   isAuthenticated: boolean;
@@ -181,6 +184,14 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [currentScreen, setCurrentScreenState] = useState<ScreenType>(getInitialScreen);
   const [settingsTab, setSettingsTab] = useState<SettingsSubTab>(getInitialSettingsTab);
+  const [profileTab, setProfileTabState] = useState<ProfileTab>('details');
+
+  const setProfileTab = (tab: ProfileTab) => {
+    setProfileTabState(tab);
+    if (currentScreen !== 'profile') {
+      navigateTo('profile');
+    }
+  };
 
   const navigateTo = (screen: ScreenType) => {
     const isAuth = checkIsAuth();
@@ -688,6 +699,8 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         navigateTo,
         settingsTab,
         setSettingsTab,
+        profileTab,
+        setProfileTab,
         isAuthenticated,
         login,
         logout,

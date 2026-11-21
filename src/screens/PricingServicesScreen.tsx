@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { merchantApi } from '../services/api';
 import {
@@ -17,6 +17,7 @@ import {
   CreditCard,
   Trash2,
   Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import { theme } from '../theme';
 
@@ -32,10 +33,13 @@ interface PricingRow {
 }
 
 export const PricingServicesScreen: React.FC = () => {
-  const { shopId, shopData, showToast, refreshData } = useMerchant();
+  const { shopId, shopData, setShopData, showToast, refreshData } = useMerchant();
   const [selectedServiceId, setSelectedServiceId] = useState<string>('standard');
-  const [isEditing, setIsEditing] = useState(false);
+  const isApproved = shopData?.isVerified === true || shopData?.verificationStatus === 'approved';
+  const [isEditing, setIsEditing] = useState(!isApproved);
   const [saving, setSaving] = useState(false);
+  const autoSaveTimerRef = useRef<any>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
 
   // Standard Prints: starts initially with ONLY A4 and 70 GSM
   const [standardPricingRows, setStandardPricingRows] = useState<PricingRow[]>([
@@ -103,7 +107,7 @@ export const PricingServicesScreen: React.FC = () => {
   const [minOrderValue, setMinOrderValue] = useState('50');
   const [fulfilmentMode, setFulfilmentMode] = useState<string>('Store Pickup Only');
 
-  // Load shop data
+  // Load shop data & auto-initialize defaults
   useEffect(() => {
     if (shopData) {
       if (shopData.fulfilmentMode) {
@@ -125,8 +129,61 @@ export const PricingServicesScreen: React.FC = () => {
           },
         ]);
       }
+
+      // Auto-save standard services & pricing defaults if not yet stored in shopData
+      if (shopId && !isApproved) {
+        const hasServices = (Array.isArray(shopData.services) && shopData.services.length > 0) ||
+                            (Array.isArray(shopData.servicesOffered) && shopData.servicesOffered.length > 0);
+        const hasPrints = Array.isArray(shopData.standardPrintsPricing) && shopData.standardPrintsPricing.length > 0;
+        if (!hasServices || !hasPrints) {
+          const a4Row = standardPricingRows.find(r => r.size === 'A4') || standardPricingRows[0];
+          const payload = {
+            services: ['standard'],
+            servicesOffered: ['standard', 'Standard Prints'],
+            standardPrintsPricing: standardPricingRows,
+            fulfilmentMode: shopData.fulfilmentMode || 'Store Pickup Only',
+            bwPrice: parseFloat(a4Row?.bwPrice || '2.00'),
+            colorPrice: parseFloat(a4Row?.colPrice || '10.00'),
+          };
+          merchantApi.updateShopProfile(shopId, payload).catch(() => {});
+          setShopData((prev: any) => ({ ...prev, ...payload }));
+        }
+      }
     }
-  }, [shopData]);
+  }, [shopData?.shopId, isApproved]);
+
+  // Debounced auto-save handler for pricing changes as user types
+  const autoSavePricing = (rows: PricingRow[], mode = fulfilmentMode) => {
+    if (!shopId || isApproved) return;
+    const a4Row = rows.find(r => r.size === 'A4') || rows[0];
+    const payload = {
+      services: ['standard'],
+      servicesOffered: ['standard', 'Standard Prints'],
+      standardPrintsPricing: rows,
+      fulfilmentMode: mode,
+      bwPrice: parseFloat(a4Row?.bwPrice || '2.00'),
+      colorPrice: parseFloat(a4Row?.colPrice || '10.00'),
+    };
+    setShopData((prev: any) => ({ ...prev, ...payload }));
+
+    setAutoSaveStatus('saving');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await merchantApi.updateShopProfile(shopId, payload);
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus(null), 2500);
+      } catch {
+        setAutoSaveStatus(null);
+      }
+    }, 600);
+  };
+
+  const updateStandardRow = (id: string, partial: Partial<PricingRow>) => {
+    const updated = standardPricingRows.map(r => (r.id === id ? { ...r, ...partial } : r));
+    setStandardPricingRows(updated);
+    autoSavePricing(updated);
+  };
 
   // Add paper size and GSM row to Standard Prints
   const handleAddStandardRow = () => {
@@ -158,12 +215,16 @@ export const PricingServicesScreen: React.FC = () => {
       isDefault: false,
     };
 
-    setStandardPricingRows(prev => [...prev, newRow]);
+    const updated = [...standardPricingRows, newRow];
+    setStandardPricingRows(updated);
+    autoSavePricing(updated);
     showToast(`Added ${newSize} (${newGsm}) to price list`);
   };
 
   const handleDeleteStandardRow = (id: string) => {
-    setStandardPricingRows(prev => prev.filter(r => r.id !== id));
+    const updated = standardPricingRows.filter(r => r.id !== id);
+    setStandardPricingRows(updated);
+    autoSavePricing(updated);
     showToast('Row removed from price list');
   };
 
@@ -176,6 +237,8 @@ export const PricingServicesScreen: React.FC = () => {
     try {
       const a4Row = standardPricingRows.find(r => r.size === 'A4') || standardPricingRows[0];
       const payload = {
+        services: ['standard'],
+        servicesOffered: ['standard', 'Standard Prints'],
         standardPrintsPricing: standardPricingRows,
         fulfilmentMode,
         bwPrice: parseFloat(a4Row?.bwPrice || '2.00'),
@@ -183,9 +246,11 @@ export const PricingServicesScreen: React.FC = () => {
       };
 
       await merchantApi.updateShopProfile(shopId, payload);
-      await refreshData();
+      setShopData((prev: any) => ({ ...prev, ...payload }));
       showToast('Pricing & Services saved successfully!');
-      setIsEditing(false);
+      if (isApproved) {
+        setIsEditing(false);
+      }
     } catch (err: any) {
       showToast(err.message || 'Failed to update pricing');
     } finally {
@@ -364,32 +429,40 @@ export const PricingServicesScreen: React.FC = () => {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (isEditing) {
-                  handleSavePricing();
-                } else {
-                  setIsEditing(true);
-                }
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '7px 16px',
-                borderRadius: 16,
-                backgroundColor: isEditing ? '#16A34A' : '#EFECE4',
-                border: isEditing ? 'none' : '1px solid #DAD5CB',
-                color: isEditing ? '#FFFFFF' : '#1A1C20',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {isEditing ? <Check size={13} /> : <Edit2 size={13} />}
-              <span>{isEditing ? (saving ? 'Saving...' : 'Save Changes') : 'Edit Prices'}</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {autoSaveStatus && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: autoSaveStatus === 'saved' ? '#15803D' : '#D97706' }}>
+                  {autoSaveStatus === 'saved' ? <CheckCircle2 size={13} color="#16A34A" /> : <Clock size={13} color="#D97706" />}
+                  <span>{autoSaveStatus === 'saved' ? 'Auto-saved ✓' : 'Saving...'}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isEditing) {
+                    handleSavePricing();
+                  } else {
+                    setIsEditing(true);
+                  }
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 16px',
+                  borderRadius: 16,
+                  backgroundColor: isEditing ? '#16A34A' : '#EFECE4',
+                  border: isEditing ? 'none' : '1px solid #DAD5CB',
+                  color: isEditing ? '#FFFFFF' : '#1A1C20',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {isEditing ? <Check size={13} /> : <Edit2 size={13} />}
+                <span>{isEditing ? (saving ? 'Saving...' : 'Save Changes') : 'Edit Prices'}</span>
+              </button>
+            </div>
           </div>
 
           {/* Table 1: Standard Prints */}
@@ -417,9 +490,7 @@ export const PricingServicesScreen: React.FC = () => {
                         {/* B&W Status Toggle (before B&W Price) */}
                         <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                           {renderToggle(row.bwEnabled, () => {
-                            setStandardPricingRows(prev =>
-                              prev.map(r => (r.id === row.id ? { ...r, bwEnabled: !r.bwEnabled } : r))
-                            );
+                            updateStandardRow(row.id, { bwEnabled: !row.bwEnabled });
                           })}
                         </td>
 
@@ -433,10 +504,7 @@ export const PricingServicesScreen: React.FC = () => {
                                 step="0.10"
                                 value={row.bwPrice}
                                 onChange={e => {
-                                  const val = e.target.value;
-                                  setStandardPricingRows(prev =>
-                                    prev.map(r => (r.id === row.id ? { ...r, bwPrice: val } : r))
-                                  );
+                                  updateStandardRow(row.id, { bwPrice: e.target.value });
                                 }}
                                 style={{ width: 50, border: 'none', outline: 'none', fontSize: 12, fontWeight: 700, color: '#1A1C20' }}
                               />
@@ -449,9 +517,7 @@ export const PricingServicesScreen: React.FC = () => {
                         {/* Colour Status Toggle (before Colour Price) */}
                         <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                           {renderToggle(row.colEnabled, () => {
-                            setStandardPricingRows(prev =>
-                              prev.map(r => (r.id === row.id ? { ...r, colEnabled: !r.colEnabled } : r))
-                            );
+                            updateStandardRow(row.id, { colEnabled: !row.colEnabled });
                           })}
                         </td>
 
@@ -465,10 +531,7 @@ export const PricingServicesScreen: React.FC = () => {
                                 step="0.50"
                                 value={row.colPrice}
                                 onChange={e => {
-                                  const val = e.target.value;
-                                  setStandardPricingRows(prev =>
-                                    prev.map(r => (r.id === row.id ? { ...r, colPrice: val } : r))
-                                  );
+                                  updateStandardRow(row.id, { colPrice: e.target.value });
                                 }}
                                 style={{ width: 50, border: 'none', outline: 'none', fontSize: 12, fontWeight: 700, color: '#1A1C20' }}
                               />
@@ -891,7 +954,11 @@ export const PricingServicesScreen: React.FC = () => {
 
               <select
                 value={fulfilmentMode}
-                onChange={e => setFulfilmentMode(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFulfilmentMode(val);
+                  autoSavePricing(standardPricingRows, val);
+                }}
                 style={{
                   padding: '6px 12px',
                   borderRadius: 8,

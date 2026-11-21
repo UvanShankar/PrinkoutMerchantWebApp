@@ -24,6 +24,7 @@ export const SetupProgressBar: React.FC = () => {
     shopData,
     authPhone,
     showToast,
+    setProfileTab,
   } = useMerchant();
 
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -37,6 +38,22 @@ export const SetupProgressBar: React.FC = () => {
   // Real-time detail completion tracking (fills dynamically as each detail is entered and saved)
   const resolvedShopCity = resolveCityFromLocation(shopData?.pincode, shopData?.address, shopData?.city);
 
+  const hasServicesConfigured = Boolean(
+    (Array.isArray(shopData?.services) && shopData.services.length > 0) ||
+    (Array.isArray(shopData?.servicesOffered) && shopData.servicesOffered.length > 0) ||
+    (Array.isArray(shopData?.standardPrintsPricing) && shopData.standardPrintsPricing.length > 0) ||
+    shopData?.bwPrice ||
+    shopData?.colorPrice
+  );
+
+  const hasPricingConfigured = Boolean(
+    shopData?.pricing ||
+    (Array.isArray(shopData?.paperRates) && shopData.paperRates.length > 0) ||
+    (Array.isArray(shopData?.standardPrintsPricing) && shopData.standardPrintsPricing.length > 0) ||
+    (Array.isArray(shopData?.pricingCombinations) && shopData.pricingCombinations.length > 0) ||
+    (shopData?.bwPrice && shopData?.colorPrice)
+  );
+
   const detailsTracking = [
     { key: 'shopName', label: 'Shop Name', filled: Boolean(shopData?.shopName?.trim()) },
     { key: 'address', label: 'Shop Address', filled: Boolean(shopData?.address?.trim()) },
@@ -47,8 +64,8 @@ export const SetupProgressBar: React.FC = () => {
     { key: 'documents', label: 'Verification Document / Store Photo', filled: Boolean((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0)) },
     { key: 'hours', label: 'Operating Hours', filled: Boolean(shopData?.openingTime && shopData?.closingTime) },
     { key: 'days', label: 'Working Days', filled: Boolean(Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0) },
-    { key: 'services', label: 'Services Selected', filled: Boolean(Array.isArray(shopData?.services) && shopData.services.length > 0) },
-    { key: 'pricing', label: 'Format Pricing Rates', filled: Boolean(shopData?.pricing || (Array.isArray(shopData?.paperRates) && shopData.paperRates.length > 0)) },
+    { key: 'services', label: 'Services Selected', filled: hasServicesConfigured },
+    { key: 'pricing', label: 'Format Pricing Rates', filled: hasPricingConfigured },
   ];
 
   const totalDetailsCount = detailsTracking.length;
@@ -76,10 +93,10 @@ export const SetupProgressBar: React.FC = () => {
   // Step 3 Validation
   const getStep3Missing = () => {
     const missing: string[] = [];
-    if (!Array.isArray(shopData?.services) || shopData.services.length === 0) {
+    if (!hasServicesConfigured) {
       missing.push('Select at least 1 Print Service');
     }
-    if (!shopData?.pricing && (!Array.isArray(shopData?.paperRates) || shopData.paperRates.length === 0)) {
+    if (!hasPricingConfigured) {
       missing.push('Paper Rates & Pricing configuration');
     }
     return missing;
@@ -107,7 +124,18 @@ export const SetupProgressBar: React.FC = () => {
   const handleNext = () => {
     if (!isCurrentStepComplete) {
       triggerStepTooltip(currentStepMissing);
-      showToast('Please complete all required details in this step to proceed.');
+      showToast(`Please complete: ${currentStepMissing[0] || 'required details'}`);
+
+      // Auto-navigate to the exact tab needing attention in Step 1
+      if (setupStep === 1) {
+        if (!shopData?.shopName?.trim() || !shopData?.address?.trim() || !resolvedShopCity || !shopData?.pincode?.trim() || !shopData?.mobile?.trim() || !shopData?.upiId?.trim()) {
+          setProfileTab('details');
+        } else if (!((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0))) {
+          setProfileTab('documents');
+        } else if (!shopData?.openingTime || !shopData?.closingTime || !Array.isArray(shopData?.workingDays) || shopData.workingDays.length === 0) {
+          setProfileTab('hours');
+        }
+      }
       return;
     }
 

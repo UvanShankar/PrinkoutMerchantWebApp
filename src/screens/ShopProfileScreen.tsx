@@ -49,8 +49,19 @@ interface PhotoItem {
 }
 
 export const ShopProfileScreen: React.FC = () => {
-  const { shopId, shopData, setShopData, orders, showToast, openSubmissionModal } = useMerchant();
-  const [activeTab, setActiveTab] = useState<'details' | 'documents' | 'hours' | 'preview'>('details');
+  const {
+    shopId,
+    shopData,
+    setShopData,
+    orders,
+    showToast,
+    openSubmissionModal,
+    profileTab,
+    setProfileTab,
+    setSetupStep,
+  } = useMerchant();
+  const activeTab = profileTab || 'details';
+  const setActiveTab = (tab: any) => setProfileTab(tab);
 
   // Verification status: 'draft' | 'pending_approval' | 'approved' | 'rejected'
   const verificationStatus: 'draft' | 'pending_approval' | 'approved' | 'rejected' =
@@ -61,15 +72,30 @@ export const ShopProfileScreen: React.FC = () => {
   const isDraft = verificationStatus === 'draft';
   const isRejected = verificationStatus === 'rejected';
 
-  // Section editing states (Locked once approved)
-  const [isEditingBasic, setIsEditingBasic] = useState(false);
-  const [isEditingBusiness, setIsEditingBusiness] = useState(false);
-  const [isEditingHours, setIsEditingHours] = useState(false);
+  // Section editing states: default to edit mode during onboarding / unapproved
+  const [isEditingBasic, setIsEditingBasic] = useState(!isApproved);
+  const [isEditingBusiness, setIsEditingBusiness] = useState(!isApproved);
+  const [isEditingHours, setIsEditingHours] = useState(!isApproved);
 
   const [savingBasic, setSavingBasic] = useState(false);
   const [savingBusiness, setSavingBusiness] = useState(false);
   const [savingHours, setSavingHours] = useState(false);
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+
+  // Auto-save debounce timer and status indicator
+  const autoSaveTimerRef = useRef<any>(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
+
+  // When switching to a tab, keep components in edit mode if unapproved
+  useEffect(() => {
+    if (!isApproved) {
+      if (activeTab === 'hours') setIsEditingHours(true);
+      if (activeTab === 'details') {
+        setIsEditingBasic(true);
+        setIsEditingBusiness(true);
+      }
+    }
+  }, [activeTab, isApproved]);
 
   // Hidden file inputs
   const photoFileInputRef = useRef<HTMLInputElement>(null);
@@ -262,6 +288,108 @@ export const ShopProfileScreen: React.FC = () => {
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   };
 
+  // Auto-save helper for Basic Details
+  const autoSaveBasic = (form: typeof basicForm) => {
+    if (!shopId) return;
+    const cleanCity = resolveCityFromLocation(form.pincode, form.address, form.city);
+    const updated = {
+      ...form,
+      city: cleanCity || form.city,
+    };
+    setShopData((prev: any) => ({ ...prev, ...updated }));
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        sess.shopData = { ...(sess.shopData || {}), ...updated };
+        localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+      }
+    } catch {}
+
+    setAutoSaveStatus('saving');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await merchantApi.updateShopProfile(shopId, isApproved ? { description: form.description } : updated);
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus(null), 2500);
+      } catch {
+        setAutoSaveStatus(null);
+      }
+    }, 700);
+  };
+
+  // Auto-save helper for Business Details
+  const autoSaveBusiness = (form: typeof businessForm) => {
+    if (!shopId) return;
+    setShopData((prev: any) => ({ ...prev, ...form }));
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        sess.shopData = { ...(sess.shopData || {}), ...form };
+        localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+      }
+    } catch {}
+
+    setAutoSaveStatus('saving');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await merchantApi.updateShopProfile(shopId, isApproved ? { upiId: form.upiId } : form);
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus(null), 2500);
+      } catch {
+        setAutoSaveStatus(null);
+      }
+    }, 700);
+  };
+
+  // Auto-save helper for Operating Hours
+  const autoSaveHours = (form: typeof hoursForm) => {
+    if (!shopId || isApproved) return;
+    setShopData((prev: any) => ({ ...prev, ...form }));
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        sess.shopData = { ...(sess.shopData || {}), ...form };
+        localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+      }
+    } catch {}
+
+    setAutoSaveStatus('saving');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await merchantApi.updateShopProfile(shopId, form);
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus(null), 2500);
+      } catch {
+        setAutoSaveStatus(null);
+      }
+    }, 600);
+  };
+
+  // Auto-save default hours on mount if not yet configured
+  useEffect(() => {
+    if (shopData && shopId && !isApproved) {
+      const hasHours = shopData.openingTime && shopData.closingTime && Array.isArray(shopData.workingDays) && shopData.workingDays.length > 0;
+      if (!hasHours) {
+        const defaultHours = {
+          openingTime: shopData.openingTime || '09:00',
+          closingTime: shopData.closingTime || '21:00',
+          workingDays: Array.isArray(shopData.workingDays) && shopData.workingDays.length > 0
+            ? shopData.workingDays
+            : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+        };
+        setHoursForm(defaultHours);
+        setShopData((prev: any) => ({ ...prev, ...defaultHours }));
+        merchantApi.updateShopProfile(shopId, defaultHours).catch(() => {});
+      }
+    }
+  }, [shopId, isApproved]);
+
   // Save Basic Details
   const handleSaveBasic = async () => {
     try {
@@ -279,7 +407,9 @@ export const ShopProfileScreen: React.FC = () => {
         await merchantApi.updateShopProfile(shopId, payload);
       }
       setShopData((prev: any) => ({ ...prev, ...payload }));
-      setIsEditingBasic(false);
+      if (isApproved) {
+        setIsEditingBasic(false);
+      }
       showToast('Shop details saved successfully!');
     } catch (err: any) {
       showToast(err.message || 'Failed to update shop details');
@@ -305,7 +435,9 @@ export const ShopProfileScreen: React.FC = () => {
           localStorage.setItem('prinkout_merchant_session', JSON.stringify(session));
         }
       } catch (e) {}
-      setIsEditingBusiness(false);
+      if (isApproved) {
+        setIsEditingBusiness(false);
+      }
       showToast('Business details saved successfully!');
     } catch (err: any) {
       showToast(err.message || 'Failed to update business details');
@@ -326,7 +458,9 @@ export const ShopProfileScreen: React.FC = () => {
         await merchantApi.updateShopProfile(shopId, hoursForm);
       }
       setShopData((prev: any) => ({ ...prev, ...hoursForm }));
-      setIsEditingHours(false);
+      if (isApproved) {
+        setIsEditingHours(false);
+      }
       showToast('Operating hours saved successfully!');
     } catch (err: any) {
       showToast(err.message || 'Failed to update operating hours');
@@ -920,6 +1054,13 @@ export const ShopProfileScreen: React.FC = () => {
             );
           })}
         </div>
+
+        {autoSaveStatus && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 12, backgroundColor: autoSaveStatus === 'saved' ? '#DCFCE7' : '#FEF3C7', color: autoSaveStatus === 'saved' ? '#15803D' : '#D97706', fontSize: 11.5, fontWeight: 700 }}>
+            {autoSaveStatus === 'saved' ? <Check size={13} color="#16A34A" /> : <Clock size={13} color="#D97706" />}
+            <span>{autoSaveStatus === 'saved' ? 'Auto-saved ✓' : 'Saving changes...'}</span>
+          </div>
+        )}
       </div>
 
       {/* TAB 1: DETAILS */}
@@ -1042,7 +1183,11 @@ export const ShopProfileScreen: React.FC = () => {
                         placeholder="e.g. Tirupur Digital Print Hub"
                         disabled={isApproved}
                         value={basicForm.shopName}
-                        onChange={e => setBasicForm(f => ({ ...f, shopName: e.target.value }))}
+                        onChange={e => {
+                          const updated = { ...basicForm, shopName: e.target.value };
+                          setBasicForm(updated);
+                          autoSaveBasic(updated);
+                        }}
                         style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
@@ -1055,7 +1200,11 @@ export const ShopProfileScreen: React.FC = () => {
                         placeholder="Owner full name"
                         disabled={isApproved}
                         value={basicForm.ownerName}
-                        onChange={e => setBasicForm(f => ({ ...f, ownerName: e.target.value }))}
+                        onChange={e => {
+                          const updated = { ...basicForm, ownerName: e.target.value };
+                          setBasicForm(updated);
+                          autoSaveBasic(updated);
+                        }}
                         style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
@@ -1064,7 +1213,11 @@ export const ShopProfileScreen: React.FC = () => {
                       <textarea
                         rows={3}
                         value={basicForm.description}
-                        onChange={e => setBasicForm(f => ({ ...f, description: e.target.value }))}
+                        onChange={e => {
+                          const updated = { ...basicForm, description: e.target.value };
+                          setBasicForm(updated);
+                          autoSaveBasic(updated);
+                        }}
                         placeholder="Describe your printing and copying services..."
                         style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, resize: 'vertical' }}
                       />
@@ -1080,16 +1233,16 @@ export const ShopProfileScreen: React.FC = () => {
                         value={basicForm.address}
                         onChange={e => {
                           const val = e.target.value;
-                          setBasicForm(f => {
-                            const autoCity = (!f.city || f.city.toLowerCase() === 'general')
-                              ? resolveCityFromLocation(f.pincode, val, '')
-                              : f.city;
-                            return {
-                              ...f,
-                              address: val,
-                              city: autoCity || f.city,
-                            };
-                          });
+                          const autoCity = (!basicForm.city || basicForm.city.toLowerCase() === 'general')
+                            ? resolveCityFromLocation(basicForm.pincode, val, '')
+                            : basicForm.city;
+                          const updated = {
+                            ...basicForm,
+                            address: val,
+                            city: autoCity || basicForm.city,
+                          };
+                          setBasicForm(updated);
+                          autoSaveBasic(updated);
                         }}
                         style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
@@ -1107,7 +1260,11 @@ export const ShopProfileScreen: React.FC = () => {
                           placeholder="City"
                           disabled={isApproved}
                           value={basicForm.city && basicForm.city.toLowerCase() !== 'general' ? basicForm.city : ''}
-                          onChange={e => setBasicForm(f => ({ ...f, city: e.target.value }))}
+                          onChange={e => {
+                            const updated = { ...basicForm, city: e.target.value };
+                            setBasicForm(updated);
+                            autoSaveBasic(updated);
+                          }}
                           style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                         />
                       </div>
@@ -1120,20 +1277,22 @@ export const ShopProfileScreen: React.FC = () => {
                           value={basicForm.pincode}
                           onChange={e => {
                             const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                            setBasicForm(f => {
-                              const autoCity = val.length === 6 ? resolveCityFromLocation(val, f.address, f.city) : f.city;
-                              return {
-                                ...f,
-                                pincode: val,
-                                city: (autoCity && autoCity.toLowerCase() !== 'general') ? autoCity : f.city,
-                              };
-                            });
+                            const autoCity = val.length === 6 ? resolveCityFromLocation(val, basicForm.address, basicForm.city) : basicForm.city;
+                            const updated = {
+                              ...basicForm,
+                              pincode: val,
+                              city: (autoCity && autoCity.toLowerCase() !== 'general') ? autoCity : basicForm.city,
+                            };
+                            setBasicForm(updated);
+                            autoSaveBasic(updated);
                             if (val.length === 6) {
                               merchantApi.checkServiceability(val).then(res => {
                                 const cityFromApi = res?.location?.city;
                                 const resolved = resolveCityFromLocation(val, basicForm.address, cityFromApi);
                                 if (resolved && resolved.toLowerCase() !== 'general') {
-                                  setBasicForm(f => ({ ...f, city: resolved }));
+                                  const withResolved = { ...updated, city: resolved };
+                                  setBasicForm(withResolved);
+                                  autoSaveBasic(withResolved);
                                 }
                               }).catch(() => {});
                             }
@@ -1150,7 +1309,12 @@ export const ShopProfileScreen: React.FC = () => {
                         type="text"
                         disabled={isApproved}
                         value={basicForm.mobile}
-                        onChange={e => setBasicForm(f => ({ ...f, mobile: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const updated = { ...basicForm, mobile: val };
+                          setBasicForm(updated);
+                          autoSaveBasic(updated);
+                        }}
                         style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
@@ -1288,7 +1452,11 @@ export const ShopProfileScreen: React.FC = () => {
                     <select
                       value={businessForm.businessType}
                       disabled={isApproved}
-                      onChange={e => setBusinessForm(f => ({ ...f, businessType: e.target.value }))}
+                      onChange={e => {
+                        const updated = { ...businessForm, businessType: e.target.value };
+                        setBusinessForm(updated);
+                        autoSaveBusiness(updated);
+                      }}
                       style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF', cursor: isApproved ? 'not-allowed' : 'default' }}
                     >
                       <option value="Print Shop (Retail)">Print Shop (Retail)</option>
@@ -1307,7 +1475,11 @@ export const ShopProfileScreen: React.FC = () => {
                       placeholder="e.g. 33AABCU9603R1ZM"
                       value={businessForm.gstNumber}
                       disabled={isApproved}
-                      onChange={e => setBusinessForm(f => ({ ...f, gstNumber: e.target.value.toUpperCase() }))}
+                      onChange={e => {
+                        const updated = { ...businessForm, gstNumber: e.target.value.toUpperCase() };
+                        setBusinessForm(updated);
+                        autoSaveBusiness(updated);
+                      }}
                       style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF', cursor: isApproved ? 'not-allowed' : 'default' }}
                     />
                   </div>
@@ -1321,7 +1493,11 @@ export const ShopProfileScreen: React.FC = () => {
                       placeholder="Trade License number"
                       value={businessForm.shopLicenseNo}
                       disabled={isApproved}
-                      onChange={e => setBusinessForm(f => ({ ...f, shopLicenseNo: e.target.value }))}
+                      onChange={e => {
+                        const updated = { ...businessForm, shopLicenseNo: e.target.value };
+                        setBusinessForm(updated);
+                        autoSaveBusiness(updated);
+                      }}
                       style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF', cursor: isApproved ? 'not-allowed' : 'default' }}
                     />
                   </div>
@@ -1334,7 +1510,11 @@ export const ShopProfileScreen: React.FC = () => {
                       type="text"
                       placeholder="merchant@upi"
                       value={businessForm.upiId}
-                      onChange={e => setBusinessForm(f => ({ ...f, upiId: e.target.value }))}
+                      onChange={e => {
+                        const updated = { ...businessForm, upiId: e.target.value };
+                        setBusinessForm(updated);
+                        autoSaveBusiness(updated);
+                      }}
                       style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #3B82F6', fontSize: 12.5, backgroundColor: '#FFFFFF' }}
                     />
                   </div>
@@ -1945,6 +2125,51 @@ export const ShopProfileScreen: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Step 1 Tab 1 Navigation Bar */}
+          <div
+            style={{
+              gridColumn: '1 / -1',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 12,
+              marginTop: 10,
+              padding: '14px 20px',
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 16,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (tab1Missing.length > 0) {
+                  showToast(`Please complete: ${tab1Missing.join(', ')}`);
+                  return;
+                }
+                setActiveTab('documents');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 22px',
+                borderRadius: 12,
+                backgroundColor: '#1C1D21',
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(28,29,33,0.25)',
+              }}
+            >
+              <span>Continue to Verification Documents</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -2168,6 +2393,50 @@ export const ShopProfileScreen: React.FC = () => {
               })}
             </div>
           </div>
+
+          {/* Step 1 Tab 2 Navigation Bar */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 12,
+              padding: '14px 20px',
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 16,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (tab2Missing.length > 0) {
+                  showToast(`Please complete: ${tab2Missing.join(', ')}`);
+                  return;
+                }
+                setActiveTab('hours');
+                setIsEditingHours(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 22px',
+                borderRadius: 12,
+                backgroundColor: '#1C1D21',
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(28,29,33,0.25)',
+              }}
+            >
+              <span>Continue to Operating Hours & Days</span>
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 
@@ -2191,43 +2460,51 @@ export const ShopProfileScreen: React.FC = () => {
                 </p>
               </div>
 
-              {!isApproved ? (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {isEditingHours && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {autoSaveStatus && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: autoSaveStatus === 'saved' ? '#15803D' : '#D97706' }}>
+                    {autoSaveStatus === 'saved' ? <Check size={12} color="#16A34A" /> : <Clock size={12} color="#D97706" />}
+                    <span>{autoSaveStatus === 'saved' ? 'Auto-saved ✓' : 'Saving...'}</span>
+                  </div>
+                )}
+                {!isApproved ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {isEditingHours && (
+                      <button
+                        onClick={handleSaveHours}
+                        disabled={savingHours}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '6px 12px',
+                          borderRadius: 10,
+                          backgroundColor: '#16A34A',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Check size={13} />
+                        <span>{savingHours ? 'Saving...' : 'Save Hours'}</span>
+                      </button>
+                    )}
                     <button
-                      onClick={handleSaveHours}
-                      disabled={savingHours}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        padding: '6px 12px',
-                        borderRadius: 10,
-                        backgroundColor: '#16A34A',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
+                      onClick={() => setIsEditingHours(prev => !prev)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B707B' }}
                     >
-                      <Check size={13} />
-                      <span>{savingHours ? 'Saving...' : 'Save Hours'}</span>
+                      {isEditingHours ? <X size={16} /> : <Edit2 size={16} />}
                     </button>
-                  )}
-                  <button
-                    onClick={() => setIsEditingHours(prev => !prev)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B707B' }}
-                  >
-                    {isEditingHours ? <X size={16} /> : <Edit2 size={16} />}
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: '#15803D' }}>
-                  <Lock size={13} />
-                  <span>Verified & Locked</span>
-                </div>
-              )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+                    <Lock size={13} />
+                    <span>Verified & Locked</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
@@ -2237,7 +2514,11 @@ export const ShopProfileScreen: React.FC = () => {
                   type="time"
                   disabled={!isEditingHours || isApproved}
                   value={hoursForm.openingTime}
-                  onChange={e => setHoursForm(h => ({ ...h, openingTime: e.target.value }))}
+                  onChange={e => {
+                    const updated = { ...hoursForm, openingTime: e.target.value };
+                    setHoursForm(updated);
+                    autoSaveHours(updated);
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -2255,7 +2536,11 @@ export const ShopProfileScreen: React.FC = () => {
                   type="time"
                   disabled={!isEditingHours || isApproved}
                   value={hoursForm.closingTime}
-                  onChange={e => setHoursForm(h => ({ ...h, closingTime: e.target.value }))}
+                  onChange={e => {
+                    const updated = { ...hoursForm, closingTime: e.target.value };
+                    setHoursForm(updated);
+                    autoSaveHours(updated);
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -2280,10 +2565,10 @@ export const ShopProfileScreen: React.FC = () => {
                       disabled={!isEditingHours || isApproved}
                       onClick={() => {
                         if (!isEditingHours || isApproved) return;
-                        setHoursForm(h => ({
-                          ...h,
-                          workingDays: isChecked ? h.workingDays.filter(d => d !== day) : [...h.workingDays, day],
-                        }));
+                        const updatedDays = isChecked ? hoursForm.workingDays.filter(d => d !== day) : [...hoursForm.workingDays, day];
+                        const updated = { ...hoursForm, workingDays: updatedDays };
+                        setHoursForm(updated);
+                        autoSaveHours(updated);
                       }}
                       style={{
                         padding: '6px 14px',
@@ -2302,6 +2587,50 @@ export const ShopProfileScreen: React.FC = () => {
                 })}
               </div>
             </div>
+          </div>
+
+          {/* Step 1 Tab 3 Navigation Bar */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 12,
+              maxWidth: 700,
+              padding: '14px 20px',
+              backgroundColor: theme.colors.creamCard,
+              border: `1px solid ${theme.colors.creamCardBorder}`,
+              borderRadius: 16,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (tab3Missing.length > 0) {
+                  showToast(`Please complete: ${tab3Missing.join(', ')}`);
+                  return;
+                }
+                setSetupStep(2);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 22px',
+                borderRadius: 12,
+                backgroundColor: '#1C1D21',
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(28,29,33,0.25)',
+              }}
+            >
+              <span>Continue to Step 2: Store Preferences</span>
+              <ChevronRight size={16} />
+            </button>
           </div>
         </div>
       )}
