@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { AuthLayout } from './AuthLayout';
-import { ChevronLeft, ArrowRight, Check } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Check, AlertCircle } from 'lucide-react';
 import { theme } from '../theme';
 
 export const ShopOnboardingStep2: React.FC = () => {
-  const { onboardingData, updateOnboardingData, navigateTo } = useMerchant();
+  const { onboardingData, updateOnboardingData, navigateTo, showToast } = useMerchant();
 
   const [selectedServices, setSelectedServices] = useState<string[]>(
     onboardingData.services || ['Standard Prints']
@@ -20,6 +20,9 @@ export const ShopOnboardingStep2: React.FC = () => {
     a0Bw: onboardingData.pricing?.a0Bw || '40',
     a0Color: onboardingData.pricing?.a0Color || '80',
   });
+
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimeoutRef = useRef<any>(null);
 
   // Synchronize state when onboardingData updates or when navigating back from review
   useEffect(() => {
@@ -55,7 +58,41 @@ export const ShopOnboardingStep2: React.FC = () => {
     );
   };
 
+  // Validation
+  const missingFields: string[] = [];
+  if (!selectedServices || selectedServices.length === 0) {
+    missingFields.push('Select at least 1 print service');
+  }
+
+  const pricingKeys = ['a4Bw', 'a4Color', 'a3Bw', 'a3Color', 'a0Bw', 'a0Color'] as const;
+  const invalidPrices = pricingKeys.filter(
+    k => !pricing[k] || isNaN(parseFloat(pricing[k])) || parseFloat(pricing[k]) <= 0
+  );
+  if (invalidPrices.length > 0) {
+    missingFields.push(`Enter valid pricing (> ₹0) for all ${pricingKeys.length} format options`);
+  }
+
+  const isComplete = missingFields.length === 0;
+
+  // Real-time detail completion count
+  const filledCount =
+    (selectedServices.length > 0 ? 1 : 0) +
+    pricingKeys.filter(k => pricing[k] && !isNaN(parseFloat(pricing[k])) && parseFloat(pricing[k]) > 0).length;
+  const totalDetails = 1 + pricingKeys.length;
+  const stepProgress = Math.round((filledCount / totalDetails) * 100);
+
+  const triggerTooltip = () => {
+    setShowTooltip(true);
+    if (tooltipTimeoutRef.current) clearTimeout(tooltipTimeoutRef.current);
+    tooltipTimeoutRef.current = setTimeout(() => setShowTooltip(false), 5000);
+  };
+
   const handleNext = () => {
+    if (!isComplete) {
+      triggerTooltip();
+      showToast('Please select a service and provide valid pricing for all formats.');
+      return;
+    }
     updateOnboardingData({
       services: selectedServices,
       pricing,
@@ -352,27 +389,107 @@ export const ShopOnboardingStep2: React.FC = () => {
         </div>
       </div>
 
-      <button
-        onClick={handleNext}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: '13px 20px',
-          backgroundColor: '#1C1D21',
-          color: '#FFFFFF',
-          border: 'none',
-          borderRadius: 12,
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-      >
-        <span>Continue to Review</span>
-        <ArrowRight size={16} />
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
+        {/* Dynamic Detail-by-Detail Progress Bar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '2px 2px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11.5, fontWeight: 600, color: '#64748B' }}>
+            <span>Progress: {filledCount} of {totalDetails} details completed</span>
+            <span style={{ color: isComplete ? '#16A34A' : '#4F46E5', fontWeight: 800 }}>{stepProgress}%</span>
+          </div>
+          <div style={{ width: '100%', height: 7, borderRadius: 4, backgroundColor: '#E2E8F0', overflow: 'hidden' }}>
+            <div
+              style={{
+                width: `${stepProgress}%`,
+                height: '100%',
+                background: isComplete ? 'linear-gradient(90deg, #22C55E, #16A34A)' : 'linear-gradient(90deg, #6366F1, #4F46E5)',
+                borderRadius: 4,
+                transition: 'width 0.35s ease',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Floating Tooltip if button clicked/hovered while incomplete */}
+        {showTooltip && !isComplete && (
+          <div
+            style={{
+              backgroundColor: '#0F172A',
+              color: '#FFFFFF',
+              borderRadius: 12,
+              padding: '12px 16px',
+              fontSize: 12,
+              boxShadow: '0 12px 28px rgba(0,0,0,0.3)',
+              border: '1px solid #334155',
+              position: 'relative',
+              animation: 'fadeIn 0.2s ease-in-out',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, fontWeight: 700, color: '#F87171', marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertCircle size={15} />
+                <span>Please complete the required details to continue:</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTooltip(false)}
+                style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 13, padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6, color: '#E2E8F0', fontSize: 11.5 }}>
+              {missingFields.map((f, i) => (
+                <li key={i}>{f}</li>
+              ))}
+            </ul>
+            {/* Tooltip downward triangle pointer */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: -6,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 0,
+                height: 0,
+                borderLeft: '6px solid transparent',
+                borderRight: '6px solid transparent',
+                borderTop: '6px solid #0F172A',
+              }}
+            />
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleNext}
+          onMouseEnter={() => {
+            if (!isComplete) setShowTooltip(true);
+          }}
+          onMouseLeave={() => {
+            if (!showTooltip) setShowTooltip(false);
+          }}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            padding: '13px 20px',
+            backgroundColor: isComplete ? '#1C1D21' : '#94A3B8',
+            opacity: isComplete ? 1 : 0.7,
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: 12,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: isComplete ? 'pointer' : 'not-allowed',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <span>Continue to Review</span>
+          <ArrowRight size={16} />
+        </button>
+      </div>
     </AuthLayout>
   );
 };

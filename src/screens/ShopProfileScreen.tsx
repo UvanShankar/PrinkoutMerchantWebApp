@@ -26,6 +26,7 @@ import {
   Building2,
   Calendar,
   Camera,
+  AlertCircle,
 } from 'lucide-react';
 import { theme } from '../theme';
 
@@ -443,10 +444,60 @@ export const ShopProfileScreen: React.FC = () => {
     showToast(`Downloading ${filename}...`);
   };
 
+  // Tab Completeness & Detail-by-Detail Progress Tracking
+  const tab1Missing: string[] = [];
+  if (!basicForm.shopName?.trim()) tab1Missing.push('Shop Name');
+  if (!basicForm.address?.trim()) tab1Missing.push('Shop Address');
+  if (!basicForm.city?.trim()) tab1Missing.push('City');
+  if (!basicForm.pincode?.trim() || !/^\d{6}$/.test(basicForm.pincode.trim())) tab1Missing.push('6-digit Pincode');
+  if (!basicForm.mobile?.trim() || !/^(?:\+91)?[6-9]\d{9}$/.test(basicForm.mobile.trim())) tab1Missing.push('10-digit Phone Number');
+  if (!businessForm.upiId?.trim() || !businessForm.upiId.includes('@')) tab1Missing.push('Valid UPI ID (for payouts)');
+
+  const tab2Missing: string[] = [];
+  if (documents.length === 0 && photos.length === 0) {
+    tab2Missing.push('At least 1 Shop Document or Storefront Photo');
+  }
+
+  const tab3Missing: string[] = [];
+  if (!hoursForm.openingTime?.trim()) tab3Missing.push('Opening Time');
+  if (!hoursForm.closingTime?.trim()) tab3Missing.push('Closing Time');
+  if (!hoursForm.workingDays || hoursForm.workingDays.length === 0) tab3Missing.push('At least 1 Working Day');
+
+  const isTab1Filled = tab1Missing.length === 0;
+  const isTab2Filled = tab2Missing.length === 0;
+  const isTab3Filled = tab3Missing.length === 0;
+  const isAllTabsFilled = isTab1Filled && isTab2Filled && isTab3Filled;
+
+  // Real-time detail completion count
+  const profileDetails = [
+    Boolean(basicForm.shopName?.trim()),
+    Boolean(basicForm.address?.trim()),
+    Boolean(basicForm.city?.trim()),
+    Boolean(basicForm.pincode?.trim() && /^\d{6}$/.test(basicForm.pincode.trim())),
+    Boolean(basicForm.mobile?.trim() && /^(?:\+91)?[6-9]\d{9}$/.test(basicForm.mobile.trim())),
+    Boolean(businessForm.upiId?.trim() && businessForm.upiId.includes('@')),
+    Boolean(documents.length > 0 || photos.length > 0),
+    Boolean(hoursForm.openingTime?.trim() && hoursForm.closingTime?.trim()),
+    Boolean(hoursForm.workingDays && hoursForm.workingDays.length > 0),
+  ];
+  const filledProfileDetailsCount = profileDetails.filter(Boolean).length;
+  const profileProgressPercent = Math.round((filledProfileDetailsCount / profileDetails.length) * 100);
+
+  // Verification Tooltip State
+  const [showVerificationTooltip, setShowVerificationTooltip] = useState(false);
+  const verificationTooltipTimeoutRef = useRef<any>(null);
+
+  const triggerVerificationTooltip = () => {
+    setShowVerificationTooltip(true);
+    if (verificationTooltipTimeoutRef.current) clearTimeout(verificationTooltipTimeoutRef.current);
+    verificationTooltipTimeoutRef.current = setTimeout(() => setShowVerificationTooltip(false), 5000);
+  };
+
   // Send Profile for Verification
   const handleSendForVerification = async () => {
-    if (!basicForm.shopName || !basicForm.address || !basicForm.mobile) {
-      showToast('Please complete Shop Name, Address, and Phone Number before submitting.');
+    if (!isAllTabsFilled) {
+      triggerVerificationTooltip();
+      showToast('Please complete all tabs (Shop Details, Documents, Operating Hours) before submitting.');
       return;
     }
     const payload = {
@@ -516,59 +567,189 @@ export const ShopProfileScreen: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 16,
-            padding: '14px 20px',
-            backgroundColor: '#FEF3C7',
-            border: '1px solid #F59E0B',
+            padding: '16px 20px',
+            backgroundColor: isAllTabsFilled ? '#ECFDF5' : '#FEF3C7',
+            border: isAllTabsFilled ? '1px solid #10B981' : '1px solid #F59E0B',
             borderRadius: 16,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1 }}>
             <div
               style={{
-                width: 36,
-                height: 36,
+                width: 40,
+                height: 40,
                 borderRadius: '50%',
-                backgroundColor: '#F59E0B',
-                color: '#FFFFFF',
+                backgroundColor: isAllTabsFilled ? '#D1FAE5' : '#FDE68A',
+                color: isAllTabsFilled ? '#059669' : '#D97706',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
               }}
             >
-              <AlertTriangle size={20} />
+              {isAllTabsFilled ? <CheckCircle2 size={22} /> : <AlertTriangle size={22} />}
             </div>
-            <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#92400E' }}>
-                Profile Incomplete – Action Required
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: isAllTabsFilled ? '#065F46' : '#92400E' }}>
+                {isAllTabsFilled ? 'Profile Ready for Verification!' : 'Profile Incomplete – Action Required'}
               </div>
-              <div style={{ fontSize: 12, color: '#B45309' }}>
-                Please fill in all shop attributes and upload verification documents. Once completed, click "Send for Verification" for admin review.
+              <div style={{ fontSize: 12, color: isAllTabsFilled ? '#047857' : '#B45309', marginBottom: 6 }}>
+                {isAllTabsFilled
+                  ? 'All required tabs and attributes are filled. You can now send for admin review.'
+                  : 'Please complete all tabs (Shop Details, Documents, Operating Hours) before submitting.'}
+              </div>
+
+              {/* Live Profile Detail Progress Bar */}
+              <div style={{ maxWidth: 360, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: isAllTabsFilled ? '#065F46' : '#92400E' }}>
+                  <span>{filledProfileDetailsCount} of {profileDetails.length} profile details filled</span>
+                  <span>{profileProgressPercent}%</span>
+                </div>
+                <div style={{ width: '100%', height: 6, borderRadius: 3, backgroundColor: isAllTabsFilled ? '#A7F3D0' : '#FDE68A', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${profileProgressPercent}%`,
+                      height: '100%',
+                      backgroundColor: isAllTabsFilled ? '#10B981' : '#D97706',
+                      borderRadius: 3,
+                      transition: 'width 0.35s ease',
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
-          <button
-            onClick={handleSendForVerification}
-            disabled={isSubmittingVerification}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '9px 18px',
-              borderRadius: 12,
-              backgroundColor: '#1C1D21',
-              color: '#FFFFFF',
-              border: 'none',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-            }}
-          >
-            <ShieldCheck size={16} />
-            <span>{isSubmittingVerification ? 'Submitting...' : 'Send for Verification'}</span>
-          </button>
+
+          <div style={{ position: 'relative' }}>
+            {/* Floating Tooltip on hover / click if incomplete */}
+            {showVerificationTooltip && !isAllTabsFilled && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 'calc(100% + 10px)',
+                  right: 0,
+                  width: 320,
+                  backgroundColor: '#0F172A',
+                  color: '#FFFFFF',
+                  borderRadius: 14,
+                  padding: '14px 16px',
+                  fontSize: 12,
+                  boxShadow: '0 16px 36px rgba(0,0,0,0.4)',
+                  border: '1px solid #334155',
+                  zIndex: 50,
+                  animation: 'fadeIn 0.2s ease-in-out',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#F87171' }}>
+                    <AlertCircle size={15} />
+                    <span>Complete all tabs to verify:</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowVerificationTooltip(false)}
+                    style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11.5, color: '#CBD5E1' }}>
+                  {!isTab1Filled && (
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600, color: '#FCA5A5', marginBottom: 2 }}>
+                        <span>Shop Details ({tab1Missing.length} missing)</span>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('details'); setShowVerificationTooltip(false); }}
+                          style={{ background: 'none', border: 'none', color: '#60A5FA', fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          Go to tab →
+                        </button>
+                      </div>
+                      <div style={{ color: '#E2E8F0', paddingLeft: 4 }}>• {tab1Missing.join(', ')}</div>
+                    </div>
+                  )}
+                  {!isTab2Filled && (
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600, color: '#FCA5A5', marginBottom: 2 }}>
+                        <span>Documents ({tab2Missing.length} missing)</span>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('documents'); setShowVerificationTooltip(false); }}
+                          style={{ background: 'none', border: 'none', color: '#60A5FA', fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          Go to tab →
+                        </button>
+                      </div>
+                      <div style={{ color: '#E2E8F0', paddingLeft: 4 }}>• {tab2Missing.join(', ')}</div>
+                    </div>
+                  )}
+                  {!isTab3Filled && (
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600, color: '#FCA5A5', marginBottom: 2 }}>
+                        <span>Operating Hours ({tab3Missing.length} missing)</span>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('hours'); setShowVerificationTooltip(false); }}
+                          style={{ background: 'none', border: 'none', color: '#60A5FA', fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                        >
+                          Go to tab →
+                        </button>
+                      </div>
+                      <div style={{ color: '#E2E8F0', paddingLeft: 4 }}>• {tab3Missing.join(', ')}</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tooltip downward triangle pointer */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: -6,
+                    right: 30,
+                    width: 0,
+                    height: 0,
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent',
+                    borderTop: '6px solid #0F172A',
+                  }}
+                />
+              </div>
+            )}
+
+            <button
+              onClick={handleSendForVerification}
+              onMouseEnter={() => {
+                if (!isAllTabsFilled) setShowVerificationTooltip(true);
+              }}
+              onMouseLeave={() => {
+                if (!showVerificationTooltip) setShowVerificationTooltip(false);
+              }}
+              disabled={isSubmittingVerification}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 20px',
+                borderRadius: 12,
+                backgroundColor: isAllTabsFilled ? '#1C1D21' : '#94A3B8',
+                opacity: isAllTabsFilled ? 1 : 0.75,
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: isAllTabsFilled ? 'pointer' : 'not-allowed',
+                whiteSpace: 'nowrap',
+                boxShadow: isAllTabsFilled ? '0 4px 12px rgba(28,29,33,0.3)' : 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <ShieldCheck size={16} />
+              <span>{isSubmittingVerification ? 'Submitting...' : 'Send for Verification'}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -704,24 +885,49 @@ export const ShopProfileScreen: React.FC = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#EFECE4', padding: 4, borderRadius: 20 }}>
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              style={{
-                padding: '6px 16px',
-                borderRadius: 16,
-                border: 'none',
-                backgroundColor: activeTab === tab.id ? '#1C1D21' : 'transparent',
-                color: activeTab === tab.id ? '#FFFFFF' : '#6B707B',
-                fontSize: 12.5,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {tabs.map(tab => {
+            const isTabComplete =
+              tab.id === 'details'
+                ? isTab1Filled
+                : tab.id === 'documents'
+                ? isTab2Filled
+                : tab.id === 'hours'
+                ? isTab3Filled
+                : true;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: 16,
+                  border: 'none',
+                  backgroundColor: activeTab === tab.id ? '#1C1D21' : 'transparent',
+                  color: activeTab === tab.id ? '#FFFFFF' : '#6B707B',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>{tab.label}</span>
+                {tab.id !== 'preview' && (
+                  <span
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      backgroundColor: isTabComplete ? '#22C55E' : '#F59E0B',
+                      display: 'inline-block',
+                    }}
+                    title={isTabComplete ? 'Tab completed' : 'Details missing in tab'}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -1570,28 +1776,104 @@ export const ShopProfileScreen: React.FC = () => {
               </p>
 
               {isDraft && (
-                <button
-                  onClick={handleSendForVerification}
-                  disabled={isSubmittingVerification}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: 12,
-                    backgroundColor: '#1C1D21',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <ShieldCheck size={16} />
-                  <span>Send for Verification</span>
-                </button>
+                <div style={{ position: 'relative', width: '100%' }}>
+                  {showVerificationTooltip && !isAllTabsFilled && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 'calc(100% + 10px)',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#0F172A',
+                        color: '#FFFFFF',
+                        borderRadius: 12,
+                        padding: '12px 14px',
+                        fontSize: 12,
+                        boxShadow: '0 16px 36px rgba(0,0,0,0.4)',
+                        border: '1px solid #334155',
+                        zIndex: 50,
+                        animation: 'fadeIn 0.2s ease-in-out',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#F87171' }}>
+                          <AlertCircle size={14} />
+                          <span>Complete all tabs to submit:</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowVerificationTooltip(false)}
+                          style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 12, padding: 0 }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11, color: '#CBD5E1' }}>
+                        {!isTab1Filled && (
+                          <div style={{ color: '#FCA5A5' }}>
+                            • <strong>Shop Details:</strong> {tab1Missing.join(', ')}
+                          </div>
+                        )}
+                        {!isTab2Filled && (
+                          <div style={{ color: '#FCA5A5' }}>
+                            • <strong>Documents:</strong> {tab2Missing.join(', ')}
+                          </div>
+                        )}
+                        {!isTab3Filled && (
+                          <div style={{ color: '#FCA5A5' }}>
+                            • <strong>Hours:</strong> {tab3Missing.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: -6,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 0,
+                          height: 0,
+                          borderLeft: '6px solid transparent',
+                          borderRight: '6px solid transparent',
+                          borderTop: '6px solid #0F172A',
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSendForVerification}
+                    onMouseEnter={() => {
+                      if (!isAllTabsFilled) setShowVerificationTooltip(true);
+                    }}
+                    onMouseLeave={() => {
+                      if (!showVerificationTooltip) setShowVerificationTooltip(false);
+                    }}
+                    disabled={isSubmittingVerification}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: 12,
+                      backgroundColor: isAllTabsFilled ? '#1C1D21' : '#94A3B8',
+                      opacity: isAllTabsFilled ? 1 : 0.75,
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: isAllTabsFilled ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      boxShadow: isAllTabsFilled ? '0 4px 12px rgba(28,29,33,0.3)' : 'none',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <ShieldCheck size={16} />
+                    <span>{isSubmittingVerification ? 'Submitting...' : 'Send for Verification'}</span>
+                  </button>
+                </div>
               )}
 
               {isPending && (

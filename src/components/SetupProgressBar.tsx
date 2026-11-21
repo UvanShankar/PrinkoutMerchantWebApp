@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import {
   ChevronLeft,
@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   X,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 
 export const SetupProgressBar: React.FC = () => {
@@ -21,16 +22,92 @@ export const SetupProgressBar: React.FC = () => {
     submitSetupForReview,
     shopData,
     authPhone,
+    showToast,
   } = useMerchant();
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showStepTooltip, setShowStepTooltip] = useState(false);
+  const [stepMissingFields, setStepMissingFields] = useState<string[]>([]);
+  const stepTooltipTimeoutRef = useRef<any>(null);
 
   if (!isSetupPending) return null;
 
-  const progressPercent = setupStep === 1 ? 33 : setupStep === 2 ? 66 : 100;
+  // Real-time detail completion tracking (fills dynamically as each detail is entered and saved)
+  const detailsTracking = [
+    { key: 'shopName', label: 'Shop Name', filled: Boolean(shopData?.shopName?.trim()) },
+    { key: 'address', label: 'Shop Address', filled: Boolean(shopData?.address?.trim()) },
+    { key: 'city', label: 'City', filled: Boolean(shopData?.city?.trim()) },
+    { key: 'pincode', label: '6-digit Pincode', filled: Boolean(shopData?.pincode?.trim() && /^\d{6}$/.test(shopData.pincode.trim())) },
+    { key: 'mobile', label: 'Phone Number', filled: Boolean(shopData?.mobile?.trim()) },
+    { key: 'upiId', label: 'UPI ID for Payouts', filled: Boolean(shopData?.upiId?.trim() && shopData.upiId.includes('@')) },
+    { key: 'documents', label: 'Verification Document / Store Photo', filled: Boolean((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0)) },
+    { key: 'hours', label: 'Operating Hours', filled: Boolean(shopData?.openingTime && shopData?.closingTime) },
+    { key: 'days', label: 'Working Days', filled: Boolean(Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0) },
+    { key: 'services', label: 'Services Selected', filled: Boolean(Array.isArray(shopData?.services) && shopData.services.length > 0) },
+    { key: 'pricing', label: 'Format Pricing Rates', filled: Boolean(shopData?.pricing || (Array.isArray(shopData?.paperRates) && shopData.paperRates.length > 0)) },
+  ];
+
+  const totalDetailsCount = detailsTracking.length;
+  const completedDetailsCount = detailsTracking.filter(d => d.filled).length;
+  const progressPercent = Math.min(100, Math.round((completedDetailsCount / totalDetailsCount) * 100));
+
+  // Step 1 Validation
+  const getStep1Missing = () => {
+    const missing: string[] = [];
+    if (!shopData?.shopName?.trim()) missing.push('Shop Name');
+    if (!shopData?.address?.trim()) missing.push('Shop Address');
+    if (!shopData?.city?.trim()) missing.push('City');
+    if (!shopData?.pincode?.trim() || !/^\d{6}$/.test(shopData.pincode.trim())) missing.push('6-digit Pincode');
+    if (!shopData?.mobile?.trim()) missing.push('Phone Number');
+    if (!shopData?.upiId?.trim() || !shopData.upiId.includes('@')) missing.push('UPI ID for Payouts');
+    if (!((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0))) {
+      missing.push('Verification Document or Storefront Photo');
+    }
+    if (!shopData?.openingTime || !shopData?.closingTime || !Array.isArray(shopData?.workingDays) || shopData.workingDays.length === 0) {
+      missing.push('Operating Hours & Working Days');
+    }
+    return missing;
+  };
+
+  // Step 3 Validation
+  const getStep3Missing = () => {
+    const missing: string[] = [];
+    if (!Array.isArray(shopData?.services) || shopData.services.length === 0) {
+      missing.push('Select at least 1 Print Service');
+    }
+    if (!shopData?.pricing && (!Array.isArray(shopData?.paperRates) || shopData.paperRates.length === 0)) {
+      missing.push('Paper Rates & Pricing configuration');
+    }
+    return missing;
+  };
+
+  const step1Missing = getStep1Missing();
+  const step3Missing = getStep3Missing();
+
+  const isCurrentStepComplete =
+    setupStep === 1
+      ? step1Missing.length === 0
+      : setupStep === 2
+      ? true
+      : step3Missing.length === 0;
+
+  const currentStepMissing = setupStep === 1 ? step1Missing : setupStep === 3 ? step3Missing : [];
+
+  const triggerStepTooltip = (missing: string[]) => {
+    setStepMissingFields(missing);
+    setShowStepTooltip(true);
+    if (stepTooltipTimeoutRef.current) clearTimeout(stepTooltipTimeoutRef.current);
+    stepTooltipTimeoutRef.current = setTimeout(() => setShowStepTooltip(false), 5000);
+  };
 
   const handleNext = () => {
+    if (!isCurrentStepComplete) {
+      triggerStepTooltip(currentStepMissing);
+      showToast('Please complete all required details in this step to proceed.');
+      return;
+    }
+
     if (setupStep === 1) {
       setSetupStep(2);
     } else if (setupStep === 2) {
@@ -138,7 +215,9 @@ export const SetupProgressBar: React.FC = () => {
         {/* Center 3D Progress Bar */}
         <div style={{ flex: 1, maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 800 }}>
-            <span style={{ color: '#FFFFFF', letterSpacing: '0.6px', textTransform: 'uppercase' }}>MANDATORY SETUP PROGRESS</span>
+            <span style={{ color: '#FFFFFF', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+              MANDATORY SETUP PROGRESS ({completedDetailsCount}/{totalDetailsCount} details)
+            </span>
             <span
               style={{
                 color: progressPercent === 100 ? '#4ADE80' : '#93C5FD',
@@ -202,7 +281,60 @@ export const SetupProgressBar: React.FC = () => {
         </div>
 
         {/* Right Navigation Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+          {/* Floating Tooltip if button clicked/hovered while current step incomplete */}
+          {showStepTooltip && !isCurrentStepComplete && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 'calc(100% + 14px)',
+                right: 0,
+                width: 300,
+                backgroundColor: '#0F172A',
+                color: '#FFFFFF',
+                borderRadius: 12,
+                padding: '12px 14px',
+                fontSize: 12,
+                boxShadow: '0 16px 36px rgba(0,0,0,0.5)',
+                border: '1px solid #334155',
+                zIndex: 60,
+                animation: 'fadeIn 0.2s ease-in-out',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#F87171' }}>
+                  <AlertCircle size={15} />
+                  <span>Required before proceeding:</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowStepTooltip(false)}
+                  style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                >
+                  ✕
+                </button>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5, color: '#E2E8F0', fontSize: 11.5 }}>
+                {stepMissingFields.map((f, i) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ul>
+              {/* Tooltip downward triangle pointer */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: -6,
+                  right: 35,
+                  width: 0,
+                  height: 0,
+                  borderLeft: '6px solid transparent',
+                  borderRight: '6px solid transparent',
+                  borderTop: '6px solid #0F172A',
+                }}
+              />
+            </div>
+          )}
+
           {setupStep > 1 && (
             <button
               type="button"
@@ -230,22 +362,34 @@ export const SetupProgressBar: React.FC = () => {
           <button
             type="button"
             onClick={handleNext}
+            onMouseEnter={() => {
+              if (!isCurrentStepComplete) triggerStepTooltip(currentStepMissing);
+            }}
+            onMouseLeave={() => {
+              if (!showStepTooltip) setShowStepTooltip(false);
+            }}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
               padding: '10px 20px',
               borderRadius: 12,
-              backgroundColor: setupStep === 3 ? '#16A34A' : '#4F46E5',
+              backgroundColor: isCurrentStepComplete
+                ? setupStep === 3
+                  ? '#16A34A'
+                  : '#4F46E5'
+                : '#475569',
+              opacity: isCurrentStepComplete ? 1 : 0.75,
               border: 'none',
               color: '#FFFFFF',
               fontSize: 13,
               fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow:
-                setupStep === 3
+              cursor: isCurrentStepComplete ? 'pointer' : 'not-allowed',
+              boxShadow: isCurrentStepComplete
+                ? setupStep === 3
                   ? '0 4px 14px rgba(22, 163, 74, 0.45)'
-                  : '0 4px 14px rgba(79, 70, 229, 0.45)',
+                  : '0 4px 14px rgba(79, 70, 229, 0.45)'
+                : 'none',
               transition: 'all 0.15s ease',
             }}
           >
