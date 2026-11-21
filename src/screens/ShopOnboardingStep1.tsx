@@ -4,6 +4,7 @@ import { AuthLayout } from './AuthLayout';
 import { ChevronLeft, ArrowRight, Store, User, Phone, FileText, MapPin, CheckCircle2, Clock, AlertTriangle, AlertCircle, X } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
+import { resolveCityFromLocation } from '../utils/locationUtils';
 
 export const ShopOnboardingStep1: React.FC = () => {
   const { onboardingData, updateOnboardingData, navigateTo, showToast } = useMerchant();
@@ -54,11 +55,12 @@ export const ShopOnboardingStep1: React.FC = () => {
     const pin = form.pincode?.trim().replace(/\D/g, '');
     if (pin && pin.length === 6) {
       merchantApi.checkServiceability(pin).then((res) => {
+        const resolvedCity = resolveCityFromLocation(pin, form.address, res?.location?.city);
         setServiceStatus({
           checked: true,
           serviceable: res?.serviceable ?? false,
           area: res?.location?.area,
-          city: res?.location?.city,
+          city: resolvedCity,
           status: res?.status,
           message: res?.message,
         });
@@ -66,7 +68,7 @@ export const ShopOnboardingStep1: React.FC = () => {
     } else {
       setServiceStatus(null);
     }
-  }, [form.pincode]);
+  }, [form.pincode, form.address]);
 
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimeoutRef = useRef<any>(null);
@@ -125,12 +127,13 @@ export const ShopOnboardingStep1: React.FC = () => {
     }
 
     const canonicalPhone = `+91${cleanPhone}`;
+    const resolvedCity = resolveCityFromLocation(cleanPin, form.address, serviceStatus?.city || onboardingData.city);
     updateOnboardingData({
       ...form,
       ownerName: form.ownerName?.trim() || '',
       description: form.description?.trim() || '',
       pincode: cleanPin,
-      city: serviceStatus?.city || onboardingData.city || '',
+      city: resolvedCity,
       area: serviceStatus?.area || onboardingData.area || '',
       mobile: canonicalPhone,
       phone: canonicalPhone,
@@ -459,7 +462,7 @@ export const ShopOnboardingStep1: React.FC = () => {
                 {serviceStatus.serviceable ? (
                   <>
                     <CheckCircle2 size={12} color="#16A34A" />
-                    <span>Active Hub ({serviceStatus.city})</span>
+                    <span>Active Hub ({serviceStatus.city || 'Tamil Nadu'})</span>
                   </>
                 ) : (
                   <>

@@ -13,6 +13,7 @@ import {
   Sparkles,
   AlertCircle,
 } from 'lucide-react';
+import { resolveCityFromLocation } from '../utils/locationUtils';
 
 export const SetupProgressBar: React.FC = () => {
   const {
@@ -34,10 +35,12 @@ export const SetupProgressBar: React.FC = () => {
   if (!isSetupPending) return null;
 
   // Real-time detail completion tracking (fills dynamically as each detail is entered and saved)
+  const resolvedShopCity = resolveCityFromLocation(shopData?.pincode, shopData?.address, shopData?.city);
+
   const detailsTracking = [
     { key: 'shopName', label: 'Shop Name', filled: Boolean(shopData?.shopName?.trim()) },
     { key: 'address', label: 'Shop Address', filled: Boolean(shopData?.address?.trim()) },
-    { key: 'city', label: 'City', filled: Boolean(shopData?.city?.trim()) },
+    { key: 'city', label: 'City', filled: Boolean(resolvedShopCity) },
     { key: 'pincode', label: '6-digit Pincode', filled: Boolean(shopData?.pincode?.trim() && /^\d{6}$/.test(shopData.pincode.trim())) },
     { key: 'mobile', label: 'Phone Number', filled: Boolean(shopData?.mobile?.trim()) },
     { key: 'upiId', label: 'UPI ID for Payouts', filled: Boolean(shopData?.upiId?.trim() && shopData.upiId.includes('@')) },
@@ -57,7 +60,7 @@ export const SetupProgressBar: React.FC = () => {
     const missing: string[] = [];
     if (!shopData?.shopName?.trim()) missing.push('Shop Name');
     if (!shopData?.address?.trim()) missing.push('Shop Address');
-    if (!shopData?.city?.trim()) missing.push('City');
+    if (!resolvedShopCity) missing.push('City (Location)');
     if (!shopData?.pincode?.trim() || !/^\d{6}$/.test(shopData.pincode.trim())) missing.push('6-digit Pincode');
     if (!shopData?.mobile?.trim()) missing.push('Phone Number');
     if (!shopData?.upiId?.trim() || !shopData.upiId.includes('@')) missing.push('UPI ID for Payouts');

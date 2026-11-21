@@ -29,6 +29,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { theme } from '../theme';
+import { resolveCityFromLocation, cleanCityName } from '../utils/locationUtils';
 
 interface DocItem {
   id: string;
@@ -79,15 +80,18 @@ export const ShopProfileScreen: React.FC = () => {
   const [previewAsset, setPreviewAsset] = useState<{ name: string; url: string; type: string } | null>(null);
 
   // Forms
-  const [basicForm, setBasicForm] = useState({
-    shopName: shopData?.shopName || '',
-    description: shopData?.description || '',
-    address: shopData?.address || '',
-    area: shopData?.area || '',
-    city: shopData?.city || '',
-    pincode: shopData?.pincode || '',
-    mobile: shopData?.mobile || '',
-    ownerName: shopData?.ownerName || '',
+  const [basicForm, setBasicForm] = useState(() => {
+    const initCity = resolveCityFromLocation(shopData?.pincode, shopData?.address, shopData?.city);
+    return {
+      shopName: shopData?.shopName || '',
+      description: shopData?.description || '',
+      address: shopData?.address || '',
+      area: shopData?.area || '',
+      city: initCity,
+      pincode: shopData?.pincode || '',
+      mobile: shopData?.mobile || '',
+      ownerName: shopData?.ownerName || '',
+    };
   });
 
   const [businessForm, setBusinessForm] = useState({
@@ -122,16 +126,40 @@ export const ShopProfileScreen: React.FC = () => {
 
   useEffect(() => {
     if (shopData) {
+      const resolvedCity = resolveCityFromLocation(
+        shopData.pincode,
+        shopData.address,
+        shopData.city
+      );
+
       setBasicForm({
         shopName: shopData.shopName || '',
         description: shopData.description || '',
         address: shopData.address || '',
         area: shopData.area || '',
-        city: shopData.city || '',
+        city: resolvedCity,
         pincode: shopData.pincode || '',
         mobile: shopData.mobile || '',
         ownerName: shopData.ownerName || '',
       });
+
+      // If shopData had 'General' or empty city, fix it in shopData and persist
+      if ((!shopData.city || shopData.city.toLowerCase() === 'general') && resolvedCity) {
+        setShopData((prev: any) => ({ ...prev, city: resolvedCity }));
+        if (shopId) {
+          merchantApi.updateShopProfile(shopId, { city: resolvedCity }).catch(() => {});
+        }
+        try {
+          const raw = localStorage.getItem('prinkout_merchant_session');
+          if (raw) {
+            const sess = JSON.parse(raw);
+            if (sess.shopData) {
+              sess.shopData.city = resolvedCity;
+              localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+            }
+          }
+        } catch {}
+      }
       setBusinessForm({
         businessType: shopData.businessType || 'Print Shop (Retail)',
         gstNumber: shopData.gstNumber || '',
@@ -238,9 +266,15 @@ export const ShopProfileScreen: React.FC = () => {
   const handleSaveBasic = async () => {
     try {
       setSavingBasic(true);
+      const cleanCity = resolveCityFromLocation(basicForm.pincode, basicForm.address, basicForm.city);
+      const updatedBasic = {
+        ...basicForm,
+        city: cleanCity || basicForm.city,
+      };
+      setBasicForm(updatedBasic);
       const payload = isApproved
         ? { description: basicForm.description }
-        : basicForm;
+        : updatedBasic;
       if (shopId) {
         await merchantApi.updateShopProfile(shopId, payload);
       }
@@ -445,10 +479,11 @@ export const ShopProfileScreen: React.FC = () => {
   };
 
   // Tab Completeness & Detail-by-Detail Progress Tracking
+  const resolvedCurrentCity = resolveCityFromLocation(basicForm.pincode, basicForm.address, basicForm.city);
   const tab1Missing: string[] = [];
   if (!basicForm.shopName?.trim()) tab1Missing.push('Shop Name');
   if (!basicForm.address?.trim()) tab1Missing.push('Shop Address');
-  if (!basicForm.city?.trim()) tab1Missing.push('City');
+  if (!resolvedCurrentCity) tab1Missing.push('City (Location)');
   if (!basicForm.pincode?.trim() || !/^\d{6}$/.test(basicForm.pincode.trim())) tab1Missing.push('6-digit Pincode');
   if (!basicForm.mobile?.trim() || !/^(?:\+91)?[6-9]\d{9}$/.test(basicForm.mobile.trim())) tab1Missing.push('10-digit Phone Number');
   if (!businessForm.upiId?.trim() || !businessForm.upiId.includes('@')) tab1Missing.push('Valid UPI ID (for payouts)');
@@ -472,7 +507,7 @@ export const ShopProfileScreen: React.FC = () => {
   const profileDetails = [
     Boolean(basicForm.shopName?.trim()),
     Boolean(basicForm.address?.trim()),
-    Boolean(basicForm.city?.trim()),
+    Boolean(resolvedCurrentCity),
     Boolean(basicForm.pincode?.trim() && /^\d{6}$/.test(basicForm.pincode.trim())),
     Boolean(basicForm.mobile?.trim() && /^(?:\+91)?[6-9]\d{9}$/.test(basicForm.mobile.trim())),
     Boolean(businessForm.upiId?.trim() && businessForm.upiId.includes('@')),
@@ -489,8 +524,14 @@ export const ShopProfileScreen: React.FC = () => {
       showToast('Please complete all tabs (Shop Details, Documents, Operating Hours) before submitting.');
       return;
     }
-    const payload = {
+    const cleanCity = resolveCityFromLocation(basicForm.pincode, basicForm.address, basicForm.city);
+    const updatedBasic = {
       ...basicForm,
+      city: cleanCity || basicForm.city,
+    };
+    setBasicForm(updatedBasic);
+    const payload = {
+      ...updatedBasic,
       ...businessForm,
       ...hoursForm,
       documents,
@@ -1037,30 +1078,66 @@ export const ShopProfileScreen: React.FC = () => {
                         placeholder="Door number, street name"
                         disabled={isApproved}
                         value={basicForm.address}
-                        onChange={e => setBasicForm(f => ({ ...f, address: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setBasicForm(f => {
+                            const autoCity = (!f.city || f.city.toLowerCase() === 'general')
+                              ? resolveCityFromLocation(f.pincode, val, '')
+                              : f.city;
+                            return {
+                              ...f,
+                              address: val,
+                              city: autoCity || f.city,
+                            };
+                          });
+                        }}
                         style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                       />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>City</label>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                          <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B' }}>City *</label>
+                          {basicForm.city && basicForm.city.toLowerCase() !== 'general' && (
+                            <span style={{ fontSize: 9.5, color: '#059669', fontWeight: 700 }}>✓ Location</span>
+                          )}
+                        </div>
                         <input
                           type="text"
                           placeholder="City"
                           disabled={isApproved}
-                          value={basicForm.city}
+                          value={basicForm.city && basicForm.city.toLowerCase() !== 'general' ? basicForm.city : ''}
                           onChange={e => setBasicForm(f => ({ ...f, city: e.target.value }))}
                           style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Pincode</label>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>Pincode *</label>
                         <input
                           type="text"
                           placeholder="6 digits"
                           disabled={isApproved}
                           value={basicForm.pincode}
-                          onChange={e => setBasicForm(f => ({ ...f, pincode: e.target.value }))}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                            setBasicForm(f => {
+                              const autoCity = val.length === 6 ? resolveCityFromLocation(val, f.address, f.city) : f.city;
+                              return {
+                                ...f,
+                                pincode: val,
+                                city: (autoCity && autoCity.toLowerCase() !== 'general') ? autoCity : f.city,
+                              };
+                            });
+                            if (val.length === 6) {
+                              merchantApi.checkServiceability(val).then(res => {
+                                const cityFromApi = res?.location?.city;
+                                const resolved = resolveCityFromLocation(val, basicForm.address, cityFromApi);
+                                if (resolved && resolved.toLowerCase() !== 'general') {
+                                  setBasicForm(f => ({ ...f, city: resolved }));
+                                }
+                              }).catch(() => {});
+                            }
+                          }}
                           style={{ width: '100%', padding: '6px 8px', borderRadius: 8, border: '1px solid #DAD5CB', fontSize: 12.5, backgroundColor: isApproved ? '#F3F4F6' : '#FFFFFF' }}
                         />
                       </div>
@@ -1126,7 +1203,7 @@ export const ShopProfileScreen: React.FC = () => {
                           <div style={{ fontSize: 11, color: '#8E929B' }}>Shop Address</div>
                           <div style={{ fontSize: 12.5, color: basicForm.address ? '#555963' : '#9CA3AF' }}>
                             {basicForm.address
-                              ? `${basicForm.address}${basicForm.city ? `, ${basicForm.city}` : ''}${basicForm.pincode ? ` - ${basicForm.pincode}` : ''}`
+                              ? `${basicForm.address}${basicForm.city && basicForm.city.toLowerCase() !== 'general' ? `, ${basicForm.city}` : ''}${basicForm.pincode ? ` - ${basicForm.pincode}` : ''}`
                               : 'Address not entered yet'}
                           </div>
                         </div>
@@ -1834,7 +1911,7 @@ export const ShopProfileScreen: React.FC = () => {
                     {basicForm.shopName || 'Shop Preview'}
                   </div>
                   <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>
-                    {basicForm.city || 'Tamil Nadu'}
+                    {(basicForm.city && basicForm.city.toLowerCase() !== 'general') ? basicForm.city : 'Tamil Nadu'}
                   </div>
                 </div>
 
@@ -1846,7 +1923,7 @@ export const ShopProfileScreen: React.FC = () => {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <MapPin size={12} />
-                      <span>{basicForm.city || 'Local Store'}</span>
+                      <span>{(basicForm.city && basicForm.city.toLowerCase() !== 'general') ? basicForm.city : 'Local Store'}</span>
                     </div>
                   </div>
 
