@@ -483,59 +483,6 @@ export const ShopProfileScreen: React.FC = () => {
     }
   };
 
-  // Admin Simulator: Approve Shop
-  const handleAdminApprove = async () => {
-    try {
-      if (shopId) {
-        await merchantApi.approveShopVerification(shopId);
-      }
-      const approvedPayload = {
-        verificationStatus: 'approved',
-        isVerified: true,
-        verifiedAt: new Date().toISOString(),
-      };
-      setShopData((prev: any) => ({ ...prev, ...approvedPayload }));
-      showToast('✓ Shop has been officially Verified & Approved!');
-    } catch (err: any) {
-      showToast(err.message || 'Approval failed');
-    }
-  };
-
-  // Admin Simulator: Reject Shop
-  const handleAdminReject = async () => {
-    try {
-      if (shopId) {
-        await merchantApi.rejectShopVerification(shopId, 'Please re-upload a clear copy of your GST Certificate.');
-      }
-      const rejectedPayload = {
-        verificationStatus: 'rejected',
-        isVerified: false,
-        rejectionReason: 'Please re-upload a clear copy of your GST Certificate.',
-      };
-      setShopData((prev: any) => ({ ...prev, ...rejectedPayload }));
-      showToast('Shop verification rejected. Status set to Rejected.');
-    } catch (err: any) {
-      showToast(err.message || 'Rejection failed');
-    }
-  };
-
-  // Reset to Draft for testing
-  const handleResetToDraft = async () => {
-    try {
-      const draftPayload = {
-        verificationStatus: 'draft',
-        isVerified: false,
-      };
-      if (shopId) {
-        await merchantApi.updateShopProfile(shopId, draftPayload);
-      }
-      setShopData((prev: any) => ({ ...prev, ...draftPayload }));
-      showToast('Shop reset to Draft (Unsubmitted) state for testing.');
-    } catch (err: any) {
-      showToast(err.message || 'Reset failed');
-    }
-  };
-
   const tabs = [
     { id: 'details', label: 'Shop Details' },
     { id: 'documents', label: `Documents (${documents.length})` },
@@ -625,91 +572,6 @@ export const ShopProfileScreen: React.FC = () => {
         </div>
       )}
 
-      {isPending && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-            padding: '16px 20px',
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #3B82F6',
-            borderRadius: 16,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '50%',
-                  backgroundColor: '#3B82F6',
-                  color: '#FFFFFF',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Clock size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1E40AF' }}>
-                  ⏳ Waiting for Approval
-                </div>
-                <div style={{ fontSize: 12.5, color: '#1D4ED8' }}>
-                  Your shop profile and documents have been submitted to the admin team for verification. Till approved, your profile is under review.
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Admin Simulator Controls for instant end-to-end testing */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <button
-                onClick={handleAdminApprove}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '7px 14px',
-                  borderRadius: 10,
-                  backgroundColor: '#16A34A',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-                title="Simulate Admin Verification Approval"
-              >
-                <CheckCircle2 size={14} />
-                <span>Approve Shop (Admin)</span>
-              </button>
-              <button
-                onClick={handleAdminReject}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '7px 12px',
-                  borderRadius: 10,
-                  backgroundColor: '#DC2626',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                <X size={14} />
-                <span>Reject</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {isApproved && (
         <div
           style={{
@@ -769,22 +631,6 @@ export const ShopProfileScreen: React.FC = () => {
               <Lock size={13} />
               <span>Editing Locked</span>
             </div>
-            {/* Discreet button to reset for re-testing lifecycle */}
-            <button
-              onClick={handleResetToDraft}
-              style={{
-                background: 'none',
-                border: '1px solid #A7F3D0',
-                borderRadius: 8,
-                padding: '4px 8px',
-                fontSize: 10.5,
-                color: '#065F46',
-                cursor: 'pointer',
-              }}
-              title="Reset verification state to Draft for testing"
-            >
-              Test Reset
-            </button>
           </div>
         </div>
       )}
@@ -1749,36 +1595,18 @@ export const ShopProfileScreen: React.FC = () => {
               )}
 
               {isPending && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: 10,
-                      backgroundColor: '#EFF6FF',
-                      border: '1px solid #BFDBFE',
-                      fontSize: 11.5,
-                      color: '#1E40AF',
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    Submitted on {shopData?.verificationSubmittedAt ? new Date(shopData.verificationSubmittedAt).toLocaleDateString() : 'Today'}
-                  </div>
-                  <button
-                    onClick={handleAdminApprove}
-                    style={{
-                      width: '100%',
-                      padding: '9px 14px',
-                      borderRadius: 10,
-                      backgroundColor: '#16A34A',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Simulate Admin Approval
-                  </button>
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    backgroundColor: '#EFF6FF',
+                    border: '1px solid #BFDBFE',
+                    fontSize: 11.5,
+                    color: '#1E40AF',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Submitted on {shopData?.verificationSubmittedAt ? new Date(shopData.verificationSubmittedAt).toLocaleDateString() : 'Today'}
                 </div>
               )}
 
