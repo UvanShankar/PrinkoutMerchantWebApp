@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Toast } from './components/Toast';
 import { SetupProgressBar } from './components/SetupProgressBar';
+import { SubmissionUnderReviewModal } from './components/SubmissionUnderReviewModal';
 
 // Auth & Onboarding Screens (Pages 1 - 6)
 import { LoginScreen } from './screens/LoginScreen';
@@ -24,7 +25,13 @@ import { ShopProfileScreen } from './screens/ShopProfileScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 
 const MainNavigator: React.FC = () => {
-  const { currentScreen, isAuthenticated } = useMerchant();
+  const {
+    currentScreen,
+    isAuthenticated,
+    showSubmissionModal,
+    closeSubmissionModal,
+    shopData,
+  } = useMerchant();
 
   const isPublicScreen = [
     'login',
@@ -77,6 +84,11 @@ const MainNavigator: React.FC = () => {
         </main>
         <SetupProgressBar />
       </div>
+      <SubmissionUnderReviewModal
+        isOpen={showSubmissionModal}
+        onClose={closeSubmissionModal}
+        shopName={shopData?.shopName}
+      />
       <Toast />
     </div>
   );

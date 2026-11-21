@@ -48,7 +48,7 @@ interface PhotoItem {
 }
 
 export const ShopProfileScreen: React.FC = () => {
-  const { shopId, shopData, setShopData, orders, showToast } = useMerchant();
+  const { shopId, shopData, setShopData, orders, showToast, openSubmissionModal } = useMerchant();
   const [activeTab, setActiveTab] = useState<'details' | 'documents' | 'hours' | 'preview'>('details');
 
   // Verification status: 'draft' | 'pending_approval' | 'approved' | 'rejected'
@@ -506,6 +506,7 @@ export const ShopProfileScreen: React.FC = () => {
       ...hoursForm,
       documents,
       photos,
+      isSetupCompleted: true,
       verificationStatus: 'pending_approval' as const,
       isVerified: false,
       verificationSubmittedAt: new Date().toISOString(),
@@ -517,17 +518,19 @@ export const ShopProfileScreen: React.FC = () => {
         if (result) {
           if (Array.isArray(result.documents)) setDocuments(result.documents);
           if (Array.isArray(result.photos)) setPhotos(result.photos);
-          setShopData((prev: any) => ({ ...prev, ...result }));
+          setShopData((prev: any) => ({ ...prev, ...result, isSetupCompleted: true, verificationStatus: 'pending_approval' }));
         } else {
-          setShopData((prev: any) => ({ ...prev, ...payload }));
+          setShopData((prev: any) => ({ ...prev, ...payload, isSetupCompleted: true, verificationStatus: 'pending_approval' }));
         }
       } else {
-        setShopData((prev: any) => ({ ...prev, ...payload }));
+        setShopData((prev: any) => ({ ...prev, ...payload, isSetupCompleted: true, verificationStatus: 'pending_approval' }));
       }
+      openSubmissionModal();
       showToast('Shop profile sent for admin verification!');
     } catch (err: any) {
       console.warn('sendShopForVerification API error, falling back to local state:', err);
-      setShopData((prev: any) => ({ ...prev, ...payload }));
+      setShopData((prev: any) => ({ ...prev, ...payload, isSetupCompleted: true, verificationStatus: 'pending_approval' }));
+      openSubmissionModal();
       showToast('Shop profile submitted for verification!');
     } finally {
       setIsSubmittingVerification(false);
@@ -750,6 +753,69 @@ export const ShopProfileScreen: React.FC = () => {
               <span>{isSubmittingVerification ? 'Submitting...' : 'Send for Verification'}</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {isPending && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            padding: '14px 20px',
+            backgroundColor: '#EFF6FF',
+            border: '1px solid #BFDBFE',
+            borderRadius: 16,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: '50%',
+                backgroundColor: '#DBEAFE',
+                color: '#1E40AF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Clock size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span>Profile Under Review</span>
+                <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '2px 8px', borderRadius: 10 }}>
+                  Submitted {shopData?.verificationSubmittedAt ? new Date(shopData.verificationSubmittedAt).toLocaleDateString() : 'Today'}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: '#2563EB', marginTop: 2 }}>
+                Your shop profile and documents have been submitted to the admin team. You have full access to use and explore all features in the app.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openSubmissionModal}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 12,
+              backgroundColor: '#1E40AF',
+              color: '#FFFFFF',
+              border: 'none',
+              fontSize: 12.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 6px rgba(30, 64, 175, 0.25)',
+            }}
+          >
+            View Verification Status
+          </button>
         </div>
       )}
 

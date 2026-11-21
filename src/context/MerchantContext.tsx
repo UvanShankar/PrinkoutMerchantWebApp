@@ -41,6 +41,11 @@ interface MerchantContextType {
   setSetupStep: (step: 1 | 2 | 3) => void;
   submitSetupForReview: () => Promise<void>;
 
+  // Submission & Review Modal
+  showSubmissionModal: boolean;
+  openSubmissionModal: () => void;
+  closeSubmissionModal: () => void;
+
   // Team & Access
   teamMembers: any[];
   accessActivity: any[];
@@ -515,6 +520,11 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     else if (currentScreen === 'pricing') setSetupStepState(3);
   }, [currentScreen, settingsTab]);
 
+  // Submission & Review Modal state
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const openSubmissionModal = () => setShowSubmissionModal(true);
+  const closeSubmissionModal = () => setShowSubmissionModal(false);
+
   // Team Members & Access Activity
   const ownerMobile = shopData?.mobile || authPhone || '';
   const cleanOwnerDigits = ownerMobile.replace(/\D/g, '').slice(-10);
@@ -665,8 +675,8 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sess));
       }
     } catch {}
+    setShowSubmissionModal(true);
     showToast('🎉 Shop setup submitted for review!');
-    navigateTo('dashboard');
   };
 
   const selectedOrder = (selectedOrderId ? orders.find(o => o.orderId === selectedOrderId) : orders[0]) || null;
@@ -690,6 +700,9 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setupStep,
         setSetupStep,
         submitSetupForReview,
+        showSubmissionModal,
+        openSubmissionModal,
+        closeSubmissionModal,
         teamMembers,
         accessActivity,
         addTeamMember,
