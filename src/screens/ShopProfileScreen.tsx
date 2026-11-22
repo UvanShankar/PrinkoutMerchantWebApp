@@ -857,6 +857,12 @@ export const ShopProfileScreen: React.FC = () => {
       city: cleanCity || basicForm.city,
     };
     setBasicForm(updatedBasic);
+    const isResubmit = Boolean(
+      (Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0) ||
+      shopData?.verificationStatus === 'pending_approval' ||
+      shopData?.verificationStatus === 'resubmitted' ||
+      shopData?.isResubmitted
+    );
     const payload = {
       ...(shopData || {}),
       ...updatedBasic,
@@ -865,7 +871,9 @@ export const ShopProfileScreen: React.FC = () => {
       documents,
       photos,
       isSetupCompleted: true,
-      verificationStatus: 'pending_approval' as const,
+      verificationStatus: isResubmit ? 'resubmitted' : 'pending_approval',
+      isResubmitted: isResubmit,
+      resubmittedAt: isResubmit ? new Date().toISOString() : undefined,
       isVerified: false,
       verificationSubmittedAt: new Date().toISOString(),
     };

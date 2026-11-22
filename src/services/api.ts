@@ -172,9 +172,16 @@ export const merchantApi = {
   },
 
   async sendShopForVerification(shopId: string, profileData?: any) {
+    const isResubmit = Boolean(
+      profileData?.isResubmitted ||
+      profileData?.verificationStatus === 'resubmitted' ||
+      (Array.isArray(profileData?.adminComments) && profileData.adminComments.length > 0)
+    );
     const payload = {
       ...profileData,
-      verificationStatus: 'pending_approval',
+      verificationStatus: isResubmit ? 'resubmitted' : 'pending_approval',
+      isResubmitted: isResubmit,
+      resubmittedAt: isResubmit ? new Date().toISOString() : profileData?.resubmittedAt,
       isVerified: false,
       verificationSubmittedAt: new Date().toISOString(),
     };
