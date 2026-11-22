@@ -110,10 +110,12 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         const resolvedCityName = resolveCityFromLocation(postcode, data.display_name, rawCity);
 
         setPickedAddress(fullStreet || data.display_name?.split(',').slice(0, 3).join(',') || 'Storefront Location');
-        setPickedArea(area || 'Local Hub');
-        setPickedCity(resolvedCityName || 'Tiruppur');
+        setPickedArea(area || '');
+        setPickedCity(resolvedCityName || initialCity || '');
         if (postcode && postcode.length === 6) {
           setPickedPincode(postcode);
+        } else if (initialPincode) {
+          setPickedPincode(initialPincode);
         }
 
         setLocationStatus('Location identified');
@@ -121,9 +123,9 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         setLocationStatus('Coordinates updated');
       }
     } catch (e) {
-      // Fallback: estimate from coordinates
-      const estimatedCity = lat > 12.8 ? 'Chennai' : 'Tiruppur';
-      setPickedCity(estimatedCity);
+      // Fallback: preserve initial details if reverse geocode fails
+      setPickedCity(initialCity || '');
+      setPickedPincode(initialPincode || '');
       setLocationStatus('Coordinates captured');
     } finally {
       setGeocoding(false);
@@ -277,9 +279,9 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       latitude: coords.lat,
       longitude: coords.lng,
       address: pickedAddress || `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`,
-      area: pickedArea || 'Store Area',
-      city: pickedCity || 'Tiruppur',
-      pincode: pickedPincode || '641601',
+      area: pickedArea || '',
+      city: pickedCity || initialCity || '',
+      pincode: pickedPincode || initialPincode || '',
     });
     onClose();
   };
@@ -524,11 +526,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, fontSize: 12, color: '#475569' }}>
                 <span>
-                  City: <strong style={{ color: '#0F172A' }}>{pickedCity || 'Tiruppur'}</strong>
+                  City: <strong style={{ color: '#0F172A' }}>{pickedCity || initialCity || 'Not detected'}</strong>
                 </span>
                 <span>•</span>
                 <span>
-                  Pincode: <strong style={{ color: '#0F172A' }}>{pickedPincode || '641601'}</strong>
+                  Pincode: <strong style={{ color: '#0F172A' }}>{pickedPincode || initialPincode || 'Not detected'}</strong>
                 </span>
                 {locationStatus && (
                   <>
