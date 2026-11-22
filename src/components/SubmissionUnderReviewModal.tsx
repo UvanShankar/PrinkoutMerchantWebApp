@@ -209,7 +209,7 @@ export const SubmissionUnderReviewModal: React.FC<SubmissionUnderReviewModalProp
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <div style={{ display: 'flex', marginTop: 4 }}>
               <button
                 type="button"
                 onClick={() => {
@@ -218,46 +218,19 @@ export const SubmissionUnderReviewModal: React.FC<SubmissionUnderReviewModalProp
                   navigateTo('profile');
                 }}
                 style={{
-                  flex: 1,
-                  padding: '9px 12px',
+                  width: '100%',
+                  padding: '9px 14px',
                   borderRadius: 10,
                   backgroundColor: '#FEF3C7',
                   border: '1px solid #F59E0B',
                   color: '#92400E',
                   fontWeight: 700,
-                  fontSize: 12,
+                  fontSize: 12.5,
                   cursor: 'pointer',
                   textAlign: 'center',
                 }}
               >
                 Edit Details / Documents
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  setProfileTab('details');
-                  navigateTo('profile');
-                }}
-                style={{
-                  flex: 1,
-                  padding: '9px 12px',
-                  borderRadius: 10,
-                  backgroundColor: '#D97706',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  textAlign: 'center',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                }}
-              >
-                <ShieldCheck size={14} />
-                <span>Re-submit for Verification</span>
               </button>
             </div>
           </div>

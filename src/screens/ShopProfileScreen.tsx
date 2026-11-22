@@ -91,6 +91,7 @@ export const ShopProfileScreen: React.FC = () => {
   const [savingBusiness, setSavingBusiness] = useState(false);
   const [savingHours, setSavingHours] = useState(false);
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+  const [hasResubmitted, setHasResubmitted] = useState(false);
 
   // Auto-save debounce timer and status indicator
   const autoSaveTimerRef = useRef<any>(null);
@@ -372,6 +373,7 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Auto-save helper for Basic Details (updates context, localStorage, and debounces backend API update)
   const autoSaveBasic = (form: typeof basicForm) => {
+    if (hasResubmitted) setHasResubmitted(false);
     const cleanCity = resolveCityFromLocation(form.pincode, form.address, form.city);
     const updated = {
       ...form,
@@ -411,6 +413,7 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Auto-save helper for Business Details (updates context, localStorage, and debounces backend API update)
   const autoSaveBusiness = (form: typeof businessForm) => {
+    if (hasResubmitted) setHasResubmitted(false);
     setShopData((prev: any) => ({ ...prev, ...form }));
     try {
       const raw = localStorage.getItem('prinkout_merchant_session');
@@ -445,6 +448,7 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Auto-save helper for Operating Hours (updates context, localStorage, and debounces backend API update)
   const autoSaveHours = (form: typeof hoursForm) => {
+    if (hasResubmitted) setHasResubmitted(false);
     setShopData((prev: any) => ({ ...prev, ...form }));
     try {
       const raw = localStorage.getItem('prinkout_merchant_session');
@@ -586,6 +590,7 @@ export const ShopProfileScreen: React.FC = () => {
   };
 
   const persistSessionDocs = (newDocs: DocItem[]) => {
+    if (hasResubmitted) setHasResubmitted(false);
     try {
       const raw = localStorage.getItem('prinkout_merchant_session');
       if (raw) {
@@ -597,6 +602,7 @@ export const ShopProfileScreen: React.FC = () => {
   };
 
   const persistSessionPhotos = (newPhotos: PhotoItem[]) => {
+    if (hasResubmitted) setHasResubmitted(false);
     try {
       const raw = localStorage.getItem('prinkout_merchant_session');
       if (raw) {
@@ -885,6 +891,7 @@ export const ShopProfileScreen: React.FC = () => {
           localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
         }
       } catch {}
+      setHasResubmitted(true);
       openSubmissionModal();
       showToast('Shop profile sent for admin verification!');
     } catch (err: any) {
@@ -898,6 +905,7 @@ export const ShopProfileScreen: React.FC = () => {
           localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
         }
       } catch {}
+      setHasResubmitted(true);
       openSubmissionModal();
       showToast('Shop profile submitted for verification!');
     } finally {
@@ -1079,25 +1087,32 @@ export const ShopProfileScreen: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSendForVerification}
-                disabled={isSubmittingVerification || !isAllTabsFilled}
+                disabled={isSubmittingVerification || !isAllTabsFilled || hasResubmitted}
                 style={{
                   padding: '8px 18px',
                   borderRadius: 10,
-                  backgroundColor: isAllTabsFilled ? '#D97706' : '#94A3B8',
+                  backgroundColor: hasResubmitted ? '#059669' : isAllTabsFilled ? '#D97706' : '#94A3B8',
                   color: '#FFFFFF',
                   border: 'none',
                   fontSize: 12.5,
                   fontWeight: 700,
-                  cursor: isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'not-allowed',
+                  cursor: !hasResubmitted && isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'default',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  boxShadow: isAllTabsFilled ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
+                  boxShadow: hasResubmitted ? '0 2px 8px rgba(5, 150, 105, 0.3)' : isAllTabsFilled ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
                   transition: 'all 0.15s ease',
+                  opacity: hasResubmitted ? 0.95 : 1,
                 }}
               >
                 <ShieldCheck size={15} />
-                <span>{isSubmittingVerification ? 'Submitting...' : 'Re-submit for Verification'}</span>
+                <span>
+                  {isSubmittingVerification
+                    ? 'Submitting...'
+                    : hasResubmitted
+                    ? 'Re-submitted ✓'
+                    : 'Re-submit for Verification'}
+                </span>
               </button>
             </div>
           </div>
@@ -1128,30 +1143,11 @@ export const ShopProfileScreen: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #FDE68A', paddingTop: 10, marginTop: 4 }}>
-            <span style={{ fontSize: 12, color: '#92400E', fontWeight: 500 }}>
-              Edited your shop details or uploaded new documents? Re-submit to the admin team for review and approval.
+            <span style={{ fontSize: 12, color: hasResubmitted ? '#065F46' : '#92400E', fontWeight: 600 }}>
+              {hasResubmitted
+                ? '✓ Re-submission completed. The admin review team has been notified of your updates.'
+                : 'Edited your shop details or uploaded new documents? Click Re-submit for Verification to notify the admin team.'}
             </span>
-            <button
-              type="button"
-              onClick={handleSendForVerification}
-              disabled={isSubmittingVerification || !isAllTabsFilled}
-              style={{
-                padding: '7px 16px',
-                borderRadius: 8,
-                backgroundColor: isAllTabsFilled ? '#B45309' : '#94A3B8',
-                color: '#FFFFFF',
-                border: 'none',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'not-allowed',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <ShieldCheck size={14} />
-              <span>{isSubmittingVerification ? 'Submitting...' : 'Re-submit Now'}</span>
-            </button>
           </div>
         </div>
       )}
@@ -1259,19 +1255,21 @@ export const ShopProfileScreen: React.FC = () => {
           </div>
           <button
             onClick={handleSendForVerification}
+            disabled={isSubmittingVerification || !isAllTabsFilled || hasResubmitted}
             style={{
               padding: '8px 16px',
               borderRadius: 12,
-              backgroundColor: '#1C1D21',
+              backgroundColor: hasResubmitted ? '#059669' : '#1C1D21',
               color: '#FFFFFF',
               border: 'none',
               fontSize: 12.5,
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: !hasResubmitted && isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'default',
               whiteSpace: 'nowrap',
+              opacity: hasResubmitted ? 0.95 : 1,
             }}
           >
-            Re-submit for Verification
+            {isSubmittingVerification ? 'Submitting...' : hasResubmitted ? 'Re-submitted ✓' : 'Re-submit for Verification'}
           </button>
         </div>
       )}
@@ -3212,12 +3210,16 @@ export const ShopProfileScreen: React.FC = () => {
             </div>
             <div>
               <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF' }}>
-                {Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0
+                {hasResubmitted
+                  ? '✓ Verification Updates Re-submitted to Admin'
+                  : Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0
                   ? 'Addressed Admin Feedback? Ready to Re-submit!'
                   : 'Send Profile & KYC Updates for Verification'}
               </div>
               <div style={{ fontSize: 12, color: '#C7D2FE', marginTop: 2 }}>
-                {isAllTabsFilled
+                {hasResubmitted
+                  ? 'Your latest updates are currently being reviewed by the operations team.'
+                  : isAllTabsFilled
                   ? 'All details and documents are complete. Click to submit directly to admin for approval.'
                   : 'Please complete all required fields and upload proofs to enable re-submission.'}
               </div>
@@ -3226,26 +3228,33 @@ export const ShopProfileScreen: React.FC = () => {
           <button
             type="button"
             onClick={handleSendForVerification}
-            disabled={isSubmittingVerification || !isAllTabsFilled}
+            disabled={isSubmittingVerification || !isAllTabsFilled || hasResubmitted}
             style={{
               padding: '11px 24px',
               borderRadius: 12,
-              backgroundColor: isAllTabsFilled ? '#4F46E5' : '#475569',
+              backgroundColor: hasResubmitted ? '#059669' : isAllTabsFilled ? '#4F46E5' : '#475569',
               color: '#FFFFFF',
               border: 'none',
               fontSize: 13.5,
               fontWeight: 700,
-              cursor: isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'not-allowed',
+              cursor: !hasResubmitted && isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'default',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
-              boxShadow: isAllTabsFilled ? '0 4px 14px rgba(79, 70, 229, 0.4)' : 'none',
+              boxShadow: hasResubmitted ? '0 4px 14px rgba(5, 150, 105, 0.4)' : isAllTabsFilled ? '0 4px 14px rgba(79, 70, 229, 0.4)' : 'none',
               transition: 'all 0.15s ease',
               whiteSpace: 'nowrap',
+              opacity: hasResubmitted ? 0.95 : 1,
             }}
           >
             <ShieldCheck size={16} />
-            <span>{isSubmittingVerification ? 'Submitting...' : 'Re-submit for Verification'}</span>
+            <span>
+              {isSubmittingVerification
+                ? 'Submitting...'
+                : hasResubmitted
+                ? 'Re-submitted ✓'
+                : 'Re-submit for Verification'}
+            </span>
           </button>
         </div>
       )}
