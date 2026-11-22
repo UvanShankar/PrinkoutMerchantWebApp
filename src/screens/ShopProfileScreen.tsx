@@ -417,9 +417,12 @@ export const ShopProfileScreen: React.FC = () => {
             localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
           }
         } catch {}
+        if (shopId) {
+          merchantApi.updateShopProfile(shopId, defaultHours).catch(() => {});
+        }
       }
     }
-  }, [isApproved]);
+  }, [shopData?.shopId, shopData?.openingTime, shopData?.closingTime, isApproved]);
 
   // Save Basic Details
   const handleSaveBasic = async () => {
@@ -717,9 +720,15 @@ export const ShopProfileScreen: React.FC = () => {
   }
 
   const tab3Missing: string[] = [];
-  if (!hoursForm.openingTime?.trim()) tab3Missing.push('Opening Time');
-  if (!hoursForm.closingTime?.trim()) tab3Missing.push('Closing Time');
-  if (!hoursForm.workingDays || hoursForm.workingDays.length === 0) tab3Missing.push('At least 1 Working Day');
+  const currentOpening = hoursForm.openingTime || '09:00';
+  const currentClosing = hoursForm.closingTime || '21:00';
+  const currentDays = hoursForm.workingDays && hoursForm.workingDays.length > 0
+    ? hoursForm.workingDays
+    : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  if (!currentOpening.trim()) tab3Missing.push('Opening Time');
+  if (!currentClosing.trim()) tab3Missing.push('Closing Time');
+  if (!currentDays || currentDays.length === 0) tab3Missing.push('At least 1 Working Day');
 
   const isTab1Filled = tab1Missing.length === 0;
   const isTab2Filled = tab2Missing.length === 0;

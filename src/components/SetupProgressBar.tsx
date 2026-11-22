@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useMerchant } from '../context/MerchantContext';
+import { merchantApi } from '../services/api';
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,13 +16,19 @@ import {
 } from 'lucide-react';
 import { resolveCityFromLocation } from '../utils/locationUtils';
 
+const DEFAULT_OPENING_TIME = '09:00';
+const DEFAULT_CLOSING_TIME = '21:00';
+const DEFAULT_WORKING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export const SetupProgressBar: React.FC = () => {
   const {
     isSetupPending,
     setupStep,
     setSetupStep,
     submitSetupForReview,
+    shopId,
     shopData,
+    setShopData,
     authPhone,
     showToast,
     profileTab,
@@ -63,8 +70,8 @@ export const SetupProgressBar: React.FC = () => {
     { key: 'mobile', label: 'Phone Number', filled: Boolean(shopData?.mobile?.trim()) },
     { key: 'upiId', label: 'UPI ID for Payouts', filled: Boolean(shopData?.upiId?.trim() && shopData.upiId.includes('@')) },
     { key: 'documents', label: 'Verification Document / Store Photo', filled: Boolean((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0)) },
-    { key: 'hours', label: 'Operating Hours', filled: Boolean(shopData?.openingTime && shopData?.closingTime) },
-    { key: 'days', label: 'Working Days', filled: Boolean(Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0) },
+    { key: 'hours', label: 'Operating Hours', filled: Boolean((shopData?.openingTime || DEFAULT_OPENING_TIME) && (shopData?.closingTime || DEFAULT_CLOSING_TIME)) },
+    { key: 'days', label: 'Working Days', filled: Boolean((Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0) || DEFAULT_WORKING_DAYS.length > 0) },
     { key: 'services', label: 'Services Selected', filled: hasServicesConfigured },
     { key: 'pricing', label: 'Format Pricing Rates', filled: hasPricingConfigured },
   ];
@@ -98,7 +105,19 @@ export const SetupProgressBar: React.FC = () => {
 
   const getTab3Missing = () => {
     const missing: string[] = [];
-    if (!shopData?.openingTime || !shopData?.closingTime || !Array.isArray(shopData?.workingDays) || shopData.workingDays.length === 0) {
+    const opening = shopData?.openingTime !== undefined ? shopData.openingTime : DEFAULT_OPENING_TIME;
+    const closing = shopData?.closingTime !== undefined ? shopData.closingTime : DEFAULT_CLOSING_TIME;
+    const days = (Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0)
+      ? shopData.workingDays
+      : DEFAULT_WORKING_DAYS;
+
+    if (!opening || !opening.trim()) {
+      missing.push('Opening Time');
+    }
+    if (!closing || !closing.trim()) {
+      missing.push('Closing Time');
+    }
+    if (!Array.isArray(days) || days.length === 0) {
       missing.push('Operating Hours & Working Days');
     }
     return missing;
@@ -158,6 +177,33 @@ export const SetupProgressBar: React.FC = () => {
       currentStepMissing = tab3Missing;
       nextButtonLabel = 'Next: Store Preferences (Step 2)';
       onNextAction = () => {
+        const opening = shopData?.openingTime?.trim() || DEFAULT_OPENING_TIME;
+        const closing = shopData?.closingTime?.trim() || DEFAULT_CLOSING_TIME;
+        const days = Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0
+          ? shopData.workingDays
+          : DEFAULT_WORKING_DAYS;
+
+        const updatedHours = {
+          openingTime: opening,
+          closingTime: closing,
+          workingDays: days,
+        };
+
+        setShopData((prev: any) => ({ ...prev, ...updatedHours }));
+        try {
+          const raw = localStorage.getItem('prinkout_merchant_session');
+          if (raw) {
+            const sess = JSON.parse(raw);
+            sess.shopData = { ...(sess.shopData || {}), ...updatedHours };
+            localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+          }
+        } catch {}
+
+        const activeShopId = shopId || shopData?.shopId;
+        if (activeShopId) {
+          merchantApi.updateShopProfile(activeShopId, updatedHours).catch(() => {});
+        }
+
         setSetupStep(2);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };

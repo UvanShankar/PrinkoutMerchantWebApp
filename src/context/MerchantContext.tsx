@@ -329,7 +329,14 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
     const activeShopId = userData.shopId;
-    const activeShopData = userData;
+    const activeShopData = {
+      openingTime: userData.openingTime || '09:00',
+      closingTime: userData.closingTime || '21:00',
+      workingDays: Array.isArray(userData.workingDays) && userData.workingDays.length > 0
+        ? userData.workingDays
+        : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      ...userData,
+    };
     const activePhone = phone || userData.mobile || authPhone;
 
     // Clear any previous onboarding cache so stale shop names never carry over
@@ -446,6 +453,14 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const merged = {
             ...prev,
             ...fetchedShop,
+            openingTime: fetchedShop.openingTime || prev?.openingTime || '09:00',
+            closingTime: fetchedShop.closingTime || prev?.closingTime || '21:00',
+            workingDays:
+              Array.isArray(fetchedShop.workingDays) && fetchedShop.workingDays.length > 0
+                ? fetchedShop.workingDays
+                : Array.isArray(prev?.workingDays) && prev.workingDays.length > 0
+                ? prev.workingDays
+                : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
             documents:
               Array.isArray(fetchedShop.documents) && fetchedShop.documents.length > 0
                 ? fetchedShop.documents
@@ -698,6 +713,11 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const submitSetupForReview = async () => {
     const activeShopId = shopId || shopData?.shopId;
     const fullPayload = {
+      openingTime: shopData?.openingTime || '09:00',
+      closingTime: shopData?.closingTime || '21:00',
+      workingDays: Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0
+        ? shopData.workingDays
+        : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
       ...(shopData || {}),
       isSetupCompleted: true,
       verificationStatus: 'pending_approval' as const,
