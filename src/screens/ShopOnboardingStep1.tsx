@@ -7,12 +7,18 @@ import { merchantApi } from '../services/api';
 import { resolveCityFromLocation, isKnownServiceablePincode } from '../utils/locationUtils';
 import { LocationPickerModal, LocationData } from '../components/LocationPickerModal';
 
+const extract10Digits = (phone?: string): string => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  return digits.length > 10 && digits.startsWith('91') ? digits.slice(2, 12) : digits.slice(-10);
+};
+
 export const ShopOnboardingStep1: React.FC = () => {
   const { onboardingData, updateOnboardingData, navigateTo, showToast, login, setShopData } = useMerchant();
   const [form, setForm] = useState({
     shopName: onboardingData.shopName || '',
     ownerName: onboardingData.ownerName || '',
-    mobile: onboardingData.mobile || '',
+    mobile: extract10Digits(onboardingData.mobile),
     gstNumber: onboardingData.gstNumber || '',
     address: onboardingData.address || '',
     pincode: onboardingData.pincode || '',
@@ -90,15 +96,15 @@ export const ShopOnboardingStep1: React.FC = () => {
 
   // Ensure fields are synchronized whenever onboardingData updates or on remount
   useEffect(() => {
-    setForm({
-      shopName: onboardingData.shopName || '',
-      ownerName: onboardingData.ownerName || '',
-      mobile: onboardingData.mobile || '',
-      gstNumber: onboardingData.gstNumber || '',
-      address: onboardingData.address || '',
-      pincode: onboardingData.pincode || '',
-      description: onboardingData.description || '',
-    });
+    setForm(prev => ({
+      shopName: onboardingData.shopName ?? prev.shopName,
+      ownerName: onboardingData.ownerName ?? prev.ownerName,
+      mobile: onboardingData.mobile ? extract10Digits(onboardingData.mobile) : prev.mobile,
+      gstNumber: onboardingData.gstNumber ?? prev.gstNumber,
+      address: onboardingData.address ?? prev.address,
+      pincode: onboardingData.pincode ?? prev.pincode,
+      description: onboardingData.description ?? prev.description,
+    }));
   }, [
     onboardingData.shopName,
     onboardingData.ownerName,
@@ -141,7 +147,7 @@ export const ShopOnboardingStep1: React.FC = () => {
     }
   }, [form.pincode, form.address]);
 
-  const cleanPhone = form.mobile.replace(/\D/g, '').slice(-10);
+  const cleanPhone = form.mobile.replace(/\D/g, '').slice(0, 10);
   const cleanPin = form.pincode.replace(/\D/g, '');
 
   const missingFields: string[] = [];
@@ -516,10 +522,10 @@ export const ShopOnboardingStep1: React.FC = () => {
             <input
               type="tel"
               maxLength={10}
-              value={cleanPhone}
+              value={form.mobile}
               onChange={e => {
                 const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setForm({ ...form, mobile: digits ? `+91${digits}` : '' });
+                setForm(prev => ({ ...prev, mobile: digits }));
               }}
               placeholder="10-digit mobile number"
               style={{
