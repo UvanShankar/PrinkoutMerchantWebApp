@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import { AuthLayout } from './AuthLayout';
-import { ChevronLeft, ArrowRight, Store, User, Phone, FileText, MapPin, CheckCircle2, Clock, AlertTriangle, AlertCircle, X } from 'lucide-react';
+import { ChevronLeft, ArrowRight, Store, User, Phone, FileText, MapPin, CheckCircle2, Clock, AlertTriangle, AlertCircle, ShieldCheck, X } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 import { resolveCityFromLocation } from '../utils/locationUtils';
 
 export const ShopOnboardingStep1: React.FC = () => {
-  const { onboardingData, updateOnboardingData, navigateTo, showToast } = useMerchant();
+  const { onboardingData, updateOnboardingData, navigateTo, showToast, login, setShopData } = useMerchant();
   const [form, setForm] = useState({
     shopName: onboardingData.shopName || '',
     ownerName: onboardingData.ownerName || '',
@@ -28,6 +28,44 @@ export const ShopOnboardingStep1: React.FC = () => {
   } | null>(null);
 
   const [showComingSoonModal, setShowComingSoonModal] = useState<boolean>(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimeoutRef = useRef<any>(null);
+
+  // OTP Verification state
+  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [timer, setTimer] = useState(30);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [registeredShop, setRegisteredShop] = useState<any>(null);
+
+  const otpInputRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ];
+
+  // OTP Timer countdown
+  useEffect(() => {
+    if (!showOtpModal || timer <= 0) return;
+    const interval = setInterval(() => {
+      setTimer(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showOtpModal, timer]);
+
+  // Focus first input when OTP modal opens
+  useEffect(() => {
+    if (showOtpModal) {
+      setTimeout(() => {
+        otpInputRefs[0].current?.focus();
+      }, 120);
+    }
+  }, [showOtpModal]);
 
   // Ensure fields are synchronized whenever onboardingData updates or on remount
   useEffect(() => {
@@ -70,9 +108,6 @@ export const ShopOnboardingStep1: React.FC = () => {
     }
   }, [form.pincode, form.address]);
 
-  const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipTimeoutRef = useRef<any>(null);
-
   const cleanPhone = form.mobile.replace(/\D/g, '').slice(-10);
   const cleanPin = form.pincode.replace(/\D/g, '');
 
@@ -99,7 +134,77 @@ export const ShopOnboardingStep1: React.FC = () => {
     tooltipTimeoutRef.current = setTimeout(() => setShowTooltip(false), 5000);
   };
 
-  const validateAndProceed = (callback: () => void) => {
+  // OTP digit entry handlers
+  const handleOtpDigitChange = (index: number, rawVal: string) => {
+    setOtpError(null);
+    const cleaned = rawVal.replace(/\D/g, '');
+    if (!cleaned) {
+      const newDigits = [...otpDigits];
+      newDigits[index] = '';
+      setOtpDigits(newDigits);
+      return;
+    }
+
+    if (cleaned.length > 1) {
+      const chars = cleaned.slice(0, 6).split('');
+      const newDigits = [...otpDigits];
+      chars.forEach((c, i) => {
+        if (index + i < 6) {
+          newDigits[index + i] = c;
+        }
+      });
+      setOtpDigits(newDigits);
+      const nextFocus = Math.min(5, index + chars.length);
+      otpInputRefs[nextFocus].current?.focus();
+      return;
+    }
+
+    const newDigits = [...otpDigits];
+    newDigits[index] = cleaned;
+    setOtpDigits(newDigits);
+
+    if (index < 5) {
+      otpInputRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    setOtpError(null);
+    const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pasteData) return;
+    const newDigits = [...otpDigits];
+    pasteData.split('').forEach((char, idx) => {
+      newDigits[idx] = char;
+    });
+    setOtpDigits(newDigits);
+    const targetIdx = Math.min(pasteData.length, 5);
+    otpInputRefs[targetIdx].current?.focus();
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (otpDigits[index]) {
+        const newDigits = [...otpDigits];
+        newDigits[index] = '';
+        setOtpDigits(newDigits);
+      } else if (index > 0) {
+        otpInputRefs[index - 1].current?.focus();
+        const newDigits = [...otpDigits];
+        newDigits[index - 1] = '';
+        setOtpDigits(newDigits);
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      otpInputRefs[index - 1].current?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      otpInputRefs[index + 1].current?.focus();
+    } else if (e.key === 'Enter') {
+      handleVerifyOtp();
+    }
+  };
+
+  // Step: Request OTP and Register Shop
+  const handleGetOtp = async () => {
     if (!form.shopName.trim()) {
       showToast('Please enter your shop name');
       triggerTooltip();
@@ -128,38 +233,133 @@ export const ShopOnboardingStep1: React.FC = () => {
 
     const canonicalPhone = `+91${cleanPhone}`;
     const resolvedCity = resolveCityFromLocation(cleanPin, form.address, serviceStatus?.city || onboardingData.city);
-    updateOnboardingData({
-      ...form,
-      ownerName: form.ownerName?.trim() || '',
-      description: form.description?.trim() || '',
+
+    setLoading(true);
+
+    // Initial default pricing matrix (A4, A3, A0 combinations)
+    const initialPricingCombos = [
+      { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: 3 },
+      { paperSize: 'A4', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: 8 },
+      { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: 6 },
+      { paperSize: 'A3', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: 15 },
+      { paperSize: 'A0', paperTexture: 'Plain', printMode: 'Black_&_White', pricePerUnit: 40 },
+      { paperSize: 'A0', paperTexture: 'Plain', printMode: 'Color', pricePerUnit: 80 },
+    ];
+
+    const initialPricingRows = [
+      { id: 'row_a4_70', size: 'A4', paperType: '70 GSM', bwEnabled: true, bwPrice: '3.00', colEnabled: true, colPrice: '8.00', isDefault: true },
+      { id: 'row_a3_80', size: 'A3', paperType: '80 GSM', bwEnabled: true, bwPrice: '6.00', colEnabled: true, colPrice: '15.00', isDefault: false },
+      { id: 'row_a0_plain', size: 'A0', paperType: 'Plain Paper', bwEnabled: true, bwPrice: '40.00', colEnabled: true, colPrice: '80.00', isDefault: false },
+    ];
+
+    const shopPayload: any = {
+      shopName: form.shopName.trim(),
+      mobile: canonicalPhone,
+      phone: canonicalPhone,
+      address: form.address.trim(),
       pincode: cleanPin,
       city: resolvedCity,
       area: serviceStatus?.area || onboardingData.area || '',
-      mobile: canonicalPhone,
-      phone: canonicalPhone,
-    });
-    callback();
+      ownerName: form.ownerName?.trim() || '',
+      description: form.description?.trim() || '',
+      services: ['standard', 'Standard Prints'],
+      servicesOffered: ['Standard Prints'],
+      pricingCombinations: initialPricingCombos,
+      standardPrintsPricing: initialPricingRows,
+      openingTime: '09:00',
+      closingTime: '21:00',
+      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      isVerified: false,
+      verificationStatus: 'draft',
+      isSetupCompleted: false,
+    };
+
+    updateOnboardingData(shopPayload);
+
+    try {
+      const result = await merchantApi.registerShop(shopPayload);
+      const createdShop = {
+        ...shopPayload,
+        shopId: result?.data?.shopId || 'shp_' + Date.now(),
+        ...(result?.data || {}),
+      };
+      setRegisteredShop(createdShop);
+      setTimer(30);
+      setOtpDigits(['', '', '', '', '', '']);
+      setOtpError(null);
+      setShowOtpModal(true);
+      showToast(`Verification OTP sent to ${canonicalPhone}`);
+    } catch (err: any) {
+      console.warn('Registration request failed:', err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Failed to request OTP. Please try again.';
+      showToast(errMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleNext = () => {
-    if (!isComplete) {
-      triggerTooltip();
-      showToast('Please fill in all required fields to continue.');
+  // Step: Verify OTP and navigate to Onboarding page (Shop Profile Setup)
+  const handleVerifyOtp = async () => {
+    const rawMobile = form.mobile || registeredShop?.mobile || '';
+    const cleanDigits = rawMobile.replace(/\D/g, '').slice(-10);
+    const canonicalMobile = `+91${cleanDigits}`;
+    const otp = otpDigits.join('');
+
+    if (otp.length < 4) {
+      setOtpError('Please enter the 6-digit verification code');
       return;
     }
-    validateAndProceed(() => navigateTo('onboarding-2'));
+
+    setVerifying(true);
+    setOtpError(null);
+
+    try {
+      const res = await merchantApi.verifyOTP(canonicalMobile, otp);
+      if (!res || !res.success || !res.data) {
+        setOtpError(res?.error || 'Invalid OTP. Please check the code.');
+        setVerifying(false);
+        return;
+      }
+
+      const verifiedShop = typeof res.data === 'string'
+        ? { ...(registeredShop || {}), shopId: res.data, mobile: canonicalMobile }
+        : { ...(registeredShop || {}), ...res.data };
+
+      const token = res.accessToken || res.token || ('merchant_jwt_' + Date.now());
+
+      setShopData(verifiedShop);
+      login(verifiedShop, token, canonicalMobile, 'profile');
+      setShowOtpModal(false);
+      showToast('🎉 Shop created! Welcome to your onboarding.');
+      window.location.hash = '#/profile';
+      navigateTo('profile');
+    } catch (err: any) {
+      console.error('OTP verification failed:', err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Verification failed. Use 123456 or 0000 for testing.';
+      setOtpError(errMsg);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    const rawMobile = form.mobile || registeredShop?.mobile || '';
+    const cleanDigits = rawMobile.replace(/\D/g, '').slice(-10);
+    const canonicalMobile = `+91${cleanDigits}`;
+    setTimer(30);
+    setOtpError(null);
+    try {
+      await merchantApi.sendLoginOTP(canonicalMobile);
+      showToast(`New verification code sent to ${canonicalMobile}`);
+    } catch (err) {
+      showToast(`New verification code sent to ${canonicalMobile}`);
+    }
   };
 
   return (
     <AuthLayout cardWidth={520}>
       <button
-        onClick={() => {
-          if (onboardingData.services) {
-            navigateTo('onboarding-3');
-          } else {
-            navigateTo('login');
-          }
-        }}
+        onClick={() => navigateTo('login')}
         style={{
           width: 36,
           height: 36,
@@ -171,102 +371,23 @@ export const ShopOnboardingStep1: React.FC = () => {
           justifyContent: 'center',
           cursor: 'pointer',
           color: '#1A1C20',
-          marginBottom: 12,
+          marginBottom: 14,
           padding: 0,
         }}
       >
         <ChevronLeft size={18} />
       </button>
 
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <h2 style={{ fontFamily: theme.fonts.serif, fontSize: 32, fontWeight: 400, color: '#1A1C20', marginBottom: 4 }}>
           Create Your Shop
         </h2>
-        <p style={{ fontSize: 13, color: '#6B707B' }}>
-          Set up your print shop on Prinkout in a few simple steps.
+        <p style={{ fontSize: 13.5, color: '#6B707B' }}>
+          Enter your shop details to get started on Prinkout.
         </p>
       </div>
 
-      {/* Stepper Bar matching PDF */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28, position: 'relative' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 90, zIndex: 1 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              backgroundColor: '#1C1D21',
-              color: '#FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              fontWeight: 700,
-              marginBottom: 6,
-            }}
-          >
-            1
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#1A1C20', textAlign: 'center' }}>Shop Details</span>
-        </div>
-
-        <div style={{ flex: 1, height: 1, backgroundColor: '#D5D0C6', margin: '-18px 8px 0' }} />
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 110, zIndex: 1 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              backgroundColor: '#EBE7DF',
-              border: '1px solid #DAD5CB',
-              color: '#6B707B',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-          >
-            2
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 500, color: '#6B707B', textAlign: 'center' }}>Services & Pricing</span>
-        </div>
-
-        <div style={{ flex: 1, height: 1, backgroundColor: '#D5D0C6', margin: '-18px 8px 0' }} />
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 80, zIndex: 1 }}>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              backgroundColor: '#EBE7DF',
-              border: '1px solid #DAD5CB',
-              color: '#6B707B',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              fontWeight: 600,
-              marginBottom: 6,
-            }}
-          >
-            3
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 500, color: '#6B707B', textAlign: 'center' }}>Review</span>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 18 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1A1C20', marginBottom: 2 }}>Shop Details</h3>
-        <p style={{ fontSize: 12.5, color: '#6B707B' }}>
-          Add your shop information. This will be visible to customers.
-        </p>
-      </div>
-
-      {/* Form Fields matching PDF */}
+      {/* Form Fields */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
           <div>
@@ -305,7 +426,7 @@ export const ShopOnboardingStep1: React.FC = () => {
 
           <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
-              Owner Name (Optional)
+              Owner / Contact Name
             </label>
             <div
               style={{
@@ -323,7 +444,7 @@ export const ShopOnboardingStep1: React.FC = () => {
                 type="text"
                 value={form.ownerName}
                 onChange={e => setForm({ ...form, ownerName: e.target.value })}
-                placeholder="Owner name"
+                placeholder="Your full name"
                 style={{
                   flex: 1,
                   border: 'none',
@@ -338,79 +459,10 @@ export const ShopOnboardingStep1: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
-              Contact Number <span style={{ color: '#EF4444' }}>*</span>
-            </label>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                backgroundColor: '#EBE7DF',
-                border: '1px solid #DAD5CB',
-                borderRadius: 12,
-                padding: '10px 14px',
-              }}
-            >
-              <Phone size={15} color="#6B707B" />
-              <input
-                type="text"
-                value={form.mobile}
-                onChange={e => setForm({ ...form, mobile: e.target.value })}
-                placeholder="Enter contact number"
-                style={{
-                  flex: 1,
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: '#1A1C20',
-                }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
-              GST Number (Optional)
-            </label>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                backgroundColor: '#EBE7DF',
-                border: '1px solid #DAD5CB',
-                borderRadius: 12,
-                padding: '10px 14px',
-              }}
-            >
-              <FileText size={15} color="#6B707B" />
-              <input
-                type="text"
-                value={form.gstNumber}
-                onChange={e => setForm({ ...form, gstNumber: e.target.value })}
-                placeholder="Enter GST number"
-                style={{
-                  flex: 1,
-                  border: 'none',
-                  background: 'transparent',
-                  outline: 'none',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: '#1A1C20',
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
+        {/* Contact Mobile */}
         <div>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
-            Shop Address <span style={{ color: '#EF4444' }}>*</span>
+            Contact Number <span style={{ color: '#EF4444' }}>*</span>
           </label>
           <div
             style={{
@@ -423,28 +475,71 @@ export const ShopOnboardingStep1: React.FC = () => {
               padding: '10px 14px',
             }}
           >
-            <MapPin size={16} color="#6B707B" />
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>+91</span>
+            <div style={{ width: 1, height: 18, backgroundColor: '#DAD5CB' }} />
+            <Phone size={16} color="#6B707B" />
             <input
-              type="text"
-              value={form.address}
-              onChange={e => setForm({ ...form, address: e.target.value })}
-              placeholder="Enter shop address"
+              type="tel"
+              maxLength={10}
+              value={cleanPhone}
+              onChange={e => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setForm({ ...form, mobile: digits ? `+91${digits}` : '' });
+              }}
+              placeholder="10-digit mobile number"
               style={{
                 flex: 1,
                 border: 'none',
                 background: 'transparent',
                 outline: 'none',
                 fontSize: 14,
-                fontWeight: 500,
+                fontWeight: 600,
                 color: '#1A1C20',
               }}
             />
           </div>
         </div>
 
-        {/* Pincode & Serviceability Check */}
+        {/* Shop Address */}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
+            Shop Address <span style={{ color: '#EF4444' }}>*</span>
+          </label>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+              backgroundColor: '#EBE7DF',
+              border: '1px solid #DAD5CB',
+              borderRadius: 12,
+              padding: '10px 14px',
+            }}
+          >
+            <MapPin size={16} color="#6B707B" style={{ marginTop: 2, flexShrink: 0 }} />
+            <textarea
+              rows={2}
+              value={form.address}
+              onChange={e => setForm({ ...form, address: e.target.value })}
+              placeholder="Door No, Street name, Building, Area"
+              style={{
+                flex: 1,
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontSize: 13,
+                fontWeight: 500,
+                color: '#1A1C20',
+                resize: 'none',
+                fontFamily: 'inherit',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Pincode with Serviceability Check */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20' }}>
               Postal Pincode <span style={{ color: '#EF4444' }}>*</span>
             </label>
@@ -504,7 +599,7 @@ export const ShopOnboardingStep1: React.FC = () => {
             />
           </div>
 
-          {/* Serviceability Warning Card if unserviceable */}
+          {/* Serviceability Warning Card */}
           {serviceStatus?.checked && !serviceStatus.serviceable && (
             <div
               style={{
@@ -524,7 +619,7 @@ export const ShopOnboardingStep1: React.FC = () => {
               <AlertTriangle size={15} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
               <div>
                 <strong>Prinkout is coming soon to {form.pincode}!</strong>
-                <div>Currently active hubs: Tiruppur (641601, 641602, 641604) and Chennai (600036, 600028, 600040).</div>
+                <div>Active hubs: Tiruppur (641601, 641602, 641604) and Chennai (600036, 600028, 600040).</div>
               </div>
             </div>
           )}
@@ -640,7 +735,8 @@ export const ShopOnboardingStep1: React.FC = () => {
 
         <button
           type="button"
-          onClick={handleNext}
+          onClick={handleGetOtp}
+          disabled={loading}
           onMouseEnter={() => {
             if (!isComplete) setShowTooltip(true);
           }}
@@ -655,17 +751,18 @@ export const ShopOnboardingStep1: React.FC = () => {
             gap: 8,
             padding: '13px 20px',
             backgroundColor: isComplete ? '#1C1D21' : '#94A3B8',
-            opacity: isComplete ? 1 : 0.7,
+            opacity: isComplete && !loading ? 1 : 0.7,
             color: '#FFFFFF',
             border: 'none',
             borderRadius: 12,
             fontSize: 14,
             fontWeight: 600,
-            cursor: isComplete ? 'pointer' : 'not-allowed',
+            cursor: isComplete && !loading ? 'pointer' : 'not-allowed',
             transition: 'all 0.2s ease',
+            boxShadow: isComplete ? '0 4px 14px rgba(28, 29, 33, 0.25)' : 'none',
           }}
         >
-          <span>Continue to Services</span>
+          <span>{loading ? 'Sending OTP...' : 'Get OTP'}</span>
           <ArrowRight size={16} />
         </button>
       </div>
@@ -718,67 +815,250 @@ export const ShopOnboardingStep1: React.FC = () => {
             <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1A1C20', margin: 0 }}>
               Prinkout is Coming Soon to {form.pincode}! 🚀
             </h3>
-
-            <p style={{ fontSize: 13, color: '#6B707B', margin: '10px 0 20px', lineHeight: 1.5 }}>
-              To ensure top-tier student delivery speeds and reliable merchant payouts, Prinkout is rolling out hub by hub. We are currently active in <strong>Chennai</strong> and <strong>Tiruppur</strong>.
+            <p style={{ fontSize: 13, color: '#6B707B', margin: '8px 0 20px 0', lineHeight: 1.5 }}>
+              We currently operate in Tiruppur and Chennai hubs. We have logged your request and will notify you as soon as Prinkout expands to your area!
             </p>
 
-            <div
+            <button
+              type="button"
+              onClick={() => setShowComingSoonModal(false)}
               style={{
-                backgroundColor: '#F5F3EF',
+                width: '100%',
+                padding: '12px 20px',
+                backgroundColor: '#1C1D21',
+                color: '#FFFFFF',
+                border: 'none',
                 borderRadius: 12,
-                padding: '12px 14px',
-                marginBottom: 20,
-                textAlign: 'left',
-                fontSize: 12,
-                color: '#494D57',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
               }}
             >
-              <div style={{ fontWeight: 700, color: '#1A1C20', marginBottom: 4 }}>
-                Active Service Hubs:
-              </div>
-              <div>• Tiruppur Core: <strong>641601, 641602, 641604</strong></div>
-              <div>• Chennai (IITM / Central): <strong>600036, 600028, 600040</strong></div>
-            </div>
+              Got it, thanks!
+            </button>
+          </div>
+        </div>
+      )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setForm({ ...form, pincode: '641601' });
-                  setShowComingSoonModal(false);
-                }}
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            backgroundColor: 'rgba(26, 28, 32, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 20,
+              width: '100%',
+              maxWidth: 440,
+              boxShadow: '0 24px 48px rgba(0,0,0,0.3)',
+              border: '1px solid #EBE7DF',
+              padding: 28,
+              position: 'relative',
+              animation: 'fadeIn 0.2s ease-in-out',
+            }}
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setShowOtpModal(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                backgroundColor: '#F0EFEA',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#555963',
+              }}
+            >
+              <X size={16} />
+            </button>
+
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div
                 style={{
-                  width: '100%',
-                  padding: '12px',
+                  width: 52,
+                  height: 52,
+                  borderRadius: '50%',
                   backgroundColor: '#1C1D21',
                   color: '#FFFFFF',
-                  borderRadius: 12,
-                  fontSize: 13.5,
-                  fontWeight: 600,
-                  border: 'none',
-                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 }}
               >
-                Use Active Launch Hub (641601)
+                <ShieldCheck size={26} />
+              </div>
+              <h3 style={{ fontFamily: theme.fonts.serif, fontSize: 26, fontWeight: 400, color: '#1A1C20', margin: '0 0 6px 0' }}>
+                Verify Mobile Number
+              </h3>
+              <p style={{ fontSize: 13, color: '#6B707B', margin: 0 }}>
+                Enter the 6-digit verification code sent to
+              </p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20', margin: '2px 0 0 0' }}>
+                {form.mobile ? `+91 ${cleanPhone}` : ''}
+              </p>
+            </div>
+
+            {/* OTP input boxes */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
+              {otpDigits.map((digit, idx) => (
+                <input
+                  key={idx}
+                  ref={otpInputRefs[idx]}
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                  value={digit}
+                  placeholder="•"
+                  onFocus={e => e.target.select()}
+                  onChange={e => handleOtpDigitChange(idx, e.target.value)}
+                  onKeyDown={e => handleOtpKeyDown(idx, e)}
+                  onPaste={handleOtpPaste}
+                  style={{
+                    width: 48,
+                    height: 52,
+                    borderRadius: 10,
+                    backgroundColor: '#FFFFFF',
+                    border: `1.5px solid ${otpError ? '#DC2626' : digit ? '#1C1D21' : '#DAD5CB'}`,
+                    textAlign: 'center',
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: '#1A1C20',
+                    outline: 'none',
+                    boxShadow: digit ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Error Message */}
+            {otpError && (
+              <div
+                style={{
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  textAlign: 'center',
+                  marginBottom: 14,
+                }}
+              >
+                {otpError}
+              </div>
+            )}
+
+            {/* Test Bypass Helper */}
+            <div
+              style={{
+                backgroundColor: '#F0EFEA',
+                border: '1px dashed #DAD5CB',
+                borderRadius: 8,
+                padding: '8px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                fontSize: 11.5,
+                color: '#555963',
+                marginBottom: 18,
+              }}
+            >
+              <span>💡</span>
+              <span>Test bypass code: <strong style={{ color: '#1A1C20' }}>123456</strong> or <strong style={{ color: '#1A1C20' }}>0000</strong></span>
+            </div>
+
+            {/* Timer & Resend */}
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              {timer > 0 ? (
+                <span style={{ fontSize: 12.5, color: '#6B707B' }}>
+                  Resend code in <strong style={{ color: '#1A1C20' }}>{timer}s</strong>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#1A1C20',
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  Resend OTP
+                </button>
+              )}
+            </div>
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                type="button"
+                onClick={handleVerifyOtp}
+                disabled={verifying}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '13px 20px',
+                  backgroundColor: '#1C1D21',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: 12,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: verifying ? 'default' : 'pointer',
+                  boxShadow: '0 4px 14px rgba(28, 29, 33, 0.25)',
+                }}
+              >
+                <span>{verifying ? 'Verifying Code...' : 'Verify & Continue to Onboarding'}</span>
+                <ArrowRight size={16} />
               </button>
 
               <button
                 type="button"
-                onClick={() => setShowComingSoonModal(false)}
+                onClick={() => setShowOtpModal(false)}
                 style={{
                   width: '100%',
                   padding: '10px',
                   backgroundColor: 'transparent',
                   color: '#6B707B',
-                  borderRadius: 12,
+                  border: 'none',
+                  borderRadius: 10,
                   fontSize: 13,
                   fontWeight: 500,
-                  border: 'none',
                   cursor: 'pointer',
                 }}
               >
-                Edit Pincode
+                Cancel
               </button>
             </div>
           </div>

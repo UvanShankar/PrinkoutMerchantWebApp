@@ -58,12 +58,10 @@ const MainNavigator: React.FC = () => {
     return <LoginScreen />;
   }
 
-  // Auth & Onboarding Flow
+  // Auth & Onboarding Flow (Single Shop Details Step with OTP -> Onboarding)
   if (currentScreen === 'login') return <LoginScreen />;
   if (currentScreen === 'verify-otp') return <VerifyOTPScreen />;
-  if (currentScreen === 'onboarding-1') return <ShopOnboardingStep1 />;
-  if (currentScreen === 'onboarding-2') return <ShopOnboardingStep2 />;
-  if (currentScreen === 'onboarding-3') return <ShopOnboardingStep3 />;
+  if (currentScreen === 'onboarding-1' || currentScreen === 'onboarding-2' || currentScreen === 'onboarding-3') return <ShopOnboardingStep1 />;
   if (currentScreen === 'shop-success') return <ShopCreatedSuccessScreen />;
 
   // Main Dashboard Layout (Guarded: Authenticated Only)

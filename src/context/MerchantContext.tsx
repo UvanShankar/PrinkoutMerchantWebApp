@@ -151,6 +151,9 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const requested = hasHash ? (window.location.hash.split('?')[0].replace('#/', '').replace('#', '') as ScreenType) : null;
 
     if (!isAuth) {
+      if (requested && (requested === 'onboarding-2' || requested === 'onboarding-3')) {
+        return 'onboarding-1';
+      }
       if (requested && publicScreens.includes(requested)) {
         return requested;
       }
@@ -194,6 +197,9 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const navigateTo = (screen: ScreenType) => {
+    if (screen === 'onboarding-2' || screen === 'onboarding-3') {
+      screen = 'onboarding-1';
+    }
     const isAuth = checkIsAuth();
     if (!isAuth && !publicScreens.includes(screen)) {
       setCurrentScreenState('login');
@@ -216,7 +222,11 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const handleHashChange = () => {
       const rawHash = window.location.hash.split('?')[0];
-      const h = rawHash.replace('#/', '').replace('#', '') as ScreenType;
+      let h = rawHash.replace('#/', '').replace('#', '') as ScreenType;
+      if (h === 'onboarding-2' || h === 'onboarding-3') {
+        h = 'onboarding-1';
+        window.location.hash = '#/onboarding-1';
+      }
       const allScreens: ScreenType[] = [
         ...publicScreens,
         'dashboard', 'orders', 'queue', 'pricing', 'reports', 'payouts', 'profile', 'settings'
