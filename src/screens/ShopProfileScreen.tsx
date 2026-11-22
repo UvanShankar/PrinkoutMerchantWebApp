@@ -86,6 +86,11 @@ export const ShopProfileScreen: React.FC = () => {
   const autoSaveTimerRef = useRef<any>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
 
+  // Step 1: Shop Details - First show shop details tab on mount
+  useEffect(() => {
+    setProfileTab('details');
+  }, []);
+
   // When switching to a tab, keep components in edit mode if unapproved
   useEffect(() => {
     if (!isApproved) {

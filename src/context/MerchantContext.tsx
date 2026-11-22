@@ -204,6 +204,9 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
+    if (screen === 'profile') {
+      setProfileTabState('details');
+    }
     setCurrentScreenState(screen);
     if (typeof window !== 'undefined') {
       window.location.hash = `#/${screen}`;
@@ -358,6 +361,10 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const isVerified = activeShopData?.isVerified === true || activeShopData?.verificationStatus === 'approved';
     const targetScreen: ScreenType = targetScreenOverride || (isVerified ? 'dashboard' : 'profile');
+
+    if (targetScreen === 'profile') {
+      setProfileTabState('details');
+    }
 
     setCurrentScreenState(targetScreen);
     if (typeof window !== 'undefined') {
@@ -541,6 +548,7 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const setSetupStep = (step: 1 | 2 | 3) => {
     setSetupStepState(step);
     if (step === 1) {
+      setProfileTabState('details');
       navigateTo('profile');
     } else if (step === 2) {
       setSettingsTab('general');

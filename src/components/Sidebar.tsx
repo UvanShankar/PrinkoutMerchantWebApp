@@ -20,7 +20,7 @@ import {
 import { theme } from '../theme';
 
 export const Sidebar: React.FC = () => {
-  const { currentScreen, navigateTo, settingsTab, setSettingsTab, logout, isSetupPending, showToast } = useMerchant();
+  const { currentScreen, navigateTo, settingsTab, setSettingsTab, setProfileTab, logout, isSetupPending, showToast } = useMerchant();
 
   const isSettingsActive = currentScreen === 'settings';
 
@@ -73,7 +73,12 @@ export const Sidebar: React.FC = () => {
             return (
               <div key={item.id}>
                 <button
-                  onClick={() => navigateTo(item.id)}
+                  onClick={() => {
+                    if (item.id === 'profile') {
+                      setProfileTab('details');
+                    }
+                    navigateTo(item.id);
+                  }}
                   style={{
                     width: '100%',
                     display: 'flex',
