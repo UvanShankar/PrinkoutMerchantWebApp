@@ -4,7 +4,7 @@ import { AuthLayout } from './AuthLayout';
 import { ChevronLeft, ArrowRight, Store, User, Phone, FileText, MapPin, CheckCircle2, Clock, AlertTriangle, AlertCircle, ShieldCheck, X } from 'lucide-react';
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
-import { resolveCityFromLocation } from '../utils/locationUtils';
+import { resolveCityFromLocation, isKnownServiceablePincode } from '../utils/locationUtils';
 import { LocationPickerModal, LocationData } from '../components/LocationPickerModal';
 
 export const ShopOnboardingStep1: React.FC = () => {
@@ -113,14 +113,26 @@ export const ShopOnboardingStep1: React.FC = () => {
   useEffect(() => {
     const pin = form.pincode?.trim().replace(/\D/g, '');
     if (pin && pin.length === 6) {
-      merchantApi.checkServiceability(pin).then((res) => {
-        const resolvedCity = resolveCityFromLocation(pin, form.address, res?.location?.city);
+      const isKnown = isKnownServiceablePincode(pin);
+      const initialCity = resolveCityFromLocation(pin, form.address);
+      if (isKnown) {
         setServiceStatus({
           checked: true,
-          serviceable: res?.serviceable ?? false,
+          serviceable: true,
+          city: initialCity,
+          status: 'ACTIVE',
+          message: `Service is active in ${initialCity}`,
+        });
+      }
+      merchantApi.checkServiceability(pin).then((res) => {
+        const resolvedCity = resolveCityFromLocation(pin, form.address, res?.location?.city || initialCity);
+        const isServiceable = isKnown || (res?.serviceable ?? false);
+        setServiceStatus({
+          checked: true,
+          serviceable: isServiceable,
           area: res?.location?.area,
           city: resolvedCity,
-          status: res?.status,
+          status: isServiceable ? 'ACTIVE' : (res?.status || 'COMING_SOON'),
           message: res?.message,
         });
       });
@@ -137,7 +149,9 @@ export const ShopOnboardingStep1: React.FC = () => {
   if (!cleanPhone || cleanPhone.length !== 10) missingFields.push('10-digit Contact Number');
   if (!form.address.trim()) missingFields.push('Shop Address');
   if (!cleanPin || cleanPin.length !== 6) missingFields.push('6-digit Postal Pincode');
-  else if (serviceStatus?.checked && !serviceStatus.serviceable) missingFields.push('Serviceable Pincode (coming soon in this area)');
+  else if (serviceStatus?.checked && !serviceStatus.serviceable && !isKnownServiceablePincode(cleanPin)) {
+    missingFields.push('Serviceable Pincode (coming soon in this area)');
+  }
 
   const isComplete = missingFields.length === 0;
 
@@ -247,7 +261,7 @@ export const ShopOnboardingStep1: React.FC = () => {
       return;
     }
 
-    if (serviceStatus && !serviceStatus.serviceable) {
+    if (serviceStatus && !serviceStatus.serviceable && !isKnownServiceablePincode(cleanPin)) {
       setShowComingSoonModal(true);
       return;
     }
@@ -644,7 +658,7 @@ export const ShopOnboardingStep1: React.FC = () => {
           </div>
 
           {/* Serviceability Warning Card */}
-          {serviceStatus?.checked && !serviceStatus.serviceable && (
+          {serviceStatus?.checked && !serviceStatus.serviceable && !isKnownServiceablePincode(form.pincode) && (
             <div
               style={{
                 marginTop: 8,
@@ -972,6 +986,7 @@ export const ShopOnboardingStep1: React.FC = () => {
                   ref={otpInputRefs[idx]}
                   type="text"
                   inputMode="numeric"
+                  maxLength={1}
                   autoComplete={idx === 0 ? 'one-time-code' : 'off'}
                   value={digit}
                   placeholder="•"

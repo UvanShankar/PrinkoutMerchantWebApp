@@ -4,6 +4,34 @@
  * Guarantees that city is never populated with placeholder values like "General".
  */
 
+export const ACTIVE_LAUNCH_PINCODES: string[] = [
+  // Tiruppur Core Hubs
+  '641601',
+  '641602',
+  '641603',
+  '641604',
+  '641605',
+  '641606',
+  '641607',
+  '641608',
+  '641652',
+  // Chennai Hubs
+  '600028',
+  '600036',
+  '600040',
+  '600037',
+  '600038',
+  '600020',
+  '600025',
+  '600113',
+];
+
+export const isKnownServiceablePincode = (pincode?: string): boolean => {
+  if (!pincode) return false;
+  const cleanPin = String(pincode).trim().replace(/\D/g, '');
+  return ACTIVE_LAUNCH_PINCODES.includes(cleanPin);
+};
+
 export const resolveCityFromLocation = (
   pincode?: string,
   address?: string,
