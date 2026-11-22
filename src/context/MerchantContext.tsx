@@ -663,25 +663,33 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const submitSetupForReview = async () => {
     const activeShopId = shopId || shopData?.shopId;
+    const fullPayload = {
+      ...(shopData || {}),
+      isSetupCompleted: true,
+      verificationStatus: 'pending_approval' as const,
+      isVerified: false,
+      verificationSubmittedAt: new Date().toISOString(),
+    };
     if (activeShopId) {
       try {
-        await merchantApi.submitShopSetup(activeShopId);
+        await merchantApi.sendShopForVerification(activeShopId, fullPayload).catch(async () => {
+          await merchantApi.updateShopProfile(activeShopId, fullPayload).catch(() => {});
+          await merchantApi.submitShopSetup(activeShopId);
+        });
       } catch (err) {
         console.warn('API submit setup error:', err);
       }
     }
     setShopData((prev: any) => ({
       ...prev,
-      isSetupCompleted: true,
-      verificationStatus: 'pending_approval',
+      ...fullPayload,
     }));
     try {
       const sess = getStoredSession();
       if (sess) {
         sess.shopData = {
           ...sess.shopData,
-          isSetupCompleted: true,
-          verificationStatus: 'pending_approval',
+          ...fullPayload,
         };
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sess));
       }

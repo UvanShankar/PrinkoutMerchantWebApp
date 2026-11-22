@@ -18,6 +18,7 @@ import {
   Trash2,
   Sparkles,
   CheckCircle2,
+  Lock,
 } from 'lucide-react';
 import { theme } from '../theme';
 
@@ -152,9 +153,9 @@ export const PricingServicesScreen: React.FC = () => {
     }
   }, [shopData?.shopId, isApproved]);
 
-  // Debounced auto-save handler for pricing changes as user types
+  // Auto-save handler for pricing changes (synchronously saves into local context)
   const autoSavePricing = (rows: PricingRow[], mode = fulfilmentMode) => {
-    if (!shopId || isApproved) return;
+    if (isApproved) return;
     const a4Row = rows.find(r => r.size === 'A4') || rows[0];
     const payload = {
       services: ['standard'],
@@ -165,18 +166,20 @@ export const PricingServicesScreen: React.FC = () => {
       colorPrice: parseFloat(a4Row?.colPrice || '10.00'),
     };
     setShopData((prev: any) => ({ ...prev, ...payload }));
-
-    setAutoSaveStatus('saving');
-    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(async () => {
-      try {
-        await merchantApi.updateShopProfile(shopId, payload);
-        setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus(null), 2500);
-      } catch {
-        setAutoSaveStatus(null);
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        sess.shopData = { ...(sess.shopData || {}), ...payload };
+        localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
       }
-    }, 600);
+    } catch {}
+
+    setAutoSaveStatus('saved');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      setAutoSaveStatus(null);
+    }, 2000);
   };
 
   const updateStandardRow = (id: string, partial: Partial<PricingRow>) => {
@@ -431,37 +434,17 @@ export const PricingServicesScreen: React.FC = () => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {autoSaveStatus && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: autoSaveStatus === 'saved' ? '#15803D' : '#D97706' }}>
-                  {autoSaveStatus === 'saved' ? <CheckCircle2 size={13} color="#16A34A" /> : <Clock size={13} color="#D97706" />}
-                  <span>{autoSaveStatus === 'saved' ? 'Auto-saved ✓' : 'Saving...'}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#15803D' }}>
+                  <CheckCircle2 size={13} color="#16A34A" />
+                  <span>Auto-saved ✓</span>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  if (isEditing) {
-                    handleSavePricing();
-                  } else {
-                    setIsEditing(true);
-                  }
-                }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '7px 16px',
-                  borderRadius: 16,
-                  backgroundColor: isEditing ? '#16A34A' : '#EFECE4',
-                  border: isEditing ? 'none' : '1px solid #DAD5CB',
-                  color: isEditing ? '#FFFFFF' : '#1A1C20',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {isEditing ? <Check size={13} /> : <Edit2 size={13} />}
-                <span>{isEditing ? (saving ? 'Saving...' : 'Save Changes') : 'Edit Prices'}</span>
-              </button>
+              {isApproved && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+                  <Lock size={13} />
+                  <span>Rates Verified & Locked</span>
+                </div>
+              )}
             </div>
           </div>
 

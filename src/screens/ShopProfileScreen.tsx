@@ -288,9 +288,8 @@ export const ShopProfileScreen: React.FC = () => {
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   };
 
-  // Auto-save helper for Basic Details
+  // Auto-save helper for Basic Details (synchronous local context update; single API call sent at verification)
   const autoSaveBasic = (form: typeof basicForm) => {
-    if (!shopId) return;
     const cleanCity = resolveCityFromLocation(form.pincode, form.address, form.city);
     const updated = {
       ...form,
@@ -306,22 +305,15 @@ export const ShopProfileScreen: React.FC = () => {
       }
     } catch {}
 
-    setAutoSaveStatus('saving');
+    setAutoSaveStatus('saved');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(async () => {
-      try {
-        await merchantApi.updateShopProfile(shopId, isApproved ? { description: form.description } : updated);
-        setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus(null), 2500);
-      } catch {
-        setAutoSaveStatus(null);
-      }
-    }, 700);
+    autoSaveTimerRef.current = setTimeout(() => {
+      setAutoSaveStatus(null);
+    }, 2000);
   };
 
-  // Auto-save helper for Business Details
+  // Auto-save helper for Business Details (synchronous local context update)
   const autoSaveBusiness = (form: typeof businessForm) => {
-    if (!shopId) return;
     setShopData((prev: any) => ({ ...prev, ...form }));
     try {
       const raw = localStorage.getItem('prinkout_merchant_session');
@@ -332,22 +324,15 @@ export const ShopProfileScreen: React.FC = () => {
       }
     } catch {}
 
-    setAutoSaveStatus('saving');
+    setAutoSaveStatus('saved');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(async () => {
-      try {
-        await merchantApi.updateShopProfile(shopId, isApproved ? { upiId: form.upiId } : form);
-        setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus(null), 2500);
-      } catch {
-        setAutoSaveStatus(null);
-      }
-    }, 700);
+    autoSaveTimerRef.current = setTimeout(() => {
+      setAutoSaveStatus(null);
+    }, 2000);
   };
 
-  // Auto-save helper for Operating Hours
+  // Auto-save helper for Operating Hours (synchronous local context update)
   const autoSaveHours = (form: typeof hoursForm) => {
-    if (!shopId || isApproved) return;
     setShopData((prev: any) => ({ ...prev, ...form }));
     try {
       const raw = localStorage.getItem('prinkout_merchant_session');
@@ -358,22 +343,16 @@ export const ShopProfileScreen: React.FC = () => {
       }
     } catch {}
 
-    setAutoSaveStatus('saving');
+    setAutoSaveStatus('saved');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(async () => {
-      try {
-        await merchantApi.updateShopProfile(shopId, form);
-        setAutoSaveStatus('saved');
-        setTimeout(() => setAutoSaveStatus(null), 2500);
-      } catch {
-        setAutoSaveStatus(null);
-      }
-    }, 600);
+    autoSaveTimerRef.current = setTimeout(() => {
+      setAutoSaveStatus(null);
+    }, 2000);
   };
 
-  // Auto-save default hours on mount if not yet configured
+  // Initialize default hours on mount if not yet configured
   useEffect(() => {
-    if (shopData && shopId && !isApproved) {
+    if (shopData && !isApproved) {
       const hasHours = shopData.openingTime && shopData.closingTime && Array.isArray(shopData.workingDays) && shopData.workingDays.length > 0;
       if (!hasHours) {
         const defaultHours = {
@@ -385,10 +364,17 @@ export const ShopProfileScreen: React.FC = () => {
         };
         setHoursForm(defaultHours);
         setShopData((prev: any) => ({ ...prev, ...defaultHours }));
-        merchantApi.updateShopProfile(shopId, defaultHours).catch(() => {});
+        try {
+          const raw = localStorage.getItem('prinkout_merchant_session');
+          if (raw) {
+            const sess = JSON.parse(raw);
+            sess.shopData = { ...(sess.shopData || {}), ...defaultHours };
+            localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+          }
+        } catch {}
       }
     }
-  }, [shopId, isApproved]);
+  }, [isApproved]);
 
   // Save Basic Details
   const handleSaveBasic = async () => {
@@ -652,7 +638,7 @@ export const ShopProfileScreen: React.FC = () => {
   const filledProfileDetailsCount = profileDetails.filter(Boolean).length;
   const profileProgressPercent = Math.round((filledProfileDetailsCount / profileDetails.length) * 100);
 
-  // Send Profile for Verification
+  // Send Profile for Verification (Single unified API call dispatching all shop details together)
   const handleSendForVerification = async () => {
     if (!isAllTabsFilled) {
       showToast('Please complete all tabs (Shop Details, Documents, Operating Hours) before submitting.');
@@ -665,6 +651,7 @@ export const ShopProfileScreen: React.FC = () => {
     };
     setBasicForm(updatedBasic);
     const payload = {
+      ...(shopData || {}),
       ...updatedBasic,
       ...businessForm,
       ...hoursForm,
@@ -689,11 +676,27 @@ export const ShopProfileScreen: React.FC = () => {
       } else {
         setShopData((prev: any) => ({ ...prev, ...payload, isSetupCompleted: true, verificationStatus: 'pending_approval' }));
       }
+      try {
+        const raw = localStorage.getItem('prinkout_merchant_session');
+        if (raw) {
+          const sess = JSON.parse(raw);
+          sess.shopData = { ...(sess.shopData || {}), ...payload };
+          localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+        }
+      } catch {}
       openSubmissionModal();
       showToast('Shop profile sent for admin verification!');
     } catch (err: any) {
       console.warn('sendShopForVerification API error, falling back to local state:', err);
       setShopData((prev: any) => ({ ...prev, ...payload, isSetupCompleted: true, verificationStatus: 'pending_approval' }));
+      try {
+        const raw = localStorage.getItem('prinkout_merchant_session');
+        if (raw) {
+          const sess = JSON.parse(raw);
+          sess.shopData = { ...(sess.shopData || {}), ...payload };
+          localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+        }
+      } catch {}
       openSubmissionModal();
       showToast('Shop profile submitted for verification!');
     } finally {
@@ -789,16 +792,16 @@ export const ShopProfileScreen: React.FC = () => {
           </div>
 
           <button
-            onClick={handleSendForVerification}
-            disabled={isSubmittingVerification}
+            onClick={isAllTabsFilled ? handleSendForVerification : undefined}
+            disabled={isSubmittingVerification || !isAllTabsFilled}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: 8,
               padding: '10px 20px',
               borderRadius: 12,
-              backgroundColor: isAllTabsFilled ? '#1C1D21' : '#94A3B8',
-              opacity: isAllTabsFilled ? 1 : 0.75,
+              backgroundColor: isAllTabsFilled ? '#1C1D21' : '#64748B',
+              opacity: isAllTabsFilled ? 1 : 0.45,
               color: '#FFFFFF',
               border: 'none',
               fontSize: 13,
@@ -1127,28 +1130,30 @@ export const ShopProfileScreen: React.FC = () => {
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setIsEditingBasic(prev => !prev)}
-                  title={isEditingBasic ? 'Cancel edit' : 'Edit details'}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: 4,
-                    display: 'flex',
-                    alignItems: 'center',
-                    color: isEditingBasic ? '#DC2626' : '#6B707B',
-                  }}
-                >
-                  {isEditingBasic ? <X size={16} /> : <Edit2 size={15} />}
-                </button>
+                {isApproved && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingBasic(prev => !prev)}
+                    title={isEditingBasic ? 'Cancel edit' : 'Edit details'}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: isEditingBasic ? '#DC2626' : '#6B707B',
+                    }}
+                  >
+                    {isEditingBasic ? <X size={16} /> : <Edit2 size={15} />}
+                  </button>
+                )}
               </div>
 
               <div style={{ borderTop: '1px solid #EBE7DF', paddingTop: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#1A1C20' }}>Basic Details</span>
-                  {isEditingBasic && (
+                  {isApproved && isEditingBasic && (
                     <button
                       onClick={handleSaveBasic}
                       disabled={savingBasic}
@@ -1409,7 +1414,7 @@ export const ShopProfileScreen: React.FC = () => {
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {isEditingBusiness && (
+                  {isApproved && isEditingBusiness && (
                     <button
                       onClick={handleSaveBusiness}
                       disabled={savingBusiness}
@@ -1431,14 +1436,16 @@ export const ShopProfileScreen: React.FC = () => {
                       <span>{savingBusiness ? 'Saving...' : 'Save'}</span>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingBusiness(prev => !prev)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B707B', padding: 2 }}
-                    title={isApproved ? "Edit Settlement UPI ID" : "Edit Business Info"}
-                  >
-                    {isEditingBusiness ? <X size={15} /> : <Edit2 size={14} />}
-                  </button>
+                  {isApproved && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingBusiness(prev => !prev)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B707B', padding: 2 }}
+                      title="Edit Settlement UPI ID"
+                    >
+                      {isEditingBusiness ? <X size={15} /> : <Edit2 size={14} />}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2143,8 +2150,9 @@ export const ShopProfileScreen: React.FC = () => {
           >
             <button
               type="button"
+              disabled={!isTab1Filled}
               onClick={() => {
-                if (tab1Missing.length > 0) {
+                if (!isTab1Filled) {
                   showToast(`Please complete: ${tab1Missing.join(', ')}`);
                   return;
                 }
@@ -2157,13 +2165,14 @@ export const ShopProfileScreen: React.FC = () => {
                 gap: 8,
                 padding: '10px 22px',
                 borderRadius: 12,
-                backgroundColor: '#1C1D21',
+                backgroundColor: isTab1Filled ? '#1C1D21' : '#64748B',
+                opacity: isTab1Filled ? 1 : 0.45,
                 color: '#FFFFFF',
                 border: 'none',
                 fontSize: 13,
                 fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(28,29,33,0.25)',
+                cursor: isTab1Filled ? 'pointer' : 'not-allowed',
+                boxShadow: isTab1Filled ? '0 2px 8px rgba(28,29,33,0.25)' : 'none',
               }}
             >
               <span>Continue to Verification Documents</span>
@@ -2409,8 +2418,9 @@ export const ShopProfileScreen: React.FC = () => {
           >
             <button
               type="button"
+              disabled={!isTab2Filled}
               onClick={() => {
-                if (tab2Missing.length > 0) {
+                if (!isTab2Filled) {
                   showToast(`Please complete: ${tab2Missing.join(', ')}`);
                   return;
                 }
@@ -2424,13 +2434,14 @@ export const ShopProfileScreen: React.FC = () => {
                 gap: 8,
                 padding: '10px 22px',
                 borderRadius: 12,
-                backgroundColor: '#1C1D21',
+                backgroundColor: isTab2Filled ? '#1C1D21' : '#64748B',
+                opacity: isTab2Filled ? 1 : 0.45,
                 color: '#FFFFFF',
                 border: 'none',
                 fontSize: 13,
                 fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(28,29,33,0.25)',
+                cursor: isTab2Filled ? 'pointer' : 'not-allowed',
+                boxShadow: isTab2Filled ? '0 2px 8px rgba(28,29,33,0.25)' : 'none',
               }}
             >
               <span>Continue to Operating Hours & Days</span>
@@ -2467,38 +2478,7 @@ export const ShopProfileScreen: React.FC = () => {
                     <span>{autoSaveStatus === 'saved' ? 'Auto-saved ✓' : 'Saving...'}</span>
                   </div>
                 )}
-                {!isApproved ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {isEditingHours && (
-                      <button
-                        onClick={handleSaveHours}
-                        disabled={savingHours}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '6px 12px',
-                          borderRadius: 10,
-                          backgroundColor: '#16A34A',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Check size={13} />
-                        <span>{savingHours ? 'Saving...' : 'Save Hours'}</span>
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setIsEditingHours(prev => !prev)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6B707B' }}
-                    >
-                      {isEditingHours ? <X size={16} /> : <Edit2 size={16} />}
-                    </button>
-                  </div>
-                ) : (
+                {isApproved && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: '#15803D' }}>
                     <Lock size={13} />
                     <span>Verified & Locked</span>
@@ -2605,8 +2585,9 @@ export const ShopProfileScreen: React.FC = () => {
           >
             <button
               type="button"
+              disabled={!isTab3Filled}
               onClick={() => {
-                if (tab3Missing.length > 0) {
+                if (!isTab3Filled) {
                   showToast(`Please complete: ${tab3Missing.join(', ')}`);
                   return;
                 }
@@ -2619,13 +2600,14 @@ export const ShopProfileScreen: React.FC = () => {
                 gap: 8,
                 padding: '10px 22px',
                 borderRadius: 12,
-                backgroundColor: '#1C1D21',
+                backgroundColor: isTab3Filled ? '#1C1D21' : '#64748B',
+                opacity: isTab3Filled ? 1 : 0.45,
                 color: '#FFFFFF',
                 border: 'none',
                 fontSize: 13,
                 fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 2px 8px rgba(28,29,33,0.25)',
+                cursor: isTab3Filled ? 'pointer' : 'not-allowed',
+                boxShadow: isTab3Filled ? '0 2px 8px rgba(28,29,33,0.25)' : 'none',
               }}
             >
               <span>Continue to Step 2: Store Preferences</span>

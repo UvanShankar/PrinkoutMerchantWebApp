@@ -24,6 +24,7 @@ export const SetupProgressBar: React.FC = () => {
     shopData,
     authPhone,
     showToast,
+    profileTab,
     setProfileTab,
   } = useMerchant();
 
@@ -72,8 +73,8 @@ export const SetupProgressBar: React.FC = () => {
   const completedDetailsCount = detailsTracking.filter(d => d.filled).length;
   const progressPercent = Math.min(100, Math.round((completedDetailsCount / totalDetailsCount) * 100));
 
-  // Step 1 Validation
-  const getStep1Missing = () => {
+  // Granular validations per tab and step
+  const getTab1Missing = () => {
     const missing: string[] = [];
     if (!shopData?.shopName?.trim()) missing.push('Shop Name');
     if (!shopData?.address?.trim()) missing.push('Shop Address');
@@ -81,9 +82,22 @@ export const SetupProgressBar: React.FC = () => {
     if (!shopData?.pincode?.trim() || !/^\d{6}$/.test(shopData.pincode.trim())) missing.push('6-digit Pincode');
     if (!shopData?.mobile?.trim()) missing.push('Phone Number');
     if (!shopData?.upiId?.trim() || !shopData.upiId.includes('@')) missing.push('UPI ID for Payouts');
-    if (!((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0))) {
+    return missing;
+  };
+
+  const getTab2Missing = () => {
+    const missing: string[] = [];
+    const hasDoc =
+      (Array.isArray(shopData?.documents) && shopData.documents.length > 0) ||
+      (Array.isArray(shopData?.photos) && shopData.photos.length > 0);
+    if (!hasDoc) {
       missing.push('Verification Document or Storefront Photo');
     }
+    return missing;
+  };
+
+  const getTab3Missing = () => {
+    const missing: string[] = [];
     if (!shopData?.openingTime || !shopData?.closingTime || !Array.isArray(shopData?.workingDays) || shopData.workingDays.length === 0) {
       missing.push('Operating Hours & Working Days');
     }
@@ -102,17 +116,98 @@ export const SetupProgressBar: React.FC = () => {
     return missing;
   };
 
-  const step1Missing = getStep1Missing();
+  const tab1Missing = getTab1Missing();
+  const tab2Missing = getTab2Missing();
+  const tab3Missing = getTab3Missing();
   const step3Missing = getStep3Missing();
 
-  const isCurrentStepComplete =
-    setupStep === 1
-      ? step1Missing.length === 0
-      : setupStep === 2
-      ? true
-      : step3Missing.length === 0;
+  const activeProfileTab = profileTab || 'details';
 
-  const currentStepMissing = setupStep === 1 ? step1Missing : setupStep === 3 ? step3Missing : [];
+  let isCurrentStepComplete = false;
+  let currentStepMissing: string[] = [];
+  let nextButtonLabel = '';
+  let onNextAction: () => void = () => {};
+  let canGoBack = false;
+  let onBackAction: () => void = () => {};
+
+  if (setupStep === 1) {
+    if (activeProfileTab === 'details') {
+      isCurrentStepComplete = tab1Missing.length === 0;
+      currentStepMissing = tab1Missing;
+      nextButtonLabel = 'Continue to Documents';
+      onNextAction = () => {
+        setProfileTab('documents');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      canGoBack = false;
+    } else if (activeProfileTab === 'documents') {
+      isCurrentStepComplete = tab2Missing.length === 0;
+      currentStepMissing = tab2Missing;
+      nextButtonLabel = 'Continue to Operating Hours';
+      onNextAction = () => {
+        setProfileTab('hours');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      canGoBack = true;
+      onBackAction = () => {
+        setProfileTab('details');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+    } else if (activeProfileTab === 'hours') {
+      isCurrentStepComplete = tab3Missing.length === 0;
+      currentStepMissing = tab3Missing;
+      nextButtonLabel = 'Next: Store Preferences';
+      onNextAction = () => {
+        setSetupStep(2);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      canGoBack = true;
+      onBackAction = () => {
+        setProfileTab('documents');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+    } else {
+      // preview tab
+      isCurrentStepComplete = true;
+      currentStepMissing = [];
+      nextButtonLabel = 'Next: Store Preferences';
+      onNextAction = () => {
+        setSetupStep(2);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      canGoBack = true;
+      onBackAction = () => {
+        setProfileTab('hours');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+    }
+  } else if (setupStep === 2) {
+    isCurrentStepComplete = true;
+    currentStepMissing = [];
+    nextButtonLabel = 'Next: Pricing & Services';
+    onNextAction = () => {
+      setSetupStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    canGoBack = true;
+    onBackAction = () => {
+      setSetupStep(1);
+      setProfileTab('hours');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+  } else if (setupStep === 3) {
+    isCurrentStepComplete = step3Missing.length === 0;
+    currentStepMissing = step3Missing;
+    nextButtonLabel = 'Submit for Review';
+    onNextAction = () => {
+      setShowReviewModal(true);
+    };
+    canGoBack = true;
+    onBackAction = () => {
+      setSetupStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+  }
 
   const triggerStepTooltip = (missing: string[]) => {
     setStepMissingFields(missing);
@@ -125,34 +220,14 @@ export const SetupProgressBar: React.FC = () => {
     if (!isCurrentStepComplete) {
       triggerStepTooltip(currentStepMissing);
       showToast(`Please complete: ${currentStepMissing[0] || 'required details'}`);
-
-      // Auto-navigate to the exact tab needing attention in Step 1
-      if (setupStep === 1) {
-        if (!shopData?.shopName?.trim() || !shopData?.address?.trim() || !resolvedShopCity || !shopData?.pincode?.trim() || !shopData?.mobile?.trim() || !shopData?.upiId?.trim()) {
-          setProfileTab('details');
-        } else if (!((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0))) {
-          setProfileTab('documents');
-        } else if (!shopData?.openingTime || !shopData?.closingTime || !Array.isArray(shopData?.workingDays) || shopData.workingDays.length === 0) {
-          setProfileTab('hours');
-        }
-      }
       return;
     }
-
-    if (setupStep === 1) {
-      setSetupStep(2);
-    } else if (setupStep === 2) {
-      setSetupStep(3);
-    } else if (setupStep === 3) {
-      setShowReviewModal(true);
-    }
+    onNextAction();
   };
 
   const handleBack = () => {
-    if (setupStep === 2) {
-      setSetupStep(1);
-    } else if (setupStep === 3) {
-      setSetupStep(2);
+    if (canGoBack) {
+      onBackAction();
     }
   };
 
@@ -212,7 +287,13 @@ export const SetupProgressBar: React.FC = () => {
             <div style={{ fontSize: 15, fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>
                 {setupStep === 1
-                  ? 'Step 1: Shop Profile'
+                  ? activeProfileTab === 'details'
+                    ? 'Step 1: Shop Details'
+                    : activeProfileTab === 'documents'
+                    ? 'Step 1: Documents & Photos'
+                    : activeProfileTab === 'hours'
+                    ? 'Step 1: Operating Hours & Days'
+                    : 'Step 1: Store Preview'
                   : setupStep === 2
                   ? 'Step 2: Settings (General)'
                   : 'Step 3: Pricing & Services'}
@@ -235,7 +316,13 @@ export const SetupProgressBar: React.FC = () => {
             </div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#F1F5F9', marginTop: 3 }}>
               {setupStep === 1
-                ? 'Fill shop contact, address & verification documents'
+                ? activeProfileTab === 'details'
+                  ? 'Enter shop name, address, pincode & payout UPI ID'
+                  : activeProfileTab === 'documents'
+                  ? 'Upload verification documents or storefront photo'
+                  : activeProfileTab === 'hours'
+                  ? 'Set shop opening & closing hours and working days'
+                  : 'Preview your store profile'
                 : setupStep === 2
                 ? 'Verify store details & notification preferences'
                 : 'Configure paper sizes, GSM rates & fulfilment mode'}
@@ -313,8 +400,8 @@ export const SetupProgressBar: React.FC = () => {
 
         {/* Right Navigation Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
-          {/* Floating Tooltip if button clicked/hovered while current step incomplete */}
-          {showStepTooltip && !isCurrentStepComplete && (
+          {/* Floating Tooltip if button hovered/clicked while current step incomplete */}
+          {showStepTooltip && !isCurrentStepComplete && currentStepMissing.length > 0 && (
             <div
               style={{
                 position: 'absolute',
@@ -346,7 +433,7 @@ export const SetupProgressBar: React.FC = () => {
                 </button>
               </div>
               <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.5, color: '#E2E8F0', fontSize: 11.5 }}>
-                {stepMissingFields.map((f, i) => (
+                {currentStepMissing.map((f, i) => (
                   <li key={i}>{f}</li>
                 ))}
               </ul>
@@ -366,7 +453,7 @@ export const SetupProgressBar: React.FC = () => {
             </div>
           )}
 
-          {setupStep > 1 && (
+          {canGoBack && (
             <button
               type="button"
               onClick={handleBack}
@@ -390,49 +477,48 @@ export const SetupProgressBar: React.FC = () => {
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={handleNext}
+          <div
             onMouseEnter={() => {
               if (!isCurrentStepComplete) triggerStepTooltip(currentStepMissing);
             }}
             onMouseLeave={() => {
-              if (!showStepTooltip) setShowStepTooltip(false);
+              setShowStepTooltip(false);
             }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 20px',
-              borderRadius: 12,
-              backgroundColor: isCurrentStepComplete
-                ? setupStep === 3
-                  ? '#16A34A'
-                  : '#4F46E5'
-                : '#475569',
-              opacity: isCurrentStepComplete ? 1 : 0.75,
-              border: 'none',
-              color: '#FFFFFF',
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: isCurrentStepComplete ? 'pointer' : 'not-allowed',
-              boxShadow: isCurrentStepComplete
-                ? setupStep === 3
-                  ? '0 4px 14px rgba(22, 163, 74, 0.45)'
-                  : '0 4px 14px rgba(79, 70, 229, 0.45)'
-                : 'none',
-              transition: 'all 0.15s ease',
-            }}
+            style={{ display: 'inline-flex' }}
           >
-            <span>
-              {setupStep === 1
-                ? 'Next: Settings General'
-                : setupStep === 2
-                ? 'Next: Pricing & Services'
-                : 'Submit for Review'}
-            </span>
-            {setupStep === 3 ? <Sparkles size={16} /> : <ChevronRight size={16} />}
-          </button>
+            <button
+              type="button"
+              disabled={!isCurrentStepComplete}
+              onClick={isCurrentStepComplete ? handleNext : undefined}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 20px',
+                borderRadius: 12,
+                backgroundColor: isCurrentStepComplete
+                  ? setupStep === 3
+                    ? '#16A34A'
+                    : '#4F46E5'
+                  : '#475569',
+                opacity: isCurrentStepComplete ? 1 : 0.45,
+                border: 'none',
+                color: '#FFFFFF',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: isCurrentStepComplete ? 'pointer' : 'not-allowed',
+                boxShadow: isCurrentStepComplete
+                  ? setupStep === 3
+                    ? '0 4px 14px rgba(22, 163, 74, 0.45)'
+                    : '0 4px 14px rgba(79, 70, 229, 0.45)'
+                  : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <span>{nextButtonLabel}</span>
+              {setupStep === 3 ? <Sparkles size={16} /> : <ChevronRight size={16} />}
+            </button>
+          </div>
         </div>
       </div>
 
