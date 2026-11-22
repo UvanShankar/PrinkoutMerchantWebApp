@@ -50,6 +50,14 @@ interface PhotoItem {
   uploadedAt: string;
 }
 
+const resolveDocUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.includes('.s3.') && url.includes('amazonaws.com')) {
+    return `http://localhost:5000/api/v1/files/document-preview?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+};
+
 export const ShopProfileScreen: React.FC = () => {
   const {
     shopId,
@@ -256,7 +264,7 @@ export const ShopProfileScreen: React.FC = () => {
       });
       if (Array.isArray(shopData.documents) && shopData.documents.length > 0) {
         setDocuments(shopData.documents);
-      } else if (!shopData.documents) {
+      } else {
         try {
           const raw = localStorage.getItem('prinkout_merchant_session');
           if (raw) {
@@ -769,9 +777,13 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Download Asset helper
   const handleDownloadAsset = (url: string, filename: string) => {
+    const finalUrl = url.includes('.s3.') && url.includes('amazonaws.com')
+      ? `http://localhost:5000/api/v1/files/document-preview?url=${encodeURIComponent(url)}&download=1`
+      : url;
     const a = document.createElement('a');
-    a.href = url;
+    a.href = finalUrl;
     a.download = filename || 'prinkout_verified_asset';
+    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1047,22 +1059,47 @@ export const ShopProfileScreen: React.FC = () => {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={openSubmissionModal}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 8,
-                backgroundColor: '#FDE68A',
-                border: '1px solid #F59E0B',
-                color: '#92400E',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              View All Notes
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                onClick={openSubmissionModal}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  backgroundColor: '#FEF3C7',
+                  border: '1px solid #F59E0B',
+                  color: '#92400E',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                View All Notes
+              </button>
+              <button
+                type="button"
+                onClick={handleSendForVerification}
+                disabled={isSubmittingVerification || !isAllTabsFilled}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 10,
+                  backgroundColor: isAllTabsFilled ? '#D97706' : '#94A3B8',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontSize: 12.5,
+                  fontWeight: 700,
+                  cursor: isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'not-allowed',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  boxShadow: isAllTabsFilled ? '0 2px 8px rgba(217, 119, 6, 0.35)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <ShieldCheck size={15} />
+                <span>{isSubmittingVerification ? 'Submitting...' : 'Re-submit for Verification'}</span>
+              </button>
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1088,6 +1125,33 @@ export const ShopProfileScreen: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #FDE68A', paddingTop: 10, marginTop: 4 }}>
+            <span style={{ fontSize: 12, color: '#92400E', fontWeight: 500 }}>
+              Edited your shop details or uploaded new documents? Re-submit to the admin team for review and approval.
+            </span>
+            <button
+              type="button"
+              onClick={handleSendForVerification}
+              disabled={isSubmittingVerification || !isAllTabsFilled}
+              style={{
+                padding: '7px 16px',
+                borderRadius: 8,
+                backgroundColor: isAllTabsFilled ? '#B45309' : '#94A3B8',
+                color: '#FFFFFF',
+                border: 'none',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'not-allowed',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <ShieldCheck size={14} />
+              <span>{isSubmittingVerification ? 'Submitting...' : 'Re-submit Now'}</span>
+            </button>
           </div>
         </div>
       )}
@@ -2440,7 +2504,12 @@ export const ShopProfileScreen: React.FC = () => {
                 { type: 'Shop Proof (Rent/Bill)', label: 'Shop Establishment Proof', desc: 'Rent agreement, electricity bill, or trade license' },
                 { type: 'Owner Aadhaar / ID', label: 'Identity Proof', desc: 'Government issued Aadhaar or PAN card of shop owner' },
               ].map(slot => {
-                const doc = documents.find(d => d.type === slot.type);
+                const doc = documents.find(d =>
+                  d.type === slot.type ||
+                  (slot.type.includes('GST') && (d.type?.toLowerCase().includes('gst') || d.name?.toLowerCase().includes('gst'))) ||
+                  (slot.type.includes('Proof') && (d.type?.toLowerCase().includes('proof') || d.type?.toLowerCase().includes('rent') || d.type?.toLowerCase().includes('bill') || d.type?.toLowerCase().includes('license') || d.name?.toLowerCase().includes('rent') || d.name?.toLowerCase().includes('statement'))) ||
+                  (slot.type.includes('ID') && (d.type?.toLowerCase().includes('id') || d.type?.toLowerCase().includes('aadhaar') || d.type?.toLowerCase().includes('pan') || d.name?.toLowerCase().includes('aadhaar') || d.name?.toLowerCase().includes('patent') || d.name?.toLowerCase().includes('id')))
+                );
                 return (
                   <div
                     key={slot.type}
@@ -2608,6 +2677,153 @@ export const ShopProfileScreen: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+
+            {/* All Uploaded Business Documents & KYC Proofs */}
+            <div style={{ marginTop: 24, borderTop: '1px solid #EBE7DF', paddingTop: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#EEF2FF', color: '#4F46E5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <FileText size={16} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1C20' }}>
+                      All Uploaded Business Documents ({documents.length})
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#6B707B' }}>
+                      Review, preview, and download your uploaded KYC files anytime.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {documents.length === 0 ? (
+                <div
+                  style={{
+                    padding: '24px 20px',
+                    textAlign: 'center',
+                    backgroundColor: '#FAF8F5',
+                    borderRadius: 12,
+                    border: '1px dashed #DAD5CB',
+                    color: '#8E929B',
+                    fontSize: 12.5,
+                  }}
+                >
+                  No documents uploaded yet. Click <strong>Upload Document</strong> in the slots above to attach proof files.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {documents.map((doc, idx) => (
+                    <div
+                      key={doc.id || idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        backgroundColor: '#FFFFFF',
+                        border: '1px solid #EBE7DF',
+                        borderRadius: 12,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 10,
+                            backgroundColor: '#F3F4F6',
+                            color: '#4B5563',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <FileText size={18} />
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {doc.name}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#6B707B', display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                            <span style={{ backgroundColor: '#F3F4F6', color: '#374151', padding: '1px 8px', borderRadius: 4, fontWeight: 600 }}>
+                              {doc.type}
+                            </span>
+                            {doc.size && <span>{doc.size}</span>}
+                            {doc.uploadedAt && <span>Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}</span>}
+                            <span style={{ color: '#059669', fontWeight: 600 }}>✓ Attached</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewAsset({ name: doc.name, url: doc.url, type: 'doc' })}
+                          style={{
+                            padding: '7px 14px',
+                            borderRadius: 8,
+                            backgroundColor: '#1C1D21',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                          }}
+                        >
+                          <Eye size={13} />
+                          <span>View</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadAsset(doc.url, doc.name)}
+                          style={{
+                            padding: '7px 14px',
+                            borderRadius: 8,
+                            backgroundColor: '#FFFFFF',
+                            color: '#374151',
+                            border: '1px solid #D1D5DB',
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                          }}
+                        >
+                          <Download size={13} />
+                          <span>Download</span>
+                        </button>
+                        {!isApproved && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDoc(doc.id)}
+                            style={{
+                              padding: '7px 10px',
+                              borderRadius: 8,
+                              backgroundColor: '#FEE2E2',
+                              color: '#DC2626',
+                              border: 'none',
+                              fontSize: 12,
+                              cursor: 'pointer',
+                            }}
+                            title="Remove file"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2864,6 +3080,27 @@ export const ShopProfileScreen: React.FC = () => {
                   <Download size={13} />
                   <span>Download</span>
                 </button>
+                <a
+                  href={resolveDocUrl(previewAsset.url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '6px 12px',
+                    borderRadius: 10,
+                    backgroundColor: '#EEF2FF',
+                    color: '#4F46E5',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    border: '1px solid #C7D2FE',
+                  }}
+                >
+                  <ExternalLink size={12} />
+                  <span>Open in New Tab</span>
+                </a>
                 <button
                   onClick={() => setPreviewAsset(null)}
                   style={{
@@ -2891,19 +3128,125 @@ export const ShopProfileScreen: React.FC = () => {
                 minHeight: 380,
               }}
             >
-              <img
-                src={previewAsset.url}
-                alt={previewAsset.name}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '70vh',
-                  objectFit: 'contain',
-                  borderRadius: 8,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                }}
-              />
+              {(() => {
+                const finalUrl = resolveDocUrl(previewAsset.url);
+                const isPdf = previewAsset.url.includes('.pdf') || previewAsset.name?.toLowerCase().endsWith('.pdf') || previewAsset.type === 'doc';
+                const isImg = !isPdf && (
+                  previewAsset.url.startsWith('data:image') ||
+                  previewAsset.url.includes('.png') ||
+                  previewAsset.url.includes('.jpg') ||
+                  previewAsset.url.includes('.jpeg') ||
+                  previewAsset.url.includes('.webp') ||
+                  previewAsset.url.includes('.svg')
+                );
+
+                if (isImg) {
+                  return (
+                    <img
+                      src={finalUrl}
+                      alt={previewAsset.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '70vh',
+                        objectFit: 'contain',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                      }}
+                      onError={(e) => {
+                        (e.currentTarget as any).src = 'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=800&q=80';
+                      }}
+                    />
+                  );
+                }
+
+                return (
+                  <iframe
+                    src={finalUrl}
+                    title={previewAsset.name}
+                    style={{
+                      width: '100%',
+                      height: '70vh',
+                      border: 'none',
+                      borderRadius: 8,
+                      backgroundColor: '#FFFFFF',
+                    }}
+                  />
+                );
+              })()}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Persistent Bottom Re-submit Action Bar (Visible whenever shop is unapproved) */}
+      {!isApproved && (
+        <div
+          style={{
+            marginTop: 14,
+            padding: '16px 22px',
+            backgroundColor: '#1E1B4B',
+            borderRadius: 16,
+            border: '1px solid #4338CA',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 10,
+                backgroundColor: '#312E81',
+                color: '#818CF8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <ShieldCheck size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#FFFFFF' }}>
+                {Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0
+                  ? 'Addressed Admin Feedback? Ready to Re-submit!'
+                  : 'Send Profile & KYC Updates for Verification'}
+              </div>
+              <div style={{ fontSize: 12, color: '#C7D2FE', marginTop: 2 }}>
+                {isAllTabsFilled
+                  ? 'All details and documents are complete. Click to submit directly to admin for approval.'
+                  : 'Please complete all required fields and upload proofs to enable re-submission.'}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleSendForVerification}
+            disabled={isSubmittingVerification || !isAllTabsFilled}
+            style={{
+              padding: '11px 24px',
+              borderRadius: 12,
+              backgroundColor: isAllTabsFilled ? '#4F46E5' : '#475569',
+              color: '#FFFFFF',
+              border: 'none',
+              fontSize: 13.5,
+              fontWeight: 700,
+              cursor: isAllTabsFilled && !isSubmittingVerification ? 'pointer' : 'not-allowed',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              boxShadow: isAllTabsFilled ? '0 4px 14px rgba(79, 70, 229, 0.4)' : 'none',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <ShieldCheck size={16} />
+            <span>{isSubmittingVerification ? 'Submitting...' : 'Re-submit for Verification'}</span>
+          </button>
         </div>
       )}
 

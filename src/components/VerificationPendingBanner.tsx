@@ -81,6 +81,21 @@ export const VerificationPendingBanner: React.FC = () => {
             >
               Submitted {submittedDate}
             </span>
+            {Array.isArray(effectiveShopData?.adminComments) && effectiveShopData.adminComments.length > 0 && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  backgroundColor: '#FEF3C7',
+                  color: '#92400E',
+                  border: '1px solid #F59E0B',
+                  padding: '2px 8px',
+                  borderRadius: 10,
+                }}
+              >
+                Notes from Admin ({effectiveShopData.adminComments.length})
+              </span>
+            )}
           </div>
           <div style={{ fontSize: 12, color: '#2563EB', marginTop: 2, lineHeight: 1.4 }}>
             Your shop profile and documents have been submitted to the admin team. You have full access to use and explore all features in the app.
