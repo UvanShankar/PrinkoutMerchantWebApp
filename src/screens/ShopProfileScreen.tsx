@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { theme } from '../theme';
 import { resolveCityFromLocation, cleanCityName } from '../utils/locationUtils';
+import { LocationPickerModal, LocationData } from '../components/LocationPickerModal';
 
 interface DocItem {
   id: string;
@@ -111,6 +112,32 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Preview Modal state
   const [previewAsset, setPreviewAsset] = useState<{ name: string; url: string; type: string } | null>(null);
+
+  // Location Picker state
+  const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
+
+  const handleLocationSelected = (loc: LocationData) => {
+    const updated = {
+      ...basicForm,
+      address: loc.address,
+      area: loc.area || basicForm.area,
+      city: loc.city || basicForm.city,
+      pincode: loc.pincode || basicForm.pincode,
+    };
+    setBasicForm(updated);
+    autoSaveBasic(updated);
+    if (shopId) {
+      merchantApi.updateShopProfile(shopId, {
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        address: loc.address,
+        area: loc.area,
+        city: loc.city,
+        pincode: loc.pincode,
+      }).catch(() => {});
+    }
+    showToast(`📍 Location updated: ${loc.city} (${loc.pincode})`);
+  };
 
   // Forms
   const [basicForm, setBasicForm] = useState(() => {
@@ -1475,9 +1502,32 @@ export const ShopProfileScreen: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block', marginBottom: 2 }}>
-                        Shop Address * {isApproved && <span style={{ fontSize: 10, color: '#15803D' }}>(Verified)</span>}
-                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <label style={{ fontSize: 11, fontWeight: 600, color: '#8E929B', display: 'block' }}>
+                          Shop Address * {isApproved && <span style={{ fontSize: 10, color: '#15803D' }}>(Verified)</span>}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowLocationPicker(true)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            background: 'none',
+                            border: 'none',
+                            color: '#4F46E5',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            backgroundColor: '#EEF2FF',
+                          }}
+                        >
+                          <MapPin size={12} color="#4F46E5" />
+                          <span>Pick on Map (GPS)</span>
+                        </button>
+                      </div>
                       <input
                         type="text"
                         placeholder="Door number, street name"
@@ -1624,7 +1674,28 @@ export const ShopProfileScreen: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <Map size={16} color="#6B707B" style={{ cursor: 'pointer', marginTop: 2 }} />
+                      <button
+                        type="button"
+                        onClick={() => setShowLocationPicker(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          background: 'none',
+                          border: 'none',
+                          color: '#4F46E5',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          backgroundColor: '#EEF2FF',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <MapPin size={12} color="#4F46E5" />
+                        <span>Pick on Map (GPS)</span>
+                      </button>
                     </div>
 
                     <div style={{ display: 'flex', gap: 10 }}>
@@ -2898,6 +2969,18 @@ export const ShopProfileScreen: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Interactive Location Picker Modal (Leaflet Map + Browser GPS) */}
+      <LocationPickerModal
+        isOpen={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        initialLat={shopData?.latitude}
+        initialLng={shopData?.longitude}
+        initialAddress={basicForm.address}
+        initialPincode={basicForm.pincode}
+        initialCity={basicForm.city}
+        onLocationSelected={handleLocationSelected}
+      />
     </div>
   );
 };

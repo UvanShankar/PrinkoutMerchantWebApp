@@ -5,6 +5,7 @@ import { ChevronLeft, ArrowRight, Store, User, Phone, FileText, MapPin, CheckCir
 import { theme } from '../theme';
 import { merchantApi } from '../services/api';
 import { resolveCityFromLocation } from '../utils/locationUtils';
+import { LocationPickerModal, LocationData } from '../components/LocationPickerModal';
 
 export const ShopOnboardingStep1: React.FC = () => {
   const { onboardingData, updateOnboardingData, navigateTo, showToast, login, setShopData } = useMerchant();
@@ -30,6 +31,26 @@ export const ShopOnboardingStep1: React.FC = () => {
   const [showComingSoonModal, setShowComingSoonModal] = useState<boolean>(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimeoutRef = useRef<any>(null);
+
+  // Location Picker state
+  const [showLocationPicker, setShowLocationPicker] = useState<boolean>(false);
+
+  const handleLocationSelected = (loc: LocationData) => {
+    setForm(prev => ({
+      ...prev,
+      address: loc.address,
+      pincode: loc.pincode,
+    }));
+    updateOnboardingData({
+      address: loc.address,
+      pincode: loc.pincode,
+      city: loc.city,
+      area: loc.area,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+    });
+    showToast(`📍 Location picked: ${loc.city} (${loc.pincode})`);
+  };
 
   // OTP Verification state
   const [loading, setLoading] = useState(false);
@@ -502,9 +523,32 @@ export const ShopOnboardingStep1: React.FC = () => {
 
         {/* Shop Address */}
         <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1A1C20', marginBottom: 6 }}>
-            Shop Address <span style={{ color: '#EF4444' }}>*</span>
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#1A1C20' }}>
+              Shop Address <span style={{ color: '#EF4444' }}>*</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowLocationPicker(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'none',
+                border: 'none',
+                color: '#4F46E5',
+                fontSize: 11.5,
+                fontWeight: 700,
+                cursor: 'pointer',
+                padding: '3px 8px',
+                borderRadius: 8,
+                backgroundColor: '#EEF2FF',
+              }}
+            >
+              <MapPin size={13} color="#4F46E5" />
+              <span>Pick on Map (GPS)</span>
+            </button>
+          </div>
           <div
             style={{
               display: 'flex',
@@ -1064,6 +1108,18 @@ export const ShopOnboardingStep1: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Interactive Location Picker Modal (Leaflet Map + Browser GPS) */}
+      <LocationPickerModal
+        isOpen={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        initialLat={onboardingData?.latitude}
+        initialLng={onboardingData?.longitude}
+        initialAddress={form.address}
+        initialPincode={form.pincode}
+        initialCity={onboardingData?.city}
+        onLocationSelected={handleLocationSelected}
+      />
     </AuthLayout>
   );
 };
