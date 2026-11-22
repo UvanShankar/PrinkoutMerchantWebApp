@@ -435,7 +435,33 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (fetchedAnalytics) setAnalytics(fetchedAnalytics);
       if (fetchedPayouts) setPayouts(fetchedPayouts);
       if (fetchedShop) {
-        setShopData(fetchedShop);
+        setShopData(prev => {
+          const merged = {
+            ...prev,
+            ...fetchedShop,
+            documents:
+              Array.isArray(fetchedShop.documents) && fetchedShop.documents.length > 0
+                ? fetchedShop.documents
+                : Array.isArray(prev?.documents) && prev.documents.length > 0
+                ? prev.documents
+                : [],
+            photos:
+              Array.isArray(fetchedShop.photos) && fetchedShop.photos.length > 0
+                ? fetchedShop.photos
+                : Array.isArray(prev?.photos) && prev.photos.length > 0
+                ? prev.photos
+                : [],
+          };
+          try {
+            const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+            if (raw) {
+              const sess = JSON.parse(raw);
+              sess.shopData = merged;
+              localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sess));
+            }
+          } catch {}
+          return merged;
+        });
         if (Array.isArray(fetchedShop.pricingCombinations) && fetchedShop.pricingCombinations.length > 0) {
           const dynamicPricing = fetchedShop.pricingCombinations.map((p: any, idx: number) => ({
             id: p.id || `prc_${p.paperSize}_${p.paperTexture}_${idx}`,

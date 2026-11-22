@@ -134,7 +134,7 @@ export const SetupProgressBar: React.FC = () => {
     if (activeProfileTab === 'details') {
       isCurrentStepComplete = tab1Missing.length === 0;
       currentStepMissing = tab1Missing;
-      nextButtonLabel = 'Continue to Documents';
+      nextButtonLabel = 'Next: Verification Documents';
       onNextAction = () => {
         setProfileTab('documents');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -143,7 +143,7 @@ export const SetupProgressBar: React.FC = () => {
     } else if (activeProfileTab === 'documents') {
       isCurrentStepComplete = tab2Missing.length === 0;
       currentStepMissing = tab2Missing;
-      nextButtonLabel = 'Continue to Operating Hours';
+      nextButtonLabel = 'Next: Operating Hours & Days';
       onNextAction = () => {
         setProfileTab('hours');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -156,7 +156,7 @@ export const SetupProgressBar: React.FC = () => {
     } else if (activeProfileTab === 'hours') {
       isCurrentStepComplete = tab3Missing.length === 0;
       currentStepMissing = tab3Missing;
-      nextButtonLabel = 'Next: Store Preferences';
+      nextButtonLabel = 'Next: Store Preferences (Step 2)';
       onNextAction = () => {
         setSetupStep(2);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -170,7 +170,7 @@ export const SetupProgressBar: React.FC = () => {
       // preview tab
       isCurrentStepComplete = true;
       currentStepMissing = [];
-      nextButtonLabel = 'Next: Store Preferences';
+      nextButtonLabel = 'Next: Store Preferences (Step 2)';
       onNextAction = () => {
         setSetupStep(2);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -184,7 +184,7 @@ export const SetupProgressBar: React.FC = () => {
   } else if (setupStep === 2) {
     isCurrentStepComplete = true;
     currentStepMissing = [];
-    nextButtonLabel = 'Next: Pricing & Services';
+    nextButtonLabel = 'Next: Pricing & Services (Step 3)';
     onNextAction = () => {
       setSetupStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -198,7 +198,7 @@ export const SetupProgressBar: React.FC = () => {
   } else if (setupStep === 3) {
     isCurrentStepComplete = step3Missing.length === 0;
     currentStepMissing = step3Missing;
-    nextButtonLabel = 'Submit for Review';
+    nextButtonLabel = 'Submit Profile for Review';
     onNextAction = () => {
       setShowReviewModal(true);
     };

@@ -136,17 +136,38 @@ export const ShopProfileScreen: React.FC = () => {
   });
 
   const [documents, setDocuments] = useState<DocItem[]>(() => {
-    if (Array.isArray(shopData?.documents)) return shopData.documents;
+    if (Array.isArray(shopData?.documents) && shopData.documents.length > 0) return shopData.documents;
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        if (Array.isArray(sess?.shopData?.documents) && sess.shopData.documents.length > 0) {
+          return sess.shopData.documents;
+        }
+      }
+    } catch {}
     return [];
   });
 
   const [photos, setPhotos] = useState<PhotoItem[]>(() => {
-    if (Array.isArray(shopData?.photos)) {
+    if (Array.isArray(shopData?.photos) && shopData.photos.length > 0) {
       return shopData.photos.map((p: any, idx: number) => {
         if (typeof p === 'string') return { id: `photo_${idx}`, name: `Photo ${idx + 1}`, url: p, uploadedAt: new Date().toISOString() };
         return p;
       });
     }
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        if (Array.isArray(sess?.shopData?.photos) && sess.shopData.photos.length > 0) {
+          return sess.shopData.photos.map((p: any, idx: number) => {
+            if (typeof p === 'string') return { id: `photo_${idx}`, name: `Photo ${idx + 1}`, url: p, uploadedAt: new Date().toISOString() };
+            return p;
+          });
+        }
+      }
+    } catch {}
     return [];
   });
 
@@ -199,18 +220,37 @@ export const ShopProfileScreen: React.FC = () => {
           ? shopData.workingDays
           : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
       });
-      if (Array.isArray(shopData.documents)) {
+      if (Array.isArray(shopData.documents) && shopData.documents.length > 0) {
         setDocuments(shopData.documents);
-      } else {
-        setDocuments([]);
+      } else if (!shopData.documents) {
+        try {
+          const raw = localStorage.getItem('prinkout_merchant_session');
+          if (raw) {
+            const sess = JSON.parse(raw);
+            if (Array.isArray(sess?.shopData?.documents) && sess.shopData.documents.length > 0) {
+              setDocuments(sess.shopData.documents);
+            }
+          }
+        } catch {}
       }
-      if (Array.isArray(shopData.photos)) {
+      if (Array.isArray(shopData.photos) && shopData.photos.length > 0) {
         setPhotos(shopData.photos.map((p: any, idx: number) => {
           if (typeof p === 'string') return { id: `photo_${idx}`, name: `Photo ${idx + 1}`, url: p, uploadedAt: new Date().toISOString() };
           return p;
         }));
-      } else {
-        setPhotos([]);
+      } else if (!shopData.photos) {
+        try {
+          const raw = localStorage.getItem('prinkout_merchant_session');
+          if (raw) {
+            const sess = JSON.parse(raw);
+            if (Array.isArray(sess?.shopData?.photos) && sess.shopData.photos.length > 0) {
+              setPhotos(sess.shopData.photos.map((p: any, idx: number) => {
+                if (typeof p === 'string') return { id: `photo_${idx}`, name: `Photo ${idx + 1}`, url: p, uploadedAt: new Date().toISOString() };
+                return p;
+              }));
+            }
+          }
+        } catch {}
       }
     } else {
       setBasicForm({
@@ -455,6 +495,28 @@ export const ShopProfileScreen: React.FC = () => {
     }
   };
 
+  const persistSessionDocs = (newDocs: DocItem[]) => {
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        sess.shopData = { ...(sess.shopData || {}), documents: newDocs };
+        localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+      }
+    } catch {}
+  };
+
+  const persistSessionPhotos = (newPhotos: PhotoItem[]) => {
+    try {
+      const raw = localStorage.getItem('prinkout_merchant_session');
+      if (raw) {
+        const sess = JSON.parse(raw);
+        sess.shopData = { ...(sess.shopData || {}), photos: newPhotos };
+        localStorage.setItem('prinkout_merchant_session', JSON.stringify(sess));
+      }
+    } catch {}
+  };
+
   // Upload Real File handler (documents)
   const handleDocFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -475,9 +537,15 @@ export const ShopProfileScreen: React.FC = () => {
       const updated = [...documents.filter(d => d.type !== pendingDocType), newDoc];
       setDocuments(updated);
       setShopData((prev: any) => ({ ...prev, documents: updated }));
+      persistSessionDocs(updated);
       if (shopId) {
         try {
-          await merchantApi.updateShopProfile(shopId, { documents: updated });
+          const res = await merchantApi.updateShopProfile(shopId, { documents: updated });
+          if (res?.documents && Array.isArray(res.documents) && res.documents.length > 0) {
+            setDocuments(res.documents);
+            setShopData((prev: any) => ({ ...prev, documents: res.documents }));
+            persistSessionDocs(res.documents);
+          }
         } catch {}
       }
       showToast(`${pendingDocType} uploaded successfully!`);
@@ -502,9 +570,15 @@ export const ShopProfileScreen: React.FC = () => {
     const updated = [...documents.filter(d => d.type !== docType), newDoc];
     setDocuments(updated);
     setShopData((prev: any) => ({ ...prev, documents: updated }));
+    persistSessionDocs(updated);
     if (shopId) {
       try {
-        await merchantApi.updateShopProfile(shopId, { documents: updated });
+        const res = await merchantApi.updateShopProfile(shopId, { documents: updated });
+        if (res?.documents && Array.isArray(res.documents) && res.documents.length > 0) {
+          setDocuments(res.documents);
+          setShopData((prev: any) => ({ ...prev, documents: res.documents }));
+          persistSessionDocs(res.documents);
+        }
       } catch {}
     }
     showToast(`Sample ${docType} generated and added!`);
@@ -516,9 +590,15 @@ export const ShopProfileScreen: React.FC = () => {
     const updated = documents.filter(d => d.id !== id);
     setDocuments(updated);
     setShopData((prev: any) => ({ ...prev, documents: updated }));
+    persistSessionDocs(updated);
     if (shopId) {
       try {
-        await merchantApi.updateShopProfile(shopId, { documents: updated });
+        const res = await merchantApi.updateShopProfile(shopId, { documents: updated });
+        if (res?.documents && Array.isArray(res.documents)) {
+          setDocuments(res.documents);
+          setShopData((prev: any) => ({ ...prev, documents: res.documents }));
+          persistSessionDocs(res.documents);
+        }
       } catch {}
     }
     showToast('Document removed.');
@@ -541,9 +621,15 @@ export const ShopProfileScreen: React.FC = () => {
       const updated = [...photos, newPhoto];
       setPhotos(updated);
       setShopData((prev: any) => ({ ...prev, photos: updated }));
+      persistSessionPhotos(updated);
       if (shopId) {
         try {
-          await merchantApi.updateShopProfile(shopId, { photos: updated });
+          const res = await merchantApi.updateShopProfile(shopId, { photos: updated });
+          if (res?.photos && Array.isArray(res.photos) && res.photos.length > 0) {
+            setPhotos(res.photos);
+            setShopData((prev: any) => ({ ...prev, photos: res.photos }));
+            persistSessionPhotos(res.photos);
+          }
         } catch {}
       }
       showToast('Shop photo added successfully!');
@@ -565,9 +651,15 @@ export const ShopProfileScreen: React.FC = () => {
     const updated = [...photos, newPhoto];
     setPhotos(updated);
     setShopData((prev: any) => ({ ...prev, photos: updated }));
+    persistSessionPhotos(updated);
     if (shopId) {
       try {
-        await merchantApi.updateShopProfile(shopId, { photos: updated });
+        const res = await merchantApi.updateShopProfile(shopId, { photos: updated });
+        if (res?.photos && Array.isArray(res.photos) && res.photos.length > 0) {
+          setPhotos(res.photos);
+          setShopData((prev: any) => ({ ...prev, photos: res.photos }));
+          persistSessionPhotos(res.photos);
+        }
       } catch {}
     }
     showToast(`${label} photo added!`);
@@ -579,9 +671,15 @@ export const ShopProfileScreen: React.FC = () => {
     const updated = photos.filter(p => p.id !== id);
     setPhotos(updated);
     setShopData((prev: any) => ({ ...prev, photos: updated }));
+    persistSessionPhotos(updated);
     if (shopId) {
       try {
-        await merchantApi.updateShopProfile(shopId, { photos: updated });
+        const res = await merchantApi.updateShopProfile(shopId, { photos: updated });
+        if (res?.photos && Array.isArray(res.photos)) {
+          setPhotos(res.photos);
+          setShopData((prev: any) => ({ ...prev, photos: res.photos }));
+          persistSessionPhotos(res.photos);
+        }
       } catch {}
     }
     showToast('Photo removed.');
@@ -2132,53 +2230,6 @@ export const ShopProfileScreen: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Step 1 Tab 1 Navigation Bar */}
-          <div
-            style={{
-              gridColumn: '1 / -1',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              gap: 12,
-              marginTop: 10,
-              padding: '14px 20px',
-              backgroundColor: theme.colors.creamCard,
-              border: `1px solid ${theme.colors.creamCardBorder}`,
-              borderRadius: 16,
-            }}
-          >
-            <button
-              type="button"
-              disabled={!isTab1Filled}
-              onClick={() => {
-                if (!isTab1Filled) {
-                  showToast(`Please complete: ${tab1Missing.join(', ')}`);
-                  return;
-                }
-                setActiveTab('documents');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 22px',
-                borderRadius: 12,
-                backgroundColor: isTab1Filled ? '#1C1D21' : '#64748B',
-                opacity: isTab1Filled ? 1 : 0.45,
-                color: '#FFFFFF',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: isTab1Filled ? 'pointer' : 'not-allowed',
-                boxShadow: isTab1Filled ? '0 2px 8px rgba(28,29,33,0.25)' : 'none',
-              }}
-            >
-              <span>Continue to Verification Documents</span>
-              <ChevronRight size={16} />
-            </button>
-          </div>
         </div>
       )}
 
@@ -2402,52 +2453,6 @@ export const ShopProfileScreen: React.FC = () => {
               })}
             </div>
           </div>
-
-          {/* Step 1 Tab 2 Navigation Bar */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              gap: 12,
-              padding: '14px 20px',
-              backgroundColor: theme.colors.creamCard,
-              border: `1px solid ${theme.colors.creamCardBorder}`,
-              borderRadius: 16,
-            }}
-          >
-            <button
-              type="button"
-              disabled={!isTab2Filled}
-              onClick={() => {
-                if (!isTab2Filled) {
-                  showToast(`Please complete: ${tab2Missing.join(', ')}`);
-                  return;
-                }
-                setActiveTab('hours');
-                setIsEditingHours(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 22px',
-                borderRadius: 12,
-                backgroundColor: isTab2Filled ? '#1C1D21' : '#64748B',
-                opacity: isTab2Filled ? 1 : 0.45,
-                color: '#FFFFFF',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: isTab2Filled ? 'pointer' : 'not-allowed',
-                boxShadow: isTab2Filled ? '0 2px 8px rgba(28,29,33,0.25)' : 'none',
-              }}
-            >
-              <span>Continue to Operating Hours & Days</span>
-              <ChevronRight size={16} />
-            </button>
-          </div>
         </div>
       )}
 
@@ -2567,52 +2572,6 @@ export const ShopProfileScreen: React.FC = () => {
                 })}
               </div>
             </div>
-          </div>
-
-          {/* Step 1 Tab 3 Navigation Bar */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              gap: 12,
-              maxWidth: 700,
-              padding: '14px 20px',
-              backgroundColor: theme.colors.creamCard,
-              border: `1px solid ${theme.colors.creamCardBorder}`,
-              borderRadius: 16,
-            }}
-          >
-            <button
-              type="button"
-              disabled={!isTab3Filled}
-              onClick={() => {
-                if (!isTab3Filled) {
-                  showToast(`Please complete: ${tab3Missing.join(', ')}`);
-                  return;
-                }
-                setSetupStep(2);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 22px',
-                borderRadius: 12,
-                backgroundColor: isTab3Filled ? '#1C1D21' : '#64748B',
-                opacity: isTab3Filled ? 1 : 0.45,
-                color: '#FFFFFF',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: isTab3Filled ? 'pointer' : 'not-allowed',
-                boxShadow: isTab3Filled ? '0 2px 8px rgba(28,29,33,0.25)' : 'none',
-              }}
-            >
-              <span>Continue to Step 2: Store Preferences</span>
-              <ChevronRight size={16} />
-            </button>
           </div>
         </div>
       )}
