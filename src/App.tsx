@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { Toast } from './components/Toast';
 import { SetupProgressBar } from './components/SetupProgressBar';
 import { SubmissionUnderReviewModal } from './components/SubmissionUnderReviewModal';
+import { VerificationPendingBanner } from './components/VerificationPendingBanner';
 
 // Auth & Onboarding Screens (Pages 1 - 6)
 import { LoginScreen } from './screens/LoginScreen';
@@ -70,7 +71,8 @@ const MainNavigator: React.FC = () => {
       <Sidebar />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', overflow: 'hidden' }}>
         <Header />
-        <main style={{ flex: 1, overflowY: 'auto' }}>
+        <main style={{ flex: 1, overflowY: 'auto', padding: '0 32px 32px' }}>
+          <VerificationPendingBanner />
           {currentScreen === 'dashboard' && <DashboardScreen />}
           {currentScreen === 'orders' && <OrdersScreen />}
           {currentScreen === 'queue' && <PrintQueueScreen />}

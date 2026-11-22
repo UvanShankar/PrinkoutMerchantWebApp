@@ -1007,69 +1007,6 @@ export const ShopProfileScreen: React.FC = () => {
         </div>
       )}
 
-      {isPending && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-            padding: '14px 20px',
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #BFDBFE',
-            borderRadius: 16,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: '50%',
-                backgroundColor: '#DBEAFE',
-                color: '#1E40AF',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <Clock size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: '#1E40AF', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>Profile Under Review</span>
-                <span style={{ fontSize: 11, fontWeight: 700, backgroundColor: '#DBEAFE', color: '#1E40AF', padding: '2px 8px', borderRadius: 10 }}>
-                  Submitted {shopData?.verificationSubmittedAt ? new Date(shopData.verificationSubmittedAt).toLocaleDateString() : 'Today'}
-                </span>
-              </div>
-              <div style={{ fontSize: 12, color: '#2563EB', marginTop: 2 }}>
-                Your shop profile and documents have been submitted to the admin team. You have full access to use and explore all features in the app.
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={openSubmissionModal}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 12,
-              backgroundColor: '#1E40AF',
-              color: '#FFFFFF',
-              border: 'none',
-              fontSize: 12.5,
-              fontWeight: 700,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 2px 6px rgba(30, 64, 175, 0.25)',
-            }}
-          >
-            View Verification Status
-          </button>
-        </div>
-      )}
-
       {/* ADMIN REVIEW FEEDBACK & QUERIES BANNER */}
       {Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0 && (
         <div
