@@ -40,6 +40,7 @@ export const PricingServicesScreen: React.FC = () => {
   const [isEditing, setIsEditing] = useState(!isApproved);
   const [saving, setSaving] = useState(false);
   const autoSaveTimerRef = useRef<any>(null);
+  const autoSaveApiTimerRef = useRef<any>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
 
   // Standard Prints: starts initially with ONLY A4 and 70 GSM
@@ -108,6 +109,32 @@ export const PricingServicesScreen: React.FC = () => {
   const [minOrderValue, setMinOrderValue] = useState('50');
   const [fulfilmentMode, setFulfilmentMode] = useState<string>('Store Pickup Only');
 
+  // Helper to convert rows to standard pricingCombinations
+  const buildCombinationsFromRows = (rows: PricingRow[]) => {
+    const combos: any[] = [];
+    rows.forEach(r => {
+      if (r.bwEnabled) {
+        combos.push({
+          paperSize: r.size,
+          paperTexture: 'Plain',
+          gsm: r.paperType,
+          printMode: 'Black_&_White',
+          pricePerUnit: parseFloat(r.bwPrice || '0'),
+        });
+      }
+      if (r.colEnabled) {
+        combos.push({
+          paperSize: r.size,
+          paperTexture: 'Plain',
+          gsm: r.paperType,
+          printMode: 'Color',
+          pricePerUnit: parseFloat(r.colPrice || '0'),
+        });
+      }
+    });
+    return combos;
+  };
+
   // Load shop data & auto-initialize defaults
   useEffect(() => {
     if (shopData) {
@@ -116,6 +143,23 @@ export const PricingServicesScreen: React.FC = () => {
       }
       if (Array.isArray(shopData.standardPrintsPricing) && shopData.standardPrintsPricing.length > 0) {
         setStandardPricingRows(shopData.standardPrintsPricing);
+      } else if (Array.isArray(shopData.pricingCombinations) && shopData.pricingCombinations.length > 0) {
+        const sizes = Array.from(new Set(shopData.pricingCombinations.map((p: any) => p.paperSize)));
+        const rows: PricingRow[] = sizes.map((size: string, idx: number) => {
+          const bw = shopData.pricingCombinations.find((p: any) => p.paperSize === size && (p.printMode?.toLowerCase().includes('white') || p.printMode?.toLowerCase().includes('b&w')));
+          const col = shopData.pricingCombinations.find((p: any) => p.paperSize === size && p.printMode?.toLowerCase() === 'color');
+          return {
+            id: `row_${size.toLowerCase()}_${idx}`,
+            size,
+            paperType: bw?.paperTexture || bw?.gsm || (size === 'A4' ? '70 GSM' : (size === 'A3' ? '80 GSM' : 'Plain Paper')),
+            bwEnabled: Boolean(bw),
+            bwPrice: bw ? String(bw.pricePerUnit) : '3.00',
+            colEnabled: Boolean(col),
+            colPrice: col ? String(col.pricePerUnit) : '8.00',
+            isDefault: size === 'A4',
+          };
+        });
+        setStandardPricingRows(rows);
       } else if (shopData.bwPrice || shopData.colorPrice) {
         setStandardPricingRows([
           {
@@ -123,9 +167,9 @@ export const PricingServicesScreen: React.FC = () => {
             size: 'A4',
             paperType: '70 GSM',
             bwEnabled: true,
-            bwPrice: String(shopData.bwPrice ?? '2.00'),
+            bwPrice: String(shopData.bwPrice ?? '3.00'),
             colEnabled: true,
-            colPrice: String(shopData.colorPrice ?? '10.00'),
+            colPrice: String(shopData.colorPrice ?? '8.00'),
             isDefault: true,
           },
         ]);
@@ -138,13 +182,15 @@ export const PricingServicesScreen: React.FC = () => {
         const hasPrints = Array.isArray(shopData.standardPrintsPricing) && shopData.standardPrintsPricing.length > 0;
         if (!hasServices || !hasPrints) {
           const a4Row = standardPricingRows.find(r => r.size === 'A4') || standardPricingRows[0];
+          const combos = buildCombinationsFromRows(standardPricingRows);
           const payload = {
             services: ['standard'],
             servicesOffered: ['standard', 'Standard Prints'],
             standardPrintsPricing: standardPricingRows,
+            pricingCombinations: combos,
             fulfilmentMode: shopData.fulfilmentMode || 'Store Pickup Only',
-            bwPrice: parseFloat(a4Row?.bwPrice || '2.00'),
-            colorPrice: parseFloat(a4Row?.colPrice || '10.00'),
+            bwPrice: parseFloat(a4Row?.bwPrice || '3.00'),
+            colorPrice: parseFloat(a4Row?.colPrice || '8.00'),
           };
           merchantApi.updateShopProfile(shopId, payload).catch(() => {});
           setShopData((prev: any) => ({ ...prev, ...payload }));
@@ -153,17 +199,19 @@ export const PricingServicesScreen: React.FC = () => {
     }
   }, [shopData?.shopId, isApproved]);
 
-  // Auto-save handler for pricing changes (synchronously saves into local context)
+  // Auto-save handler for pricing changes (saves into local context and debounces remote API)
   const autoSavePricing = (rows: PricingRow[], mode = fulfilmentMode) => {
     if (isApproved) return;
     const a4Row = rows.find(r => r.size === 'A4') || rows[0];
+    const combos = buildCombinationsFromRows(rows);
     const payload = {
       services: ['standard'],
       servicesOffered: ['standard', 'Standard Prints'],
       standardPrintsPricing: rows,
+      pricingCombinations: combos,
       fulfilmentMode: mode,
-      bwPrice: parseFloat(a4Row?.bwPrice || '2.00'),
-      colorPrice: parseFloat(a4Row?.colPrice || '10.00'),
+      bwPrice: parseFloat(a4Row?.bwPrice || '3.00'),
+      colorPrice: parseFloat(a4Row?.colPrice || '8.00'),
     };
     setShopData((prev: any) => ({ ...prev, ...payload }));
     try {
@@ -175,11 +223,25 @@ export const PricingServicesScreen: React.FC = () => {
       }
     } catch {}
 
-    setAutoSaveStatus('saved');
+    setAutoSaveStatus('saving');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      setAutoSaveStatus(null);
-    }, 2000);
+    if (autoSaveApiTimerRef.current) clearTimeout(autoSaveApiTimerRef.current);
+
+    autoSaveApiTimerRef.current = setTimeout(async () => {
+      if (shopId) {
+        try {
+          await merchantApi.updateShopProfile(shopId, payload);
+          setAutoSaveStatus('saved');
+        } catch (e) {
+          console.warn('Auto-save pricing API warning:', e);
+        }
+      } else {
+        setAutoSaveStatus('saved');
+      }
+      autoSaveTimerRef.current = setTimeout(() => {
+        setAutoSaveStatus(null);
+      }, 2000);
+    }, 600);
   };
 
   const updateStandardRow = (id: string, partial: Partial<PricingRow>) => {
@@ -202,10 +264,10 @@ export const PricingServicesScreen: React.FC = () => {
     // Default prices based on size
     let defaultBw = '4.00';
     let defaultCol = '15.00';
-    if (newSize === 'A3') { defaultBw = '5.00'; defaultCol = '18.00'; }
+    if (newSize === 'A3') { defaultBw = '6.00'; defaultCol = '15.00'; }
     else if (newSize === 'A2') { defaultBw = '25.00'; defaultCol = '60.00'; }
     else if (newSize === 'A1') { defaultBw = '50.00'; defaultCol = '120.00'; }
-    else if (newSize === 'A0') { defaultBw = '90.00'; defaultCol = '200.00'; }
+    else if (newSize === 'A0') { defaultBw = '40.00'; defaultCol = '80.00'; }
 
     const newRow: PricingRow = {
       id: `std_${Date.now()}`,
@@ -239,13 +301,15 @@ export const PricingServicesScreen: React.FC = () => {
     setSaving(true);
     try {
       const a4Row = standardPricingRows.find(r => r.size === 'A4') || standardPricingRows[0];
+      const combos = buildCombinationsFromRows(standardPricingRows);
       const payload = {
         services: ['standard'],
         servicesOffered: ['standard', 'Standard Prints'],
         standardPrintsPricing: standardPricingRows,
+        pricingCombinations: combos,
         fulfilmentMode,
-        bwPrice: parseFloat(a4Row?.bwPrice || '2.00'),
-        colorPrice: parseFloat(a4Row?.colPrice || '10.00'),
+        bwPrice: parseFloat(a4Row?.bwPrice || '3.00'),
+        colorPrice: parseFloat(a4Row?.colPrice || '8.00'),
       };
 
       await merchantApi.updateShopProfile(shopId, payload);

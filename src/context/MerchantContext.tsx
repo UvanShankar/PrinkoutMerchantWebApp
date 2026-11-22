@@ -518,6 +518,10 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const onboardingScreens = ['onboarding-1', 'onboarding-2', 'onboarding-3', 'shop-success', 'login', 'verify-otp'];
     if (isAuthenticated && !onboardingScreens.includes(currentScreen)) {
       refreshData();
+      const interval = setInterval(() => {
+        refreshData();
+      }, 5000);
+      return () => clearInterval(interval);
     }
   }, [shopId, isAuthenticated, currentScreen]);
 
