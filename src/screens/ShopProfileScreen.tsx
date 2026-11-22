@@ -85,6 +85,7 @@ export const ShopProfileScreen: React.FC = () => {
 
   // Auto-save debounce timer and status indicator
   const autoSaveTimerRef = useRef<any>(null);
+  const autoSaveApiTimerRef = useRef<any>(null);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
 
   // Step 1: Shop Details - First show shop details tab on mount
@@ -213,12 +214,12 @@ export const ShopProfileScreen: React.FC = () => {
           }
         } catch {}
       }
-      setBusinessForm({
-        businessType: shopData.businessType || 'Print Shop (Retail)',
-        gstNumber: shopData.gstNumber || '',
-        shopLicenseNo: shopData.shopLicenseNo || '',
-        upiId: shopData.upiId || '',
-      });
+      setBusinessForm(prev => ({
+        businessType: shopData.businessType || prev.businessType || 'Print Shop (Retail)',
+        gstNumber: shopData.gstNumber !== undefined ? (shopData.gstNumber || prev.gstNumber) : prev.gstNumber,
+        shopLicenseNo: shopData.shopLicenseNo !== undefined ? (shopData.shopLicenseNo || prev.shopLicenseNo) : prev.shopLicenseNo,
+        upiId: shopData.upiId !== undefined ? (shopData.upiId || prev.upiId) : prev.upiId,
+      }));
       setHoursForm({
         openingTime: shopData.openingTime || '09:00',
         closingTime: shopData.closingTime || '21:00',
@@ -334,7 +335,7 @@ export const ShopProfileScreen: React.FC = () => {
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   };
 
-  // Auto-save helper for Basic Details (synchronous local context update; single API call sent at verification)
+  // Auto-save helper for Basic Details (updates context, localStorage, and debounces backend API update)
   const autoSaveBasic = (form: typeof basicForm) => {
     const cleanCity = resolveCityFromLocation(form.pincode, form.address, form.city);
     const updated = {
@@ -351,14 +352,29 @@ export const ShopProfileScreen: React.FC = () => {
       }
     } catch {}
 
-    setAutoSaveStatus('saved');
+    setAutoSaveStatus('saving');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      setAutoSaveStatus(null);
-    }, 2000);
+    if (autoSaveApiTimerRef.current) clearTimeout(autoSaveApiTimerRef.current);
+
+    autoSaveApiTimerRef.current = setTimeout(async () => {
+      const activeShopId = shopId || shopData?.shopId;
+      if (activeShopId) {
+        try {
+          await merchantApi.updateShopProfile(activeShopId, updated);
+          setAutoSaveStatus('saved');
+        } catch (e) {
+          console.warn('Auto-save basic API warning:', e);
+        }
+      } else {
+        setAutoSaveStatus('saved');
+      }
+      autoSaveTimerRef.current = setTimeout(() => {
+        setAutoSaveStatus(null);
+      }, 2000);
+    }, 600);
   };
 
-  // Auto-save helper for Business Details (synchronous local context update)
+  // Auto-save helper for Business Details (updates context, localStorage, and debounces backend API update)
   const autoSaveBusiness = (form: typeof businessForm) => {
     setShopData((prev: any) => ({ ...prev, ...form }));
     try {
@@ -370,14 +386,29 @@ export const ShopProfileScreen: React.FC = () => {
       }
     } catch {}
 
-    setAutoSaveStatus('saved');
+    setAutoSaveStatus('saving');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      setAutoSaveStatus(null);
-    }, 2000);
+    if (autoSaveApiTimerRef.current) clearTimeout(autoSaveApiTimerRef.current);
+
+    autoSaveApiTimerRef.current = setTimeout(async () => {
+      const activeShopId = shopId || shopData?.shopId;
+      if (activeShopId) {
+        try {
+          await merchantApi.updateShopProfile(activeShopId, form);
+          setAutoSaveStatus('saved');
+        } catch (e) {
+          console.warn('Auto-save business API warning:', e);
+        }
+      } else {
+        setAutoSaveStatus('saved');
+      }
+      autoSaveTimerRef.current = setTimeout(() => {
+        setAutoSaveStatus(null);
+      }, 2000);
+    }, 600);
   };
 
-  // Auto-save helper for Operating Hours (synchronous local context update)
+  // Auto-save helper for Operating Hours (updates context, localStorage, and debounces backend API update)
   const autoSaveHours = (form: typeof hoursForm) => {
     setShopData((prev: any) => ({ ...prev, ...form }));
     try {
@@ -389,11 +420,26 @@ export const ShopProfileScreen: React.FC = () => {
       }
     } catch {}
 
-    setAutoSaveStatus('saved');
+    setAutoSaveStatus('saving');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      setAutoSaveStatus(null);
-    }, 2000);
+    if (autoSaveApiTimerRef.current) clearTimeout(autoSaveApiTimerRef.current);
+
+    autoSaveApiTimerRef.current = setTimeout(async () => {
+      const activeShopId = shopId || shopData?.shopId;
+      if (activeShopId) {
+        try {
+          await merchantApi.updateShopProfile(activeShopId, form);
+          setAutoSaveStatus('saved');
+        } catch (e) {
+          console.warn('Auto-save hours API warning:', e);
+        }
+      } else {
+        setAutoSaveStatus('saved');
+      }
+      autoSaveTimerRef.current = setTimeout(() => {
+        setAutoSaveStatus(null);
+      }, 2000);
+    }, 600);
   };
 
   // Initialize default hours on mount if not yet configured
@@ -716,8 +762,11 @@ export const ShopProfileScreen: React.FC = () => {
   if (!businessForm.upiId?.trim() || !businessForm.upiId.includes('@')) tab1Missing.push('Valid UPI ID (for payouts)');
 
   const tab2Missing: string[] = [];
-  if (documents.length === 0 && photos.length === 0) {
-    tab2Missing.push('At least 1 Shop Document or Storefront Photo');
+  if (!Array.isArray(documents) || documents.length === 0) {
+    tab2Missing.push('At least 1 Business / KYC Document (or use sample)');
+  }
+  if (!Array.isArray(photos) || photos.length === 0) {
+    tab2Missing.push('At least 1 Storefront Photo (or use sample)');
   }
 
   const tab3Missing: string[] = [];

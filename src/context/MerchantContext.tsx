@@ -453,6 +453,10 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const merged = {
             ...prev,
             ...fetchedShop,
+            shopLicenseNo: fetchedShop.shopLicenseNo || prev?.shopLicenseNo || '',
+            upiId: fetchedShop.upiId || prev?.upiId || '',
+            businessType: fetchedShop.businessType || prev?.businessType || 'Print Shop (Retail)',
+            gstNumber: fetchedShop.gstNumber || prev?.gstNumber || '',
             openingTime: fetchedShop.openingTime || prev?.openingTime || '09:00',
             closingTime: fetchedShop.closingTime || prev?.closingTime || '21:00',
             workingDays:
@@ -718,13 +722,39 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const submitSetupForReview = async () => {
     const activeShopId = shopId || shopData?.shopId;
+    let sessShop: any = {};
+    try {
+      const sess = getStoredSession();
+      if (sess?.shopData) sessShop = sess.shopData;
+    } catch {}
+
     const fullPayload = {
-      openingTime: shopData?.openingTime || '09:00',
-      closingTime: shopData?.closingTime || '21:00',
-      workingDays: Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0
-        ? shopData.workingDays
-        : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      openingTime: shopData?.openingTime || sessShop?.openingTime || '09:00',
+      closingTime: shopData?.closingTime || sessShop?.closingTime || '21:00',
+      workingDays:
+        Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0
+          ? shopData.workingDays
+          : Array.isArray(sessShop?.workingDays) && sessShop.workingDays.length > 0
+          ? sessShop.workingDays
+          : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      ...sessShop,
       ...(shopData || {}),
+      shopLicenseNo: shopData?.shopLicenseNo || sessShop?.shopLicenseNo || '',
+      upiId: shopData?.upiId || sessShop?.upiId || '',
+      businessType: shopData?.businessType || sessShop?.businessType || 'Print Shop (Retail)',
+      gstNumber: shopData?.gstNumber || sessShop?.gstNumber || '',
+      documents:
+        Array.isArray(shopData?.documents) && shopData.documents.length > 0
+          ? shopData.documents
+          : Array.isArray(sessShop?.documents) && sessShop.documents.length > 0
+          ? sessShop.documents
+          : [],
+      photos:
+        Array.isArray(shopData?.photos) && shopData.photos.length > 0
+          ? shopData.photos
+          : Array.isArray(sessShop?.photos) && sessShop.photos.length > 0
+          ? sessShop.photos
+          : [],
       isSetupCompleted: true,
       verificationStatus: 'pending_approval' as const,
       isVerified: false,
@@ -732,10 +762,8 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
     if (activeShopId) {
       try {
-        await merchantApi.sendShopForVerification(activeShopId, fullPayload).catch(async () => {
-          await merchantApi.updateShopProfile(activeShopId, fullPayload).catch(() => {});
-          await merchantApi.submitShopSetup(activeShopId);
-        });
+        await merchantApi.updateShopProfile(activeShopId, fullPayload).catch(() => {});
+        await merchantApi.submitShopSetup(activeShopId).catch(() => {});
       } catch (err) {
         console.warn('API submit setup error:', err);
       }

@@ -69,7 +69,7 @@ export const SetupProgressBar: React.FC = () => {
     { key: 'pincode', label: '6-digit Pincode', filled: Boolean(shopData?.pincode?.trim() && /^\d{6}$/.test(shopData.pincode.trim())) },
     { key: 'mobile', label: 'Phone Number', filled: Boolean(shopData?.mobile?.trim()) },
     { key: 'upiId', label: 'UPI ID for Payouts', filled: Boolean(shopData?.upiId?.trim() && shopData.upiId.includes('@')) },
-    { key: 'documents', label: 'Verification Document / Store Photo', filled: Boolean((Array.isArray(shopData?.documents) && shopData.documents.length > 0) || (Array.isArray(shopData?.photos) && shopData.photos.length > 0)) },
+    { key: 'documents', label: 'Verification Document & Store Photo', filled: Boolean((Array.isArray(shopData?.documents) && shopData.documents.length > 0) && (Array.isArray(shopData?.photos) && shopData.photos.length > 0)) },
     { key: 'hours', label: 'Operating Hours', filled: Boolean((shopData?.openingTime || DEFAULT_OPENING_TIME) && (shopData?.closingTime || DEFAULT_CLOSING_TIME)) },
     { key: 'days', label: 'Working Days', filled: Boolean((Array.isArray(shopData?.workingDays) && shopData.workingDays.length > 0) || DEFAULT_WORKING_DAYS.length > 0) },
     { key: 'services', label: 'Services Selected', filled: hasServicesConfigured },
@@ -94,11 +94,13 @@ export const SetupProgressBar: React.FC = () => {
 
   const getTab2Missing = () => {
     const missing: string[] = [];
-    const hasDoc =
-      (Array.isArray(shopData?.documents) && shopData.documents.length > 0) ||
-      (Array.isArray(shopData?.photos) && shopData.photos.length > 0);
+    const hasDoc = Array.isArray(shopData?.documents) && shopData.documents.length > 0;
+    const hasPhoto = Array.isArray(shopData?.photos) && shopData.photos.length > 0;
     if (!hasDoc) {
-      missing.push('Verification Document or Storefront Photo');
+      missing.push('At least 1 Business / KYC Document (or use sample)');
+    }
+    if (!hasPhoto) {
+      missing.push('At least 1 Storefront Photo (or use sample)');
     }
     return missing;
   };
@@ -155,6 +157,20 @@ export const SetupProgressBar: React.FC = () => {
       currentStepMissing = tab1Missing;
       nextButtonLabel = 'Next: Verification Documents';
       onNextAction = () => {
+        const activeShopId = shopId || shopData?.shopId;
+        if (activeShopId) {
+          merchantApi.updateShopProfile(activeShopId, {
+            shopName: shopData?.shopName,
+            address: shopData?.address,
+            city: resolvedShopCity,
+            pincode: shopData?.pincode,
+            mobile: shopData?.mobile,
+            businessType: shopData?.businessType || 'Print Shop (Retail)',
+            gstNumber: shopData?.gstNumber || '',
+            shopLicenseNo: shopData?.shopLicenseNo || '',
+            upiId: shopData?.upiId || '',
+          }).catch(() => {});
+        }
         setProfileTab('documents');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
@@ -164,6 +180,13 @@ export const SetupProgressBar: React.FC = () => {
       currentStepMissing = tab2Missing;
       nextButtonLabel = 'Next: Operating Hours & Days';
       onNextAction = () => {
+        const activeShopId = shopId || shopData?.shopId;
+        if (activeShopId) {
+          merchantApi.updateShopProfile(activeShopId, {
+            documents: shopData?.documents || [],
+            photos: shopData?.photos || [],
+          }).catch(() => {});
+        }
         setProfileTab('hours');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       };
@@ -187,6 +210,10 @@ export const SetupProgressBar: React.FC = () => {
           openingTime: opening,
           closingTime: closing,
           workingDays: days,
+          businessType: shopData?.businessType || 'Print Shop (Retail)',
+          gstNumber: shopData?.gstNumber || '',
+          shopLicenseNo: shopData?.shopLicenseNo || '',
+          upiId: shopData?.upiId || '',
         };
 
         setShopData((prev: any) => ({ ...prev, ...updatedHours }));
