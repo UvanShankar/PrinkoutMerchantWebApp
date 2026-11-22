@@ -27,6 +27,7 @@ import {
   Calendar,
   Camera,
   AlertCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { theme } from '../theme';
 import { resolveCityFromLocation, cleanCityName } from '../utils/locationUtils';
@@ -990,6 +991,91 @@ export const ShopProfileScreen: React.FC = () => {
           >
             View Verification Status
           </button>
+        </div>
+      )}
+
+      {/* ADMIN REVIEW FEEDBACK & QUERIES BANNER */}
+      {Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0 && (
+        <div
+          style={{
+            padding: '16px 20px',
+            backgroundColor: '#FFFBEB',
+            border: '2px solid #F59E0B',
+            borderRadius: 16,
+            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: '#FEF3C7',
+                  color: '#B45309',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <MessageSquare size={18} />
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#92400E' }}>
+                  Admin Review Queries & Feedback ({shopData.adminComments.length})
+                </div>
+                <div style={{ fontSize: 12, color: '#B45309' }}>
+                  The admin review team has left notes or doubts regarding your submission. Please address them below.
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={openSubmissionModal}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 8,
+                backgroundColor: '#FDE68A',
+                border: '1px solid #F59E0B',
+                color: '#92400E',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              View All Notes
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {shopData.adminComments.slice(0, 3).map((comm: any, idx: number) => (
+              <div
+                key={comm.id || idx}
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 10,
+                  border: '1px solid #FDE68A',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11 }}>
+                  <span style={{ fontWeight: 700, color: '#B45309' }}>{comm.author || 'Admin Team'}</span>
+                  <span style={{ color: '#94A3B8' }}>{comm.createdAt ? new Date(comm.createdAt).toLocaleString() : ''}</span>
+                </div>
+                <div style={{ fontSize: 13, color: '#1E293B', fontWeight: 500, lineHeight: 1.4 }}>
+                  "{comm.text}"
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

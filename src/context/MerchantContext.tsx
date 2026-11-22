@@ -473,6 +473,12 @@ export const MerchantProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 : Array.isArray(prev?.photos) && prev.photos.length > 0
                 ? prev.photos
                 : [],
+            adminComments:
+              Array.isArray(fetchedShop.adminComments) && fetchedShop.adminComments.length > 0
+                ? fetchedShop.adminComments
+                : Array.isArray(prev?.adminComments) && prev.adminComments.length > 0
+                ? prev.adminComments
+                : [],
           };
           try {
             const raw = localStorage.getItem(SESSION_STORAGE_KEY);

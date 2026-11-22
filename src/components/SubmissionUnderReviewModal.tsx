@@ -11,6 +11,8 @@ import {
   Settings,
   BarChart3,
   ShieldCheck,
+  MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface SubmissionUnderReviewModalProps {
@@ -24,7 +26,7 @@ export const SubmissionUnderReviewModal: React.FC<SubmissionUnderReviewModalProp
   onClose,
   shopName,
 }) => {
-  const { navigateTo } = useMerchant();
+  const { navigateTo, shopData, setProfileTab } = useMerchant();
 
   if (!isOpen) return null;
 
@@ -163,6 +165,73 @@ export const SubmissionUnderReviewModal: React.FC<SubmissionUnderReviewModalProp
             Verification typically takes <strong>24 to 48 hours</strong>. Our admin team will verify your address, serviceable hub, and uploaded business documents. Once approved, your shop will automatically go live to accept customer orders.
           </div>
         </div>
+
+        {/* Admin Review Queries & Doubts Box */}
+        {Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0 && (
+          <div
+            style={{
+              backgroundColor: '#FFFBEB',
+              border: '1px solid #FCD34D',
+              borderRadius: 14,
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#92400E', fontSize: 13 }}>
+                <MessageSquare size={16} color="#D97706" />
+                <span>Notes from Admin Review Team ({shopData.adminComments.length})</span>
+              </div>
+              <span style={{ fontSize: 10.5, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: '#FDE68A', color: '#92400E' }}>
+                Action May Be Required
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 180, overflowY: 'auto' }}>
+              {shopData.adminComments.map((comm: any, idx: number) => (
+                <div
+                  key={comm.id || idx}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 8,
+                    border: '1px solid #FDE68A',
+                    fontSize: 12,
+                    color: '#1E293B',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <span style={{ fontWeight: 700, color: '#92400E', fontSize: 11 }}>{comm.author || 'Admin Team'}</span>
+                    <span style={{ fontSize: 10, color: '#94A3B8' }}>{comm.createdAt ? new Date(comm.createdAt).toLocaleDateString() : ''}</span>
+                  </div>
+                  <div style={{ lineHeight: 1.4 }}>{comm.text}</div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setProfileTab('details');
+                navigateTo('profile');
+              }}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 8,
+                backgroundColor: '#D97706',
+                color: '#FFFFFF',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              Update Profile & Verification Documents
+            </button>
+          </div>
+        )}
 
         {/* You Can Use the App Now Callout */}
         <div
