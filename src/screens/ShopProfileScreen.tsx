@@ -1035,8 +1035,8 @@ export const ShopProfileScreen: React.FC = () => {
         </div>
       )}
 
-      {/* ADMIN REVIEW FEEDBACK & QUERIES BANNER */}
-      {Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0 && (
+      {/* ADMIN REVIEW FEEDBACK & QUERIES BANNER (Only visible when unapproved and admin notes exist) */}
+      {Array.isArray(shopData?.adminComments) && shopData.adminComments.length > 0 && !isApproved && (
         <div
           style={{
             padding: '16px 20px',

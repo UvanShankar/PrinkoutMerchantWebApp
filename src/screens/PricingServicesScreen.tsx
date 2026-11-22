@@ -141,27 +141,43 @@ export const PricingServicesScreen: React.FC = () => {
       if (shopData.fulfilmentMode) {
         setFulfilmentMode(shopData.fulfilmentMode);
       }
+      let initialRows: PricingRow[] = [];
       if (Array.isArray(shopData.standardPrintsPricing) && shopData.standardPrintsPricing.length > 0) {
-        setStandardPricingRows(shopData.standardPrintsPricing);
-      } else if (Array.isArray(shopData.pricingCombinations) && shopData.pricingCombinations.length > 0) {
-        const sizes = Array.from(new Set(shopData.pricingCombinations.map((p: any) => p.paperSize)));
-        const rows: PricingRow[] = sizes.map((size: string, idx: number) => {
-          const bw = shopData.pricingCombinations.find((p: any) => p.paperSize === size && (p.printMode?.toLowerCase().includes('white') || p.printMode?.toLowerCase().includes('b&w')));
-          const col = shopData.pricingCombinations.find((p: any) => p.paperSize === size && p.printMode?.toLowerCase() === 'color');
-          return {
-            id: `row_${size.toLowerCase()}_${idx}`,
-            size,
-            paperType: bw?.paperTexture || bw?.gsm || (size === 'A4' ? '70 GSM' : (size === 'A3' ? '80 GSM' : 'Plain Paper')),
-            bwEnabled: Boolean(bw),
-            bwPrice: bw ? String(bw.pricePerUnit) : '3.00',
-            colEnabled: Boolean(col),
-            colPrice: col ? String(col.pricePerUnit) : '8.00',
-            isDefault: size === 'A4',
-          };
+        initialRows = [...shopData.standardPrintsPricing];
+      }
+
+      // Reconcile with pricingCombinations: ensure every size in pricingCombinations is present in initialRows
+      if (Array.isArray(shopData.pricingCombinations) && shopData.pricingCombinations.length > 0) {
+        const existingSizes = new Set(initialRows.map(r => r.size?.toUpperCase()));
+        const comboSizes = Array.from(new Set(shopData.pricingCombinations.map((p: any) => p.paperSize)));
+
+        comboSizes.forEach((size: string, idx: number) => {
+          if (!existingSizes.has(size?.toUpperCase())) {
+            const bw = shopData.pricingCombinations.find((p: any) =>
+              p.paperSize?.toUpperCase() === size?.toUpperCase() &&
+              (p.printMode?.toLowerCase().includes('white') || p.printMode?.toLowerCase().includes('b&w'))
+            );
+            const col = shopData.pricingCombinations.find((p: any) =>
+              p.paperSize?.toUpperCase() === size?.toUpperCase() &&
+              p.printMode?.toLowerCase() === 'color'
+            );
+            initialRows.push({
+              id: `row_${size.toLowerCase()}_${idx}`,
+              size,
+              paperType: bw?.paperTexture || bw?.gsm || (size === 'A4' ? '70 GSM' : (size === 'A3' ? '80 GSM' : 'Plain Paper')),
+              bwEnabled: Boolean(bw),
+              bwPrice: bw ? String(bw.pricePerUnit) : '3.00',
+              colEnabled: Boolean(col),
+              colPrice: col ? String(col.pricePerUnit) : '8.00',
+              isDefault: size === 'A4',
+            });
+            existingSizes.add(size?.toUpperCase());
+          }
         });
-        setStandardPricingRows(rows);
-      } else if (shopData.bwPrice || shopData.colorPrice) {
-        setStandardPricingRows([
+      }
+
+      if (initialRows.length === 0 && (shopData.bwPrice || shopData.colorPrice)) {
+        initialRows = [
           {
             id: 'row_a4_70',
             size: 'A4',
@@ -172,7 +188,11 @@ export const PricingServicesScreen: React.FC = () => {
             colPrice: String(shopData.colorPrice ?? '8.00'),
             isDefault: true,
           },
-        ]);
+        ];
+      }
+
+      if (initialRows.length > 0) {
+        setStandardPricingRows(initialRows);
       }
 
       // Auto-save standard services & pricing defaults if not yet stored in shopData
